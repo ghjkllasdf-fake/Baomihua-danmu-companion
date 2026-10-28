@@ -1,0 +1,44 @@
+using System;
+using System.Collections.Concurrent;
+using System.Threading;
+using System.Threading.Tasks;
+
+public sealed class DispatchHarness
+{
+    private int playerUpdateQueued;
+    private bool closing;
+    public bool IsHandleCreated=true,IsDisposed,FailPost;
+    public int Updates,Pushes;
+    public Action DuringUpdate;
+    public readonly ConcurrentQueue<Action> Pending=new();
+    public void BeginInvoke(Action action){if(FailPost)throw new InvalidOperationException("fixture close");Pending.Enqueue(action);}
+    public void Queue()=>QueuePlayerUpdate();
+    public void Close()=>closing=true;
+    public void Drain(){if(!Pending.TryDequeue(out var action))throw new Exception("No queued action");action();}
+    private void UpdatePlayer(){Updates++;DuringUpdate?.Invoke();}
+    private void PushState()=>Pushes++;
+/*ACTUAL_METHODS*/
+}
+public static class PlayerUpdateDispatchTests
+{
+    private static void Check(bool value,string message){if(!value)throw new Exception(message);}
+    public static void Run()
+    {
+        var merged=new DispatchHarness();
+        Parallel.For(0,100,_=>merged.Queue());
+        Check(merged.Pending.Count==1,"Probe notifications must coalesce into one pending UI post.");
+        merged.Drain();
+        Check(merged.Updates==1 && merged.Pushes==1,"The queued player update must apply clock/overlay state and push the UI state.");
+        merged.DuringUpdate=()=>{merged.DuringUpdate=null;merged.Queue();};
+        merged.Queue();merged.Drain();
+        Check(merged.Pending.Count==1,"A sample received during drain must queue the latest update rather than be lost.");
+        merged.Drain();Check(merged.Updates==3 && merged.Pushes==3,"The latest coalesced update was not delivered.");
+        var closed=new DispatchHarness();closed.Queue();closed.Close();closed.Drain();
+        Check(closed.Updates==0 && closed.Pushes==0,"A queued update must not touch the overlay after closing.");
+        foreach(var unavailable in new[]{new DispatchHarness{IsHandleCreated=false},new DispatchHarness{IsDisposed=true}})
+        {unavailable.Queue();Check(unavailable.Pending.IsEmpty,"Unavailable UI handles must not accept probe posts.");}
+        var retry=new DispatchHarness{FailPost=true};retry.Queue();retry.FailPost=false;retry.Queue();
+        Check(retry.Pending.Count==1,"A failed UI post must release the coalescing flag.");
+        retry.Drain();Check(retry.Updates==1,"Failed-post recovery lost subsequent updates.");
+    }
+}

@@ -1,0 +1,35 @@
+using System;
+public sealed record OverlaySnapshot(bool Visible,bool ClickThrough=false,bool NoActivate=false,int? OverlayXpx=null,int? OverlayYpx=null);
+public sealed record FixtureBounds(int X,int Y);
+public static class NativeWindows
+{
+    public static FixtureBounds Bounds=new(-345,40);
+    public static int Reads;
+    public static FixtureBounds Read(IntPtr handle)
+    {
+        if(handle!=new IntPtr(123)) throw new Exception("Snapshot read a target or guessed HWND instead of the overlay.");
+        Reads++; return Bounds;
+    }
+    public static bool HasExtendedStyles(IntPtr handle,long flags)=>handle==new IntPtr(123);
+}
+public sealed class FixtureSurface { public OverlaySnapshot Snapshot(bool visible)=>new(visible); }
+public sealed class SnapshotWindow
+{
+    private IntPtr handle=new(123);
+    public readonly FixtureSurface Surface=new();
+    public bool IsVisible=true;
+    /* SNAPSHOT_METHOD */
+}
+public static class OverlayWindowSnapshotTests
+{
+    public static void Run()
+    {
+        var window=new SnapshotWindow(); var snapshot=window.Snapshot();
+        if(snapshot.OverlayXpx!=-345 || snapshot.OverlayYpx!=40 || NativeWindows.Reads!=1)
+            throw new Exception("Actual overlay physical origin was not observed.");
+        if(!snapshot.ClickThrough || !snapshot.NoActivate) throw new Exception("Input-style evidence was lost.");
+        NativeWindows.Bounds=null; window.IsVisible=false; snapshot=window.Snapshot();
+        if(snapshot.OverlayXpx!=null || snapshot.OverlayYpx!=null || snapshot.Visible)
+            throw new Exception("Unreadable or hidden overlay origin must not become fabricated coordinates.");
+    }
+}

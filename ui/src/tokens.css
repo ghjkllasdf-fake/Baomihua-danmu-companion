@@ -1,0 +1,12 @@
+:root {
+  --canvas: #f5f3eb;
+  --surface: #faf9f3;
+  --ink: #292e28;
+  --muted: #686c61;
+  --line: #dcded1;
+  --accent: #efce67;
+  --accent-soft: #f4e6b5;
+  --focus: #8a5a0b;
+  --font: 'Microsoft YaHei UI', 'PingFang SC', sans-serif;
+  --display-font: 'Bahnschrift', 'Consolas', sans-serif;
+}

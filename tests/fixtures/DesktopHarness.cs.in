@@ -1,0 +1,433 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Popcorn;
+
+// The handlers below are inserted verbatim from Desktop.cs; only their external effects are faked.
+public sealed class DesktopHarness : IDisposable
+{
+    public static readonly JsonSerializerOptions Json=new() { PropertyNamingPolicy=JsonNamingPolicy.CamelCase,PropertyNameCaseInsensitive=true,UnmappedMemberHandling=JsonUnmappedMemberHandling.Disallow };
+    public readonly FakeApi api=new();
+    public readonly FakeProbe probe=new();
+    public readonly FakeOverlay overlay=new();
+    public AutomaticMatcher automaticMatcher;
+    public readonly SyncClock sync=new();
+    public CancellationTokenSource pending=new();
+    public int revision,CommentCount,SettingsEvents;
+    public long documentEpoch,stateSequence,mediaRevision,settingsRevision;
+    public bool closing,Ready;
+    public string apiBase="http://fixture.invalid/token",lastMedia="",preferences="fixture-preferences",Failure="";
+    public PlayerSample sample;
+    public DanmakuSettings Settings=new();
+    public Action<Comment[]> CommentsLoaded;
+    public Action<DanmakuSettings> SettingsUpdated;
+    public Action<double,bool> ManualClockUpdated;
+    public readonly ConcurrentQueue<string> Responses=new();
+    public readonly ConcurrentQueue<string> States=new();
+    public readonly Dictionary<string,TrackingContext> Contexts=new();
+    public DesktopHarness() { sample=probe.Latest; CommentsLoaded=overlay.SetComments; SettingsUpdated=_=>SettingsEvents++; ManualClockUpdated=(position,playing)=>sync.Manual(position,playing,Monotonic.Now); }
+    public bool IsAppSource(string source)=>source=="https://danmu.local/index.html";
+    public void Send(object message)
+    {
+        string json=JsonSerializer.Serialize(message,Json);
+        var type=JsonSerializer.Deserialize<JsonElement>(json).GetProperty("type").GetString();
+        (type=="state" ? States : Responses).Enqueue(json);
+    }
+    public void EmitState()=>PushState();
+    public JsonElement LastState()=>JsonSerializer.Deserialize<JsonElement>(States.Last());
+    public void BeginInvoke(Action action)=>action();
+    public void Close()=>closing=true;
+    public void Message(string id,string type,object payload)
+    {
+        var prior=SynchronizationContext.Current; var context=new TrackingContext(); Contexts.Add(id,context);
+        SynchronizationContext.SetSynchronizationContext(context);
+        try { OnMessage(null,new CoreWebView2WebMessageReceivedEventArgs(JsonSerializer.Serialize(new {v=1,id,type,payload}))); }
+        finally { SynchronizationContext.SetSynchronizationContext(prior); }
+    }
+    public void Navigate()=>OnNavigationStarting(null,new CoreWebView2NavigationStartingEventArgs("https://danmu.local/index.html"));
+    public void WaitHandled(string id) { if (!Contexts[id].Finished.Wait(3000)) throw new Exception("Handler timed out: "+id); }
+    public void Observe(string title,int episode,double position=1000,bool playing=true) { probe.Latest=new(new VideoWindow((IntPtr)1,title,0,0,1280,720),title,episode,position,playing,Monotonic.Now); UpdatePlayer(); }
+    public void ObserveLatest()=>UpdatePlayer();
+    public JsonElement Reply(string id)
+    {
+        string found=null;
+        if (!SpinWait.SpinUntil(()=>{ found=Responses.FirstOrDefault(s=>JsonSerializer.Deserialize<JsonElement>(s).GetProperty("id").GetString()==id); return found!=null; },3000)) throw new Exception("Reply timed out: "+id);
+        return JsonSerializer.Deserialize<JsonElement>(found);
+    }
+    public void Dispose() { pending.Cancel(); pending.Dispose(); }
+/*UPDATE_PLAYER*/
+/*PUSH_STATE*/
+/*ON_MESSAGE*/
+}
+
+public sealed class TrackingContext : SynchronizationContext
+{
+    public readonly ManualResetEventSlim Finished=new();
+    public override void OperationCompleted()=>Finished.Set();
+    public override void Post(SendOrPostCallback callback,object state)=>ThreadPool.QueueUserWorkItem(_=>callback(state));
+}
+
+public sealed class FakeProbe
+{
+    private PlayerSample latest=new(null,"",0,null,null,0);
+    public int Reads;
+    public Action AfterRead;
+    public PlayerSample Latest
+    {
+        get { Reads++; var value=latest; var after=AfterRead; AfterRead=null; after?.Invoke(); return value; }
+        set { latest=value; }
+    }
+}
+public sealed class FakeOverlay
+{
+    public Comment[] Comments=Array.Empty<Comment>();
+    public void SetComments(Comment[] comments)=>Comments=comments;
+    public void Update(object window,double position,bool running,int revision,bool automatic,double proof) { }
+}
+public sealed record CoreWebView2WebMessageReceivedEventArgs(string WebMessageAsJson) { public string Source=>"https://danmu.local/index.html"; }
+public sealed class CoreWebView2NavigationStartingEventArgs(string uri) { public string Uri=>uri; public bool Cancel { get; set; } }
+public sealed class FakeApi
+{
+    public readonly List<(CancellationToken Token,TaskCompletionSource<JsonObject> Completion)> Calls=new();
+    public Task<JsonObject> FetchAsync(string apiBase,string type,string value,CancellationToken token)
+    {
+        var completion=new TaskCompletionSource<JsonObject>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Calls.Add((token,completion)); return completion.Task;
+    }
+    // Deliberately allow an already-cancelled HTTP operation to finish to exercise the commit guard.
+    public void Complete(int index)=>Calls[index].Completion.SetResult(JsonNode.Parse("{\"animes\":[],\"comments\":[{\"p\":\"1,1,16777215\",\"m\":\"A-comment\"}]}").AsObject());
+    public void Fail(int index)=>Calls[index].Completion.SetException(new InvalidOperationException("old failure"));
+}
+internal static class File
+{
+    public static bool FailWrite,FailMove;
+    public static string LastContent="";
+    public static void WriteAllText(string path,string content) { if (FailWrite) throw new IOException("fixture write failure"); LastContent=content; }
+    public static void Move(string from,string to,bool overwrite) { if (FailMove) throw new IOException("fixture move failure"); }
+}
+public static class DesktopStateTests
+{
+    private static void Check(bool condition,string message) { if (!condition) throw new Exception(message); }
+    public static string[] Run(string group)
+    {
+        var errors=new List<string>();
+        void Test(string name,Action body) { try { body(); Console.WriteLine("PASS: "+name); } catch (Exception ex) { errors.Add(name+": "+ex.Message); } }
+        if (group is "Requests" or "All")
+        {
+            Test("configure API is validated before replacing an active request",()=>{
+                using var host=new DesktopHarness();string original=host.apiBase;
+                host.Message("pending-search","search",new {apiBase=original,value="A"});
+                host.Message("invalid-configure","configure-api",new {apiBase="http://new.invalid/token",path="arbitrary"});
+                Check(!host.Reply("invalid-configure").GetProperty("ok").GetBoolean() && host.apiBase==original &&
+                    !host.api.Calls[0].Token.IsCancellationRequested,"Malformed configuration changed the active request or address.");
+                host.Message("valid-configure","configure-api",new {apiBase="http://new.invalid/token"});
+                Check(host.Reply("valid-configure").GetProperty("data").GetProperty("configured").GetBoolean() &&
+                    host.apiBase=="http://new.invalid/token" && host.api.Calls[0].Token.IsCancellationRequested,
+                    "A valid session-only configuration did not cancel the old API operation.");
+                Check(host.SettingsEvents==0,"Configuring an API must not write or apply display preferences.");
+            });
+            Test("first media invalidates prior download",()=>{
+                using var host=new DesktopHarness();
+                host.Message("old","comments",new {apiBase=host.apiBase,value="A-episode",expectedMediaRevision=host.mediaRevision});
+                host.Observe("B",2); host.api.Complete(0);
+                Check(!host.Reply("old").GetProperty("ok").GetBoolean() && host.CommentCount==0 && host.overlay.Comments.Length==0,"A comments were committed after B was first recognized.");
+            });
+            Test("media change invalidates late success",()=>{
+                using var host=new DesktopHarness(); host.Observe("A",1);
+                host.Message("old","comments",new {apiBase=host.apiBase,value="A-episode",expectedMediaRevision=host.mediaRevision});
+                host.Observe("A",2); host.api.Complete(0);
+                Check(!host.Reply("old").GetProperty("ok").GetBoolean() && host.CommentCount==0,"Old episode comments survived media change.");
+            });
+            Test("fresh probe is checked before timer consumes media change",()=>{
+                using var host=new DesktopHarness(); host.Observe("A",1);
+                host.Message("old","comments",new {apiBase=host.apiBase,value="A-episode",expectedMediaRevision=host.mediaRevision});
+                host.probe.Latest=new(null,"B",2,1000,true,Monotonic.Now);
+                host.api.Complete(0);
+                Check(!host.Reply("old").GetProperty("ok").GetBoolean() && host.CommentCount==0,"A completed download committed before the UI timer consumed a newer player snapshot.");
+            });
+            Test("search completion rechecks the fresh probe before publishing old results",()=>{
+                using var host=new DesktopHarness(); host.Observe("A",1);
+                host.Message("old","search",new { apiBase=host.apiBase,value="A" });
+                host.probe.Latest=new(new VideoWindow((IntPtr)1,"B",0,0,1280,720),"B",1,1000,false,Monotonic.Now);
+                host.api.Complete(0); host.WaitHandled("old");
+                Check(!host.Reply("old").GetProperty("ok").GetBoolean() && host.sample.Title=="B","An old search succeeded because the HTTP-completion probe check was omitted.");
+            });
+            Test("media changing after the HTTP snapshot is rechecked after parsing",()=>{
+                using var host=new DesktopHarness(); host.Observe("A",1);
+                host.Message("old","comments",new { apiBase=host.apiBase,value="A-episode",expectedMediaRevision=host.mediaRevision });
+                // Return the captured A snapshot, then change the provider before parsing starts.
+                bool changed=false;
+                host.probe.AfterRead=()=>{ host.probe.Latest=new(new VideoWindow((IntPtr)1,"B",0,0,1280,720),"B",1,1000,false,Monotonic.Now); changed=true; };
+                host.api.Complete(0); host.WaitHandled("old");
+                Check(changed && host.probe.Latest.Title=="B","The fixture did not actually change the provider at the post-HTTP snapshot boundary.");
+                Check(!host.Reply("old").GetProperty("ok").GetBoolean() && host.sample.Title=="B" && host.CommentCount==0 && host.overlay.Comments.Length==0,"A comments were committed because media was not rechecked after parsing.");
+            });
+            foreach (object value in new object[] {new { invalid=true },new string('x',501)})
+                Test("malformed payload preserves legal request",()=>{
+                    using var host=new DesktopHarness(); string original=host.apiBase;
+                    host.Message("valid","search",new {apiBase=original,value="A"}); int revision=host.revision;
+                    host.Message("bad","comments",new {apiBase="http://other.invalid/token",value,expectedMediaRevision=host.mediaRevision});
+                    Check(!host.Reply("bad").GetProperty("ok").GetBoolean(),"Invalid payload was accepted.");
+                    Check(!host.api.Calls[0].Token.IsCancellationRequested && host.revision==revision && host.apiBase==original,"Invalid payload changed the active request or API address.");
+                    host.api.Complete(0); Check(host.Reply("valid").GetProperty("ok").GetBoolean(),"The legal request was cancelled.");
+                });
+        }
+        if (group is "Admission" or "All")
+        {
+            Test("unpublished player change rejects comments before HTTP admission",()=>{
+                using var host=new DesktopHarness(); host.Observe("A",1);
+                host.Message("hello","hello",new { }); long seen=host.mediaRevision; string original=host.apiBase;
+                host.probe.Latest=new(new VideoWindow((IntPtr)1,"B",0,0,1280,720),"B",1,1000,false,Monotonic.Now);
+                host.Message("old","comments",new { apiBase="http://other.invalid/token",value="A-episode",expectedMediaRevision=seen });
+                Check(host.api.Calls.Count==0,"A request was started as a new B-era download before B was pushed to the UI.");
+                var reply=host.Reply("old");
+                Check(!reply.GetProperty("ok").GetBoolean() && reply.GetProperty("code").GetString()=="media-changed","The stale request did not report an actionable media conflict.");
+                var state=host.LastState().GetProperty("data");
+                Check(state.GetProperty("player").GetProperty("title").GetString()=="B" && state.GetProperty("player").GetProperty("mediaRevision").GetInt64()==seen+1,"Rejection did not publish the fresh native media context.");
+                Check(host.apiBase==original && host.CommentCount==0 && host.overlay.Comments.Length==0,"A rejected request changed the API or loaded comments on B.");
+            });
+            Test("hidden A-to-B-to-A native revisions reject a same-title stale request",()=>{
+                using var host=new DesktopHarness(); host.Observe("A",1); host.Message("hello","hello",new { }); long seen=host.mediaRevision;
+                host.Observe("B",1); host.Observe("A",1);
+                host.Message("old","comments",new { apiBase=host.apiBase,value="A-episode",expectedMediaRevision=seen });
+                Check(host.api.Calls.Count==0,"A matching title bypassed the native revision gap.");
+                Check(!host.Reply("old").GetProperty("ok").GetBoolean() && host.CommentCount==0,"A stale same-title request was committed.");
+            });
+            foreach (bool identified in new[] {false,true})
+                Test(identified ? "matching native media permits comments" : "revision zero permits deliberate preload",()=>{
+                    using var host=new DesktopHarness(); if(identified) host.Observe("A",1);
+                    host.Message("load","comments",new { apiBase=host.apiBase,value="A-episode",expectedMediaRevision=host.mediaRevision });
+                    Check(host.api.Calls.Count==1,"A matching observed revision was rejected.");
+                    host.api.Complete(0); host.WaitHandled("load");
+                    Check(host.Reply("load").GetProperty("ok").GetBoolean() && host.CommentCount==1 && host.overlay.Comments.Length==1,"A valid download did not commit.");
+                    if(!identified) { host.Observe("A",1); Check(host.CommentCount==0 && host.overlay.Comments.Length==0,"First media retained a preloaded download."); }
+                });
+            foreach (long delta in new long[] {-1,1})
+                Test("stale or future context preserves another legal request: "+delta,()=>{
+                    using var host=new DesktopHarness(); host.Observe("A",1); host.Observe("B",1);
+                    host.Message("valid","comments",new { apiBase=host.apiBase,value="B-episode",expectedMediaRevision=host.mediaRevision });
+                    string original=host.apiBase; int revision=host.revision;
+                    host.Message("bad","comments",new { apiBase="http://other.invalid/token",value="A-episode",expectedMediaRevision=host.mediaRevision+delta });
+                    Check(host.api.Calls.Count==1 && !host.api.Calls[0].Token.IsCancellationRequested && host.revision==revision && host.apiBase==original,"Rejected media context cancelled or replaced legal B work.");
+                    Check(!host.Reply("bad").GetProperty("ok").GetBoolean() && host.Reply("bad").GetProperty("code").GetString()=="media-changed","Revision equality did not reject both directions.");
+                    host.api.Complete(0); host.WaitHandled("valid");
+                    Check(host.Reply("valid").GetProperty("ok").GetBoolean() && host.CommentCount==1,"A rejected stale request prevented B from completing.");
+                });
+            foreach (var invalid in new (string Name,object Value)[] {("missing",null),("null",null),("negative",-1L),("fractional",1.5),("decimal-token",JsonSerializer.Deserialize<JsonElement>("0.0")),("exponent-token",JsonSerializer.Deserialize<JsonElement>("1e0")),("string","1"),("boolean",true),("object",new { invalid=true }),("unsafe",9007199254740992L)})
+                Test("invalid media context has no request side effects: "+invalid.Name,()=>{
+                    using var host=new DesktopHarness(); host.Observe("A",1);
+                    host.Message("valid","search",new { apiBase=host.apiBase,value="A" }); int revision=host.revision; string original=host.apiBase;
+                    var payload=new Dictionary<string,object> { ["apiBase"]="http://other.invalid/token",["value"]="A-episode" };
+                    if(invalid.Name!="missing") payload["expectedMediaRevision"]=invalid.Value;
+                    int reads=host.probe.Reads;
+                    host.probe.Latest=new(new VideoWindow((IntPtr)1,"B",0,0,1280,720),"B",1,1000,false,Monotonic.Now);
+                    host.Message("bad","comments",payload);
+                    Check(host.probe.Reads==reads && host.api.Calls.Count==1 && !host.api.Calls[0].Token.IsCancellationRequested && host.revision==revision && host.apiBase==original,"Malformed context read an unconsumed player or changed API/request ownership.");
+                    var reply=host.Reply("bad");
+                    Check(!reply.GetProperty("ok").GetBoolean() && reply.GetProperty("code").GetString()=="media-context-required","Missing or invalid media context did not fail safely for an old/malformed client.");
+                    host.probe.Latest=host.sample;
+                    host.api.Complete(0); host.WaitHandled("valid");
+                    Check(host.Reply("valid").GetProperty("ok").GetBoolean(),"Malformed context cancelled the legal request.");
+                });
+        }
+        if (group is "Settings" or "All") foreach (bool moveFailure in new[] {false,true})
+            Test("failed preference transaction has no applied side effects",()=>{
+                using var host=new DesktopHarness(); File.FailWrite=!moveFailure; File.FailMove=moveFailure;
+                try
+                {
+                    var settings=new DanmakuSettings {FontSize=40}; host.Message("settings","update-settings",new {settings});
+                    Check(!host.Reply("settings").GetProperty("ok").GetBoolean(),"Storage failure was reported as success.");
+                    Check(host.Settings.FontSize==28 && host.SettingsEvents==0,"Rejected settings were already applied.");
+                }
+                finally { File.FailWrite=false; File.FailMove=false; }
+            });
+        if (group is "Settings" or "All")
+        {
+            Test("preference read warnings survive rejected writes and clear after durable recovery",()=>{
+                using var host=new DesktopHarness(); host.Failure="preference read warning";
+                host.Message("hello-warning","hello",new { });
+                Check(host.LastState().GetProperty("data").GetProperty("notice").GetString()==host.Failure,"The initial warning was not delivered to the page.");
+                File.FailWrite=true;
+                try
+                {
+                    host.Message("blocked-save","update-settings",new { settings=new DanmakuSettings { FontSize=40 } });
+                    Check(!host.Reply("blocked-save").GetProperty("ok").GetBoolean() && host.Failure.Length>0,"A rejected write cleared the warning even though the file was not repaired.");
+                }
+                finally { File.FailWrite=false; }
+                host.Message("recovered-save","update-settings",new { settings=new DanmakuSettings { FontSize=40 } });
+                Check(host.Reply("recovered-save").GetProperty("ok").GetBoolean() && host.LastState().GetProperty("data").GetProperty("notice").GetString()=="","A successful recovery kept claiming the original file was unchanged.");
+            });
+            Test("settings snapshots are versioned and reads have no write or request side effects",()=>{
+                using var host=new DesktopHarness(); host.Observe("A",1);
+                host.Message("hello","hello",new { });
+                Check(host.Reply("hello").GetProperty("data").GetProperty("settingsRevision").GetInt64()==0,"Handshake omitted the authoritative settings revision.");
+                host.Message("save","update-settings",new { settings=new DanmakuSettings { FontSize=40 } });
+                var saved=host.Reply("save");
+                Check(saved.GetProperty("data").TryGetProperty("fontSize",out var font) && font.GetDouble()==40 && saved.TryGetProperty("settingsRevision",out var savedRevision) && savedRevision.GetInt64()==1,"The save response must retain the existing bare Settings data and add its revision without breaking old clients.");
+                using var stored=JsonDocument.Parse(File.LastContent);
+                Check(stored.RootElement.GetProperty("schemaVersion").GetInt32()==1 && stored.RootElement.GetProperty("settings").GetProperty("fontSize").GetDouble()==40,"The actual host save path did not persist the versioned style format.");
+                host.Message("slow","search",new { apiBase=host.apiBase,value="slow" }); int prior=host.revision;
+                File.FailWrite=true;
+                try
+                {
+                    host.Message("read","get-settings",new { }); var read=host.Reply("read");
+                    Check(read.GetProperty("ok").GetBoolean() && read.GetProperty("data").GetProperty("settingsRevision").GetInt64()==1 && host.SettingsEvents==1,"Reading settings persisted or reapplied them.");
+                    Check(host.revision==prior && !host.api.Calls[0].Token.IsCancellationRequested,"Reading settings changed an in-flight API request.");
+                    Check(host.LastState().GetProperty("data").GetProperty("settingsRevision").GetInt64()==1,"State events omitted the settings version.");
+                }
+                finally { File.FailWrite=false; host.api.Complete(0); host.WaitHandled("slow"); }
+            });
+            Test("rejected settings writes retain their revision and report a known outcome",()=>{
+                using var host=new DesktopHarness(); File.FailMove=true;
+                try
+                {
+                    host.Message("save","update-settings",new { settings=new DanmakuSettings { FontSize=40 } });
+                    var reply=host.Reply("save");
+                    Check(!reply.GetProperty("ok").GetBoolean() && reply.GetProperty("code").GetString()=="settings-not-applied" && host.settingsRevision==0,"A rejected storage transaction did not retain a known unchanged revision.");
+                }
+                finally { File.FailMove=false; }
+            });
+            Test("post-commit failures remain discoverable rather than pretending no settings applied",()=>{
+                using var host=new DesktopHarness(); host.SettingsUpdated=_=>throw new IOException("fixture renderer notification failure");
+                host.Message("save","update-settings",new { settings=new DanmakuSettings { FontSize=40 } });
+                var reply=host.Reply("save");
+                Check(!reply.GetProperty("ok").GetBoolean() && reply.GetProperty("code").GetString()=="settings-outcome-unknown","Post-commit failure claimed that no setting applied.");
+                host.Message("read","get-settings",new { }); var read=host.Reply("read").GetProperty("data");
+                Check(read.GetProperty("settingsRevision").GetInt64()==1 && read.GetProperty("settings").GetProperty("fontSize").GetDouble()==40,"The actual committed value is not available for recovery.");
+            });
+        }
+        if (group is "Document" or "All") foreach (bool failure in new[] {false,true})
+            Test("navigation suppresses both old success and old error replies",()=>{
+                using var host=new DesktopHarness(); host.Observe("A",1);
+                host.Message("initial","hello",new { });
+                host.Message("old","search",new {apiBase=host.apiBase,value="slow"}); int priorRevision=host.revision; host.Navigate();
+                Check(host.documentEpoch==1 && !host.Ready && host.revision==priorRevision+1 && host.api.Calls[0].Token.IsCancellationRequested,"Real navigation handler did not invalidate its document/request scope.");
+                host.Message("new","hello",new { });
+                if (failure) host.api.Fail(0); else host.api.Complete(0);
+                host.WaitHandled("old");
+                Check(!host.Responses.Any(s=>JsonSerializer.Deserialize<JsonElement>(s).GetProperty("id").GetString()=="old"),"Old document handler sent a reply into the replacement document.");
+                Check(host.Reply("new").GetProperty("ok").GetBoolean(),"New document handshake failed.");
+            });
+        if (group is "Sequence" or "All")
+        {
+            Test("hello watermarks and state versions survive document replacement",()=>{
+                using var host=new DesktopHarness(); host.EmitState();
+                Check(host.States.IsEmpty && host.stateSequence==0,"Unready document received a state.");
+                host.Message("hello","hello",new { });
+                var handshake=host.Reply("hello").GetProperty("data");
+                Check(handshake.GetProperty("protocolVersion").GetInt32()==1 && handshake.GetProperty("capabilities").EnumerateArray().Any(item=>item.GetString()=="media-context-v1"),"The native handshake did not declare the required comments-admission capability.");
+                Check(host.Reply("hello").GetProperty("data").GetProperty("stateSequence").GetInt64()==0,"Initial hello watermark is not the previous state version.");
+                Check(host.LastState().GetProperty("sequence").GetInt64()==1,"First post-handshake state did not increment.");
+                host.EmitState(); Check(host.stateSequence==2,"State version did not increase.");
+                host.Navigate(); host.EmitState();
+                Check(host.States.Count==2 && host.stateSequence==2,"Navigating document received a state.");
+                host.Message("replacement","hello",new { });
+                Check(host.Reply("replacement").GetProperty("data").GetProperty("stateSequence").GetInt64()==2,"Replacement document lost its watermark.");
+                var state=host.LastState();
+                Check(state.GetProperty("sequence").GetInt64()==3 && state.GetProperty("data").GetProperty("player").GetProperty("sequence").GetInt64()==3,"Envelope/player versions differ or went backwards.");
+                host.closing=true; host.EmitState();
+                Check(host.States.Count==3 && host.stateSequence==3,"Closing host emitted another state.");
+            });
+            Test("media and confirmed seeks have independent increasing revisions",()=>{
+                using var host=new DesktopHarness(); host.Message("hello","hello",new { });
+                host.Observe("A",1,1000,false); host.EmitState();
+                long media=host.mediaRevision; int seek=host.sync.SeekRevision;
+                Check(media==1 && seek>0,"First verified media was not versioned.");
+                host.Observe("A",1,1000,false); host.EmitState();
+                Check(host.mediaRevision==media && host.sync.SeekRevision==seek,"Repeated paused sample created a new media or seek revision.");
+                host.Observe("A",1,90000,false); host.EmitState();
+                Check(host.mediaRevision==media && host.sync.SeekRevision>seek,"Forward seek did not advance only its revision.");
+                seek=host.sync.SeekRevision;
+                host.Observe("A",1,1000,false); host.EmitState();
+                Check(host.mediaRevision==media && host.sync.SeekRevision>seek,"Backward seek did not advance only its revision.");
+                seek=host.sync.SeekRevision;
+                host.Observe("A",2,0,false); host.EmitState();
+                var player=host.LastState().GetProperty("data").GetProperty("player");
+                Check(player.GetProperty("mediaRevision").GetInt64()==media+1 && player.GetProperty("seekRevision").GetInt32()>seek,"Episode change did not publish new media/seek revisions.");
+                Check(player.GetProperty("episodeNumber").GetInt32()==2 && player.GetProperty("positionMs").GetDouble()==0,"Versioned snapshot contains the previous episode position.");
+            });
+        }
+        if (group is "Snapshot" or "All")
+        {
+            Test("lost playback proof is unknown, not a confirmed pause",()=>{
+                using var host=new DesktopHarness();
+                host.probe.Latest=new(new VideoWindow((IntPtr)1,"A",0,0,1280,720),"A",1,1000,true,Monotonic.Now);
+                host.ObserveLatest();
+                host.sync.Tick(Monotonic.Now+2000);
+                host.Message("hello","hello",new { });
+                var player=host.LastState().GetProperty("data").GetProperty("player");
+                Check(player.GetProperty("syncMode").GetString()=="stale" && player.GetProperty("state").GetString()=="unknown","A conservatively frozen stale clock was reported as a real pause.");
+            });
+            Test("missing player and unreadable playback have distinct states",()=>{
+                using var host=new DesktopHarness(); host.Message("hello","hello",new { });
+                var missing=host.LastState().GetProperty("data").GetProperty("player");
+                Check(missing.GetProperty("state").GetString()=="unavailable" && missing.GetProperty("positionMs").ValueKind==JsonValueKind.Null,"A missing target must remain unavailable with unknown position.");
+                host.probe.Latest=new(new VideoWindow((IntPtr)1,"A",0,0,1280,720),"A",0,null,null,Monotonic.Now);
+                host.ObserveLatest(); host.EmitState();
+                var unreadable=host.LastState().GetProperty("data").GetProperty("player");
+                Check(unreadable.GetProperty("state").GetString()=="unknown" && unreadable.GetProperty("positionMs").ValueKind==JsonValueKind.Null,"An identified window without proof must not claim playback or position zero.");
+            });
+            Test("player state publishes client bounds, DPI and explicit nullable visibility",()=>{
+                using var host=new DesktopHarness();
+                var window=new VideoWindow((IntPtr)1,"movie.mkv",-1920,-120,1920,1080)
+                    { DpiScale=1.5,WindowVisible=false,WindowMinimized=true,IsForeground=false };
+                host.probe.Latest=new(window,"movie",0,0,false,Monotonic.Now,"window-client fallback","uia-seekbar-ms+smtc",200,60000);
+                host.ObserveLatest(); host.Message("hello","hello",new { });
+                var player=host.LastState().GetProperty("data").GetProperty("player");
+                var bounds=player.GetProperty("videoBoundsPx");
+                Check(bounds.GetProperty("x").GetInt32()==-1920 && bounds.GetProperty("y").GetInt32()==-120 && bounds.GetProperty("width").GetInt32()==1920 && bounds.GetProperty("height").GetInt32()==1080,"Physical client bounds were rescaled or lost negative-monitor coordinates.");
+                Check(player.GetProperty("videoBoundsSource").GetString()=="window-client" && player.GetProperty("dpiScale").GetDouble()==1.5,"Window-client fallback or target DPI was not explicit.");
+                Check(!player.GetProperty("windowVisible").GetBoolean() && player.GetProperty("windowMinimized").GetBoolean() && !player.GetProperty("isForeground").GetBoolean(),"Visibility flags were guessed from playback state.");
+                Check(player.GetProperty("episodeNumber").ValueKind==JsonValueKind.Null && player.GetProperty("positionMs").GetDouble()==0 && player.GetProperty("durationMs").GetDouble()==60000,"Movie episode/zero position/duration semantics changed.");
+                foreach (double dpi in new[] {1.0,1.25,1.5})
+                {
+                    host.probe.Latest=host.probe.Latest with { Window=window with { DpiScale=dpi },StampMs=Monotonic.Now };
+                    host.ObserveLatest(); host.EmitState(); player=host.LastState().GetProperty("data").GetProperty("player");
+                    Check(player.GetProperty("dpiScale").GetDouble()==dpi && player.GetProperty("videoBoundsPx").GetProperty("width").GetInt32()==1920,"Physical pixel bounds were converted a second time when the target DPI changed.");
+                }
+                host.probe.Latest=host.probe.Latest with { Window=window with { DpiScale=null,WindowVisible=null,WindowMinimized=null,IsForeground=null },StampMs=Monotonic.Now };
+                host.ObserveLatest(); host.EmitState(); player=host.LastState().GetProperty("data").GetProperty("player");
+                Check(player.GetProperty("dpiScale").ValueKind==JsonValueKind.Null && player.GetProperty("windowVisible").ValueKind==JsonValueKind.Null,"Unavailable metadata was replaced by guessed defaults.");
+            });
+            Test("unidentified window cannot claim automatic media synchronization",()=>{
+                using var host=new DesktopHarness();
+                host.probe.Latest=new(new VideoWindow((IntPtr)1,"library",0,0,1280,720),"",0,1000,true,Monotonic.Now);
+                host.ObserveLatest(); host.Message("hello","hello",new { });
+                var player=host.LastState().GetProperty("data").GetProperty("player");
+                Check(player.GetProperty("syncMode").GetString()=="unavailable" && player.GetProperty("state").GetString()=="unknown","A library/unidentified window was presented as automatically synchronized media.");
+                host.Message("manual","manual-clock",new { positionMs=2000,playing=false });
+                Check(host.Reply("manual").GetProperty("ok").GetBoolean() && host.sync.Mode=="manual" && host.sync.At(Monotonic.Now)==2000,"The UI offered manual calibration but the internal automatic clock rejected it.");
+            });
+            Test("published unconsumed media change invalidates a later manual command for the previous media",()=>{
+                using var host=new DesktopHarness();
+                host.probe.Latest=new(new VideoWindow((IntPtr)1,"A",0,0,1280,720),"A",1,null,null,Monotonic.Now);
+                host.ObserveLatest(); host.Message("hello","hello",new { });
+                host.probe.Latest=new(new VideoWindow((IntPtr)1,"B",0,0,1280,720),"B",2,null,null,Monotonic.Now);
+                host.Message("manual","manual-clock",new { positionMs=30000,playing=false });
+                Check(host.Reply("manual").GetProperty("ok").GetBoolean(),"The fixture must first accept the manual command for its last consumed A state.");
+                host.ObserveLatest(); host.EmitState();
+                var player=host.LastState().GetProperty("data").GetProperty("player");
+                Check(player.GetProperty("title").GetString()=="B" && player.GetProperty("episodeNumber").GetInt32()==2 && player.GetProperty("syncMode").GetString()=="unavailable" && player.GetProperty("positionMs").ValueKind==JsonValueKind.Null,"B inherited A's manual time because its probe stamp predates the UI command.");
+            });
+            Test("a verified media epoch does not compare source timestamps across different media",()=>{
+                using var host=new DesktopHarness(); double stamp=Monotonic.Now;
+                host.probe.Latest=new(new VideoWindow((IntPtr)1,"A",0,0,1280,720),"A",1,800000,true,stamp);
+                host.ObserveLatest(); host.Message("hello","hello",new { });
+                // B is the latest identified window, but its fresh SMTC timing proof predates A's last UIA proof.
+                host.probe.Latest=new(new VideoWindow((IntPtr)1,"B",0,0,1280,720),"B",2,5000,false,stamp-50,"new epoch older proof","smtc",200,60000);
+                host.ObserveLatest(); host.EmitState();
+                var player=host.LastState().GetProperty("data").GetProperty("player");
+                Check(player.GetProperty("title").GetString()=="B" && player.GetProperty("state").GetString()=="paused" && player.GetProperty("positionMs").GetDouble()==5000,"A cross-media source timestamp comparison attached A's clock to B's new epoch.");
+            });
+        }
+        return errors.ToArray();
+    }
+}

@@ -1,0 +1,102 @@
+using System;
+namespace System.Windows.Media {
+    public static class Brushes { public static object Transparent=new(); }
+    public static class Colors { public static object Transparent=new(); }
+}
+namespace System.Windows {
+    public enum WindowStyle { None }
+    public enum ResizeMode { NoResize }
+    public class FrameworkElement { }
+    public class Window {
+        public WindowStyle WindowStyle; public ResizeMode ResizeMode;
+        public bool AllowsTransparency,ShowInTaskbar,ShowActivated,Topmost,IsHitTestVisible;
+        public object Background,Content;
+        public Window(){ Popcorn.Fixture.Fallbacks++; }
+        public void Show(){ Popcorn.Fixture.Visible=true; }
+        public void Hide(){ Popcorn.Fixture.Visible=false; }
+        public void Close(){ Popcorn.Fixture.Closes++; Popcorn.Fixture.Visible=false; }
+    }
+}
+namespace System.Windows.Interop {
+    public struct HwndSourceParameters {
+        public HwndSourceParameters(string name){ }
+        public IntPtr ParentWindow; public int WindowStyle,Width,Height;
+    }
+    public sealed class WindowInteropHelper {
+        public WindowInteropHelper(System.Windows.Window window){ }
+        public IntPtr EnsureHandle()=>new IntPtr(2);
+    }
+    public sealed class HwndSource : IDisposable {
+        public sealed class Target { public object BackgroundColor; }
+        public readonly Target CompositionTarget=new();
+        public IntPtr Handle=>new(3);
+        private object root;
+        public object RootVisual {
+            get=>root;
+            set {
+                if(value!=null && Popcorn.Fixture.FailRoot) throw new InvalidOperationException("fixture root failure");
+                root=value;
+            }
+        }
+        public HwndSource(HwndSourceParameters parameters) {
+            if(parameters.ParentWindow!=new IntPtr(1) || parameters.WindowStyle!=(0x40000000|0x10000000))
+                throw new Exception("WPF must be a visible child of the layered parent.");
+            if(Popcorn.Fixture.FailChild) throw new InvalidOperationException("fixture child failure");
+            Popcorn.Fixture.Children++;
+        }
+        public void Dispose() {
+            if(root!=null) throw new Exception("Detach the root before disposing its presentation source.");
+            Popcorn.Fixture.ChildDisposals++;
+        }
+    }
+}
+namespace Popcorn {
+    public static class Fixture {
+        public static bool FailParent,FailChild,FailRoot,Visible;
+        public static int Fallbacks,Children,ChildDisposals,Destroyed,Closes,Resizes,ClickThroughs;
+        public static void Reset() {
+            FailParent=FailChild=FailRoot=Visible=false;
+            Fallbacks=Children=ChildDisposals=Destroyed=Closes=Resizes=ClickThroughs=0;
+        }
+    }
+    public static class NativeWindows {
+        public static IntPtr CreateDwmOverlay()=>Fixture.FailParent ? IntPtr.Zero : new IntPtr(1);
+        public static void DestroyOverlay(IntPtr handle) {
+            if(handle!=new IntPtr(1)) throw new Exception("Unexpected parent disposal.");
+            Fixture.Destroyed++; Fixture.Visible=false;
+        }
+        public static bool IsWindowVisible(IntPtr handle)=>Fixture.Visible;
+        public static void ShowOverlay(IntPtr handle)=>Fixture.Visible=true;
+        public static void HideOverlay(IntPtr handle)=>Fixture.Visible=false;
+        public static void ResizeOverlayChild(IntPtr handle,int width,int height) {
+            if(handle!=new IntPtr(3) || width!=1920 || height!=1080) throw new Exception("Wrong child physical dimensions.");
+            Fixture.Resizes++;
+        }
+        public static void ClickThrough(IntPtr handle)=>Fixture.ClickThroughs++;
+    }
+    public static class OverlayPresentationTests {
+        private static void Check(bool condition,string message) { if(!condition) throw new Exception(message); }
+        public static void Run() {
+            Fixture.Reset();
+            var surface=new System.Windows.FrameworkElement();
+            var primary=OverlayPresentation.Create(surface);
+            Check(primary.Handle==new IntPtr(1) && primary.Mode=="dwm" && Fixture.Fallbacks==0,"Prefer the working native DWM path.");
+            primary.Show(); Check(primary.IsVisible,"Show must expose the actual native parent.");
+            primary.ResizeContent(1920,1080);Check(Fixture.Resizes==1,"Resize the child with its parent.");
+            primary.Hide();Check(!primary.IsVisible,"Hide must remove the actual native parent.");
+            primary.Dispose();primary.Dispose();
+            Check(Fixture.ChildDisposals==1 && Fixture.Destroyed==1,"Release the child and parent exactly once.");
+            foreach(var failure in new[]{"parent","child","root"}) {
+                Fixture.Reset();Fixture.FailParent=failure=="parent";Fixture.FailChild=failure=="child";Fixture.FailRoot=failure=="root";
+                var fallback=OverlayPresentation.Create(surface);
+                Check(fallback.Mode=="layered" && fallback.Handle==new IntPtr(2) && Fixture.Fallbacks==1,"Initialization failure must create the legacy transparent window.");
+                Check(Fixture.Destroyed==(failure=="parent" ? 0 : 1),"Failed native initialization leaked its parent.");
+                Check(Fixture.ChildDisposals==(failure=="root" ? 1 : 0),"Failed root attachment leaked its source.");
+                Check(Fixture.ClickThroughs==1,"Legacy input styles must still be applied.");
+                fallback.Show();Check(fallback.IsVisible,"Legacy show must work.");
+                fallback.Hide();Check(!fallback.IsVisible,"Legacy hide must work.");
+                fallback.Dispose();fallback.Dispose();Check(Fixture.Closes==1,"Close the legacy window once.");
+            }
+        }
+    }
+}

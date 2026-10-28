@@ -1,0 +1,51 @@
+using System;
+public static class DwmOverlayInitializationTests
+{
+    private struct Margins { public int Left,Right,Top,Bottom; }
+    private static string failure="";
+    private static int creates,destroys,alphaCalls;
+    private static readonly IntPtr Owned=new(123);
+    private static IntPtr CreateWindowEx(uint exStyle,string cls,string title,uint style,int x,int y,int width,int height,IntPtr parent,IntPtr menu,IntPtr instance,IntPtr parameter)
+    {
+        creates++;
+        if((exStyle&0x080800A8)!=0x080800A8 || style!=0x82000000 || parent!=IntPtr.Zero || width!=1 || height!=1)
+            throw new Exception("Create a hidden top-level layered, transparent, topmost, no-activate tool window and exclude child pixels from parent painting.");
+        return failure=="create" ? IntPtr.Zero : Owned;
+    }
+    private static int DwmIsCompositionEnabled(out bool enabled) {
+        enabled=failure!="disabled";return failure=="composition" ? -1 : 0;
+    }
+    private static int DwmExtendFrameIntoClientArea(IntPtr handle,ref Margins margins) {
+        if(handle!=Owned || margins.Left!=-1 || margins.Right!=-1 || margins.Top!=-1 || margins.Bottom!=-1)
+            throw new Exception("Glass must cover the whole owned window.");
+        if(failure=="exception") throw new EntryPointNotFoundException("fixture unavailable composition");
+        return failure=="glass" ? -1 : 0;
+    }
+    private static bool SetLayeredWindowAttributes(IntPtr handle,uint key,byte alpha,uint flags) {
+        alphaCalls++;
+        if(handle!=Owned || key!=0 || alpha!=255 || flags!=2) throw new Exception("Use constant-alpha composition without a color key.");
+        return failure!="alpha";
+    }
+    private static bool HasExtendedStyles(IntPtr handle,long flags) {
+        if(handle!=Owned || flags!=0x080800A8) throw new Exception("Verify every requested input/composition style.");
+        return failure!="style";
+    }
+    private static bool DestroyWindow(IntPtr handle) {
+        if(handle!=Owned) throw new Exception("Only destroy the owned parent.");destroys++;return true;
+    }
+    /* INITIALIZATION_METHOD */
+    public static void Run()
+    {
+        foreach(var stage in new[]{"","create","composition","disabled","glass","alpha","style","exception"}) {
+            failure=stage;creates=destroys=alphaCalls=0;IntPtr result=IntPtr.Zero;bool threw=false;
+            try { result=CreateDwmOverlay(); } catch(EntryPointNotFoundException) { threw=true; }
+            if(creates!=1) throw new Exception("Unexpected creation count.");
+            if(stage=="") {
+                if(result!=Owned || destroys!=0 || alphaCalls!=1) throw new Exception("A complete initialization must retain the parent.");
+            } else {
+                if(result!=IntPtr.Zero || destroys!=(stage=="create" ? 0 : 1)) throw new Exception("A partial failure leaked or returned an unusable parent: "+stage);
+                if(threw!=(stage=="exception")) throw new Exception("Unexpected exception boundary.");
+            }
+        }
+    }
+}

@@ -1,0 +1,263 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using Microsoft.Web.WebView2.Core;
+
+namespace Popcorn;
+
+public sealed class DesktopWindow : Form
+{
+    public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy=JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive=true, UnmappedMemberHandling=JsonUnmappedMemberHandling.Disallow };
+    private readonly Panel surface = new() { Dock=DockStyle.Fill };
+    private CoreWebView2Controller controller;
+    private CoreWebView2 core;
+    private readonly ApiClient api = new();
+    private readonly AutomaticMatcher automaticMatcher;
+    private readonly MatchFailureNotification matchNotification;
+    private readonly System.Windows.Forms.Timer timer = new() { Interval=200 };
+    private readonly string root, preferences;
+    private CancellationTokenSource pending = new();
+    private int revision;
+    private long documentEpoch,stateSequence,mediaRevision,settingsRevision;
+    private string apiBase;
+    private volatile bool closing;
+    private int playerUpdateQueued;
+    private readonly PlayerProbe probe;
+    private readonly OverlayHost overlay;
+    private readonly SyncClock sync=new();
+    private PlayerSample sample;
+    private string lastMedia="";
+    public bool Ready { get; private set; }
+    public string Failure { get; private set; } = "";
+    public DanmakuSettings Settings { get; private set; } = new();
+    public int CommentCount { get; private set; }
+    public event Action<Comment[]> CommentsLoaded;
+    public event Action<DanmakuSettings> SettingsUpdated;
+    public event Action<double,bool> ManualClockUpdated;
+
+    public DesktopWindow(string projectRoot,string initialApi,string dataProfile="app")
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(dataProfile,@"^[a-z0-9][a-z0-9-]{0,47}$")) throw new ArgumentException("Invalid data profile.");
+        root=projectRoot; apiBase=initialApi;
+        Text="爆米花 · 弹幕工作台"; ClientSize=new Size(1120,790); MinimumSize=new Size(760,620);
+        StartPosition=FormStartPosition.CenterScreen; BackColor=Color.FromArgb(245,243,235);
+        string data=Path.Combine(root,".cache",dataProfile); Directory.CreateDirectory(data);
+        preferences=Path.Combine(data,"preferences.json");
+        var savedPreferences=SettingsPreferences.Load(preferences);
+        Settings=savedPreferences.Settings; Failure=savedPreferences.Notice;
+        Controls.Add(surface);
+        surface.Resize+=(_,_)=>{ if (controller!=null) controller.Bounds=surface.ClientRectangle; };
+        overlay=new OverlayHost(); overlay.SetSettings(Settings);
+        probe=new PlayerProbe(root); probe.SampleUpdated+=QueuePlayerUpdate; sample=probe.Latest;
+        matchNotification=new MatchFailureNotification(this);
+        automaticMatcher=new AutomaticMatcher(api.FetchAsync,ApplyAutomaticMatch,_=>PushState(),message=>matchNotification.Show(message));
+        CommentsLoaded+=overlay.SetComments;
+        SettingsUpdated+=overlay.SetSettings;
+        ManualClockUpdated+=(position,playing)=>sync.Manual(position,playing,Monotonic.Now);
+        Shown+=async (_,_)=>await InitializeAsync(data);
+        timer.Tick+=(_,_)=>{ UpdatePlayer(); PushState(); };
+        FormClosed+=(_,_)=>{ closing=true; timer.Stop(); timer.Dispose(); automaticMatcher.Dispose(); matchNotification.Dispose(); pending.Cancel(); pending.Dispose(); api.Dispose(); probe.SampleUpdated-=QueuePlayerUpdate; probe.Dispose(); overlay.Dispose(); controller?.Close(); };
+    }
+    private static void ConfigureBrowserSettings(CoreWebView2Settings settings)
+    {
+        settings.AreDefaultContextMenusEnabled=false;
+        settings.IsStatusBarEnabled=false;
+        settings.AreDevToolsEnabled=false;
+        settings.AreHostObjectsAllowed=false;
+        settings.IsGeneralAutofillEnabled=false;
+        settings.IsPasswordAutosaveEnabled=false;
+    }
+    private static string DescribeInitializationFailure(Exception error) => error is WebView2RuntimeNotFoundException
+        ? "缺少或无法找到 Microsoft Edge WebView2 Runtime。\r\n请从微软官方网站下载 Evergreen 独立安装程序（x64），安装后重新打开弹幕助手。\r\nhttps://developer.microsoft.com/microsoft-edge/webview2/\r\n无需以管理员身份运行弹幕助手。\r\n如需暂时使用旧版，请回到保留的旧版文件夹，双击“启动弹幕助手.bat”。"
+        : "桌面界面初始化失败："+error.Message+"\r\n请检查发行包是否完整解压，并运行“检查文件.bat”。";
+    private void ApplyAutomaticMatch(AutomaticMatchResult result)
+    {
+        if(closing)return;
+        UpdatePlayer();
+        if(closing || result.MediaRevision!=mediaRevision || result.Title!=sample.Title || result.EpisodeNumber!=sample.EpisodeNumber)return;
+        CommentCount=result.Comments.Length;CommentsLoaded?.Invoke(result.Comments);
+    }
+    private void QueuePlayerUpdate()
+    {
+        if(closing || IsDisposed || !IsHandleCreated || Interlocked.Exchange(ref playerUpdateQueued,1)!=0) return;
+        try { BeginInvoke(new Action(DrainPlayerUpdate)); }
+        catch(InvalidOperationException) { Interlocked.Exchange(ref playerUpdateQueued,0); }
+    }
+    private void DrainPlayerUpdate()
+    {
+        Interlocked.Exchange(ref playerUpdateQueued,0);
+        if(closing || IsDisposed) return;
+        UpdatePlayer(); PushState();
+    }
+    private void UpdatePlayer()
+    {
+        sample=probe.Latest; double now=Monotonic.Now;
+        string media=sample.Title.Length>0 ? sample.Title+"#"+sample.EpisodeNumber : lastMedia;
+        if (sample.Title.Length>0 && lastMedia!=media)
+        {
+            mediaRevision++;
+            sync.BeginMediaEpoch(now);
+            pending.Cancel(); revision++; CommentCount=0; overlay.SetComments(Array.Empty<Comment>());
+        }
+        if (sample.Title.Length>0) lastMedia=media;
+        bool identified=sample.Window!=null && !string.IsNullOrWhiteSpace(sample.Title);
+        sync.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,media,sample.PositionResolutionMs); sync.Tick(now);
+        var video=sample.Title.Length>0 && sync.Mode is "automatic" or "manual" ? sample.Window : null;
+        overlay.Update(video,sync.At(now),sync.Running,sync.SeekRevision,sync.Mode=="automatic",sync.LastProofMs);
+        automaticMatcher?.Observe(apiBase,identified ? sample.Title : "",sample.EpisodeNumber,mediaRevision);
+    }
+    private void OnNavigationStarting(object sender,CoreWebView2NavigationStartingEventArgs e)
+    {
+        if (!IsAppSource(e.Uri)) { e.Cancel=true; return; }
+        // NavigationStarting excludes fragment changes, but includes same-origin document reloads.
+        // https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/navigation-events
+        documentEpoch++; Ready=false; pending.Cancel(); revision++;
+    }
+    private async Task InitializeAsync(string data)
+    {
+        try
+        {
+            CoreWebView2Environment.SetLoaderDllFolderPath(Path.Combine(root,".deps","webview2","runtimes","win-x64","native"));
+            var env=await CoreWebView2Environment.CreateAsync(null,Path.Combine(data,"webview"));
+            if (closing) return;
+            controller=await env.CreateCoreWebView2ControllerAsync(surface.Handle);
+            if (closing) { controller.Close(); return; }
+            controller.Bounds=surface.ClientRectangle;
+            core=controller.CoreWebView2;
+            ConfigureBrowserSettings(core.Settings);
+            core.SetVirtualHostNameToFolderMapping("danmu.local",Path.Combine(root,"ui","dist"),CoreWebView2HostResourceAccessKind.DenyCors);
+            core.NavigationStarting+=OnNavigationStarting;
+            core.FrameNavigationStarting+=(_,e)=>e.Cancel=true;
+            core.NewWindowRequested+=(_,e)=>e.Handled=true;
+            core.PermissionRequested+=(_,e)=>e.State=CoreWebView2PermissionState.Deny;
+            core.DownloadStarting+=(_,e)=>e.Cancel=true;
+            core.WebMessageReceived+=OnMessage;
+            core.Navigate("https://danmu.local/index.html");
+            timer.Start();
+        }
+        catch (Exception ex) { Failure=DescribeInitializationFailure(ex); MessageBox.Show(Failure,"爆米花弹幕助手",MessageBoxButtons.OK,MessageBoxIcon.Error); Close(); }
+    }
+    public static bool IsAppSource(string source) => Uri.TryCreate(source,UriKind.Absolute,out var uri) && uri.Scheme=="https" && uri.Host=="danmu.local" && uri.IsDefaultPort && string.IsNullOrEmpty(uri.UserInfo);
+    private void Send(object message)
+    {
+        if (!closing && core!=null && IsAppSource(core.Source)) core.PostWebMessageAsJson(JsonSerializer.Serialize(message,Json));
+    }
+    private void PushState()
+    {
+        if (!Ready || closing) return;
+        long sequence=++stateSequence;
+        double now=Monotonic.Now; sync.Tick(now);
+        Send(new { type="state", sequence, data=new { settings=Settings,settingsRevision,
+            player=PlaybackSnapshot.Capture(sample,sync,now,sequence,mediaRevision),
+            commentCount=CommentCount, notice=Failure,automaticMatch=automaticMatcher?.Status } });
+    }
+    private async void OnMessage(object sender,CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        if (!IsAppSource(e.Source) || closing) return;
+        long epoch=documentEpoch;
+        string id="", type="", commandCode="command-failed";
+        bool settingsCommitted=false;
+        try
+        {
+            string raw=e.WebMessageAsJson;
+            if (raw.Length>65536) throw new ArgumentException("消息过大。");
+            using var doc=JsonDocument.Parse(raw);
+            var msg=doc.RootElement;
+            id=msg.GetProperty("id").GetString()??"";
+            if (id.Length is <1 or >64 || msg.GetProperty("v").GetInt32()!=1) throw new ArgumentException("不支持的消息协议。");
+            type=msg.GetProperty("type").GetString()??"";
+            var payload=msg.GetProperty("payload");
+            object result;
+            if (type=="hello") { Ready=true; result=new { apiBase, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=new[] { "media-context-v1","automatic-match-v1" } }; }
+            else if (type=="get-settings") result=new { settings=Settings,settingsRevision };
+            else if (type=="configure-api")
+            {
+                if(payload.ValueKind!=JsonValueKind.Object || payload.EnumerateObject().Count()!=1 ||
+                    !payload.TryGetProperty("apiBase",out var address) || address.ValueKind!=JsonValueKind.String)
+                    throw new ArgumentException("弹幕服务设置格式无效。");
+                string requestedBase=ApiClient.NormalizeBase(address.GetString()??"");
+                if(requestedBase!=apiBase)
+                {
+                    pending.Cancel();revision++;apiBase=requestedBase;CommentCount=0;CommentsLoaded?.Invoke(Array.Empty<Comment>());
+                }
+                UpdatePlayer();result=new {configured=true};
+            }
+            else if (type=="update-settings")
+            {
+                var settings=payload.GetProperty("settings").Deserialize<DanmakuSettings>(Json)??throw new ArgumentException("缺少设置。");
+                settings.Validate();
+                try
+                {
+                    string temp=preferences+".tmp"; File.WriteAllText(temp,SettingsPreferences.Serialize(settings)); File.Move(temp,preferences,true);
+                }
+                catch (Exception storageError) when (storageError is IOException or UnauthorizedAccessException)
+                {
+                    throw new InvalidOperationException("显示偏好保存失败，本次设置未应用。");
+                }
+                settingsCommitted=true; Settings=settings; settingsRevision++; Failure=""; SettingsUpdated?.Invoke(settings);
+                result=Settings;
+            }
+            else if (type=="manual-clock")
+            {
+                double position=payload.GetProperty("positionMs").GetDouble(); bool playing=payload.GetProperty("playing").GetBoolean();
+                if (!double.IsFinite(position) || position<0 || position>86400000) throw new ArgumentException("无效时间。");
+                ManualClockUpdated?.Invoke(position,playing); result=new { positionMs=position, playing };
+            }
+            else if (type=="cancel") { automaticMatcher?.Suspend();pending.Cancel(); revision++; result=new { cancelled=true }; }
+            else if (type=="close") { BeginInvoke(new Action(Close)); result=new { closing=true }; }
+            else if (type is "search" or "episodes" or "comments")
+            {
+                string requestedBase=ApiClient.NormalizeBase(payload.GetProperty("apiBase").GetString()??"");
+                string value=payload.GetProperty("value").GetString()??"";
+                if (string.IsNullOrWhiteSpace(value) || value.Length>500) throw new ArgumentException("请求内容为空或过长。");
+                long expectedMediaRevision=0;
+                if (type=="comments" && (!payload.TryGetProperty("expectedMediaRevision",out var expected) || expected.ValueKind!=JsonValueKind.Number || !expected.TryGetInt64(out expectedMediaRevision) || expectedMediaRevision<0 || expectedMediaRevision>9007199254740991L))
+                {
+                    commandCode="media-context-required";
+                    throw new ArgumentException("弹幕请求缺少有效的媒体版本，请重新打开新版工作台。");
+                }
+                UpdatePlayer();
+                if (type=="comments" && expectedMediaRevision!=mediaRevision)
+                {
+                    commandCode="media-changed"; PushState();
+                    throw new InvalidOperationException("播放器已切换，请核对分集并重新加载弹幕。");
+                }
+                automaticMatcher?.Suspend();
+                apiBase=requestedBase;
+                pending.Cancel(); pending.Dispose(); pending=new(); int current=++revision;
+                var body=await api.FetchAsync(apiBase,type,value,pending.Token);
+                if (closing || current!=revision) throw new OperationCanceledException();
+                UpdatePlayer();
+                if (closing || current!=revision) throw new OperationCanceledException();
+                if (type=="comments")
+                {
+                    var comments=await Task.Run(()=>ApiClient.ParseComments(body));
+                    if (closing || current!=revision) throw new OperationCanceledException();
+                    UpdatePlayer();
+                    if (closing || current!=revision) throw new OperationCanceledException();
+                    CommentCount=comments.Length; CommentsLoaded?.Invoke(comments);
+                    result=new { count=CommentCount, duration=body["videoDuration"]?.DeepClone() };
+                }
+                else result=body;
+            }
+            else throw new ArgumentException("不支持的命令。");
+            if (epoch!=documentEpoch) return;
+            Send(new { type="response", id, ok=true, data=result, settingsRevision }); PushState();
+        }
+        catch (Exception ex)
+        {
+            if (epoch!=documentEpoch) return;
+            string error=ex is OperationCanceledException ? "请求已取消。" : ex is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException ? ex.Message : "操作失败，请重试。";
+            if (!string.IsNullOrEmpty(apiBase)) error=error.Replace(apiBase,"[API 地址]",StringComparison.OrdinalIgnoreCase);
+            string code=type=="update-settings" ? settingsCommitted ? "settings-outcome-unknown" : "settings-not-applied" : commandCode;
+            Send(new { type="response", id, ok=false, error, code });
+        }
+    }
+}

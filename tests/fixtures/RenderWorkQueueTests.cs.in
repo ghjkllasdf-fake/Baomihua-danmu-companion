@@ -1,0 +1,94 @@
+using System;
+using System.Collections.Generic;
+public enum DispatcherPriority { Background }
+public sealed class RenderingEventArgs(TimeSpan time) : EventArgs { public TimeSpan RenderingTime=>time; }
+public sealed class DispatcherOperation(Action action)
+{
+    public bool Aborted;
+    public bool Abort(){Aborted=true;return true;}
+    public void Run(){if(!Aborted)action();}
+}
+public sealed class FixtureDispatcher
+{
+    public readonly Queue<DispatcherOperation> Pending=new();
+    public bool FailPost;
+    public int Posts;
+    public DispatcherOperation BeginInvoke(DispatcherPriority priority,Action action)
+    {
+        if(priority!=DispatcherPriority.Background)throw new Exception("Build work must run below composition priority.");
+        if(FailPost)throw new InvalidOperationException("fixture post failure");
+        var operation=new DispatcherOperation(action);Pending.Enqueue(operation);Posts++;return operation;
+    }
+    public void Drain(){if(!Pending.TryDequeue(out var operation))throw new Exception("Missing queued operation.");operation.Run();}
+}
+public sealed class FixtureSurface
+{
+    public bool NeedsWork=true,Busy;
+    public int Steps,Version,SeenVersion,Callbacks;
+    public readonly List<bool> Invalidations=new();
+    public Action DuringStep;
+    public bool FrameTick(bool invalidate)
+    {
+        if(Busy)return false;
+        Callbacks++;Invalidations.Add(invalidate);return true;
+    }
+    public void StepFrame()
+    {
+        Steps++;SeenVersion=Version;Busy=true;
+        try{DuringStep?.Invoke();}finally{Busy=false;}
+    }
+}
+public sealed class RenderHarness
+{
+    public readonly FixtureDispatcher Dispatcher=new();
+    public readonly FixtureSurface Surface=new();
+    public bool IsVisible=true;
+    private DispatcherOperation pendingWork;
+    private bool closed;
+    private TimeSpan lastRenderTarget=TimeSpan.MinValue;
+    private readonly Action runFrameWork;
+    public RenderHarness(){runFrameWork=RunFrameWork;}
+    private void Follow(){ }
+    public void Render(double time)=>Rendering(null,new RenderingEventArgs(TimeSpan.FromMilliseconds(time)));
+    public void Queue()=>QueueFrameWork();
+    public void Close()=>CancelFrameWork();
+    /* ACTUAL_METHODS */
+}
+public static class RenderWorkQueueTests
+{
+    private static void Check(bool condition,string message){if(!condition)throw new Exception(message);}
+    public static void Run()
+    {
+        var merged=new RenderHarness();
+        for(int i=0;i<100;i++)merged.Queue();
+        Check(merged.Dispatcher.Posts==1 && merged.Surface.Steps==0,"Build work must coalesce and remain outside the composition callback.");
+        merged.Surface.Version=7;merged.Dispatcher.Drain();
+        Check(merged.Surface.Steps==1 && merged.Surface.SeenVersion==7,"Queued work must read current renderer state.");
+        merged.Queue();merged.Dispatcher.Drain();Check(merged.Surface.Steps==2,"A completed work slot must be reusable.");
+        var frames=new RenderHarness();
+        frames.Render(10);frames.Render(10);
+        Check(frames.Surface.Callbacks==2 && frames.Surface.Invalidations[0] && !frames.Surface.Invalidations[1],"Retain duplicate raw callbacks while invalidating each composition target only once.");
+        frames.Dispatcher.Drain();frames.Render(10);
+        Check(frames.Dispatcher.Posts==1,"A duplicate composition target must not enqueue another build.");
+        frames.Render(20);Check(frames.Dispatcher.Posts==2,"A later composition target must admit new work.");
+        var idle=new RenderHarness();idle.Surface.NeedsWork=false;idle.Render(10);
+        Check(idle.Dispatcher.Posts==0 && idle.Surface.Callbacks==1,"Idle frames must still record cadence without empty build jobs.");
+        var reentrant=new RenderHarness();
+        reentrant.Surface.DuringStep=()=>{reentrant.Queue();reentrant.Render(20);};
+        reentrant.Render(10);reentrant.Dispatcher.Drain();
+        Check(reentrant.Dispatcher.Posts==1,"A nested render must not overlap an executing build.");
+        reentrant.Surface.DuringStep=null;reentrant.Render(20);
+        Check(reentrant.Dispatcher.Posts==2,"A rejected nested tick must not consume the next valid rendering target.");
+        var hidden=new RenderHarness();hidden.Queue();hidden.IsVisible=false;hidden.Dispatcher.Drain();
+        Check(hidden.Surface.Steps==0,"Hidden windows must not build from an old queued action.");
+        hidden.IsVisible=true;hidden.Render(10);hidden.Dispatcher.Drain();Check(hidden.Surface.Steps==1,"Hidden work must release its slot for restore.");
+        var closed=new RenderHarness();closed.Queue();var cancelled=closed.Dispatcher.Pending.Peek();closed.Close();
+        Check(cancelled.Aborted,"Closing must abort the pending dispatcher operation.");
+        closed.Dispatcher.Drain();closed.Queue();
+        Check(closed.Surface.Steps==0 && closed.Dispatcher.Posts==1,"Closing must abort pending work and reject later jobs.");
+        var retry=new RenderHarness();retry.Dispatcher.FailPost=true;
+        try{retry.Queue();throw new Exception("Expected a failed post.");}catch(InvalidOperationException){ }
+        retry.Dispatcher.FailPost=false;retry.Queue();retry.Dispatcher.Drain();
+        Check(retry.Surface.Steps==1,"A failed post must not occupy the work slot forever.");
+    }
+}
