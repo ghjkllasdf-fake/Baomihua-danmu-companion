@@ -25,10 +25,13 @@ public sealed class DesktopHarness : IDisposable
     public readonly SyncClock sync=new();
     public CancellationTokenSource pending=new();
     public int revision,CommentCount,SettingsEvents;
-    public long documentEpoch,stateSequence,mediaRevision,settingsRevision;
-    public bool closing,Ready;
+    public long documentEpoch,stateSequence,mediaRevision,settingsRevision,presentationTicket,manualNoticeTicket;
+    public bool closing,Ready,Hidden;
     public string apiBase="http://fixture.invalid/token",lastMedia="",preferences="fixture-preferences",Failure="";
     public string apiPreferences="",savedApiBase="",apiNotice="";
+    public FakeEmbeddedApi localApi;
+    public string localSourcesFile="";
+    public bool localSourcesChanging;
     public PlayerSample sample;
     public DanmakuSettings Settings=new();
     public Action<Comment[]> CommentsLoaded;
@@ -50,6 +53,7 @@ public sealed class DesktopHarness : IDisposable
     public void BeginInvoke(Action action)=>action();
     public void Close()=>closing=true;
     public void RequestExit()=>closing=true;
+    public void HideWorkbench()=>Hidden=true;
     public void Message(string id,string type,object payload)
     {
         var prior=SynchronizationContext.Current; var context=new TrackingContext(); Contexts.Add(id,context);
@@ -94,11 +98,28 @@ public sealed class FakeProbe
 public sealed class FakeOverlay
 {
     public Comment[] Comments=Array.Empty<Comment>();
+    public string Phase="";
+    public long Ticket;
     public void SetComments(Comment[] comments)=>Comments=comments;
-    public void Update(object window,double position,bool running,int revision,bool automatic,double proof) { }
+    public void SetStatus(long ticket,string state,string message) {Ticket=ticket;Phase=state;}
+    public void Update(object window,double position,bool running,int revision,bool automatic,double proof,bool allowComments=true) { }
 }
 public sealed class FakeTray { public void Update(string title,int episode,string source,int count) { } }
 public sealed class FakeStartup { public bool Enabled;public bool SetEnabled(bool value)=>Enabled=value; }
+// This ordinary-edition handler fixture cannot start an embedded process. The
+// actual embedded service/source validation is covered by NativeDistribution.
+public sealed record FakeEmbeddedApiView(string State);
+public sealed class FakeEmbeddedApi
+{
+    public string ApiBase=>throw new NotSupportedException();
+    public FakeEmbeddedApiView View=>throw new NotSupportedException();
+    public Task StartAsync(string[] sources)=>throw new NotSupportedException();
+}
+internal static class EmbeddedApiSources
+{
+    public static string[] Validate(string[] sources)=>throw new NotSupportedException();
+    public static void Save(string path,string[] sources)=>throw new NotSupportedException();
+}
 public sealed record CoreWebView2WebMessageReceivedEventArgs(string WebMessageAsJson) { public string Source=>"https://danmu.local/index.html"; }
 public sealed class CoreWebView2NavigationStartingEventArgs(string uri) { public string Uri=>uri; public bool Cancel { get; set; } }
 public sealed class FakeApi
@@ -129,6 +150,15 @@ public static class DesktopStateTests
         void Test(string name,Action body) { try { body(); Console.WriteLine("PASS: "+name); } catch (Exception ex) { errors.Add(name+": "+ex.Message); } }
         if (group is "Requests" or "All")
         {
+            Test("hide is a strict tray action, never an exit or generic window command",()=>{
+                using var host=new DesktopHarness();
+                host.Message("hide","hide",new {});
+                Check(host.Reply("hide").GetProperty("data").GetProperty("hidden").GetBoolean() && host.Hidden && !host.closing,
+                    "Hiding must acknowledge the tray action without exiting.");
+                host.Hidden=false;host.Message("bad-hide","hide",new { path="untrusted" });
+                Check(!host.Reply("bad-hide").GetProperty("ok").GetBoolean() && !host.Hidden && !host.closing,
+                    "A hide command must reject payload additions without side effects.");
+            });
             Test("API save commits storage before applying, rejects extra fields and preserves state on failure",()=>{
                 using var host=new DesktopHarness();
                 string folder=Path.Combine(Path.GetTempPath(),"danmu-api-handler-"+Guid.NewGuid().ToString("N"));
@@ -356,8 +386,13 @@ public static class DesktopStateTests
             Test("navigation suppresses both old success and old error replies",()=>{
                 using var host=new DesktopHarness(); host.Observe("A",1);
                 host.Message("initial","hello",new { });
-                host.Message("old","search",new {apiBase=host.apiBase,value="slow"}); int priorRevision=host.revision; host.Navigate();
+                host.Message("old","search",new {apiBase=host.apiBase,value="slow"}); int priorRevision=host.revision;
+                long oldTicket=host.presentationTicket;
+                Check(host.overlay.Phase=="matching","The slow actual handler must publish its video search notice.");
+                host.Navigate();
                 Check(host.documentEpoch==1 && !host.Ready && host.revision==priorRevision+1 && host.api.Calls[0].Token.IsCancellationRequested,"Real navigation handler did not invalidate its document/request scope.");
+                Check(host.presentationTicket>oldTicket && host.overlay.Ticket==host.presentationTicket && host.overlay.Phase=="manual",
+                    "Navigating away must synchronously clear and invalidate an in-flight manual video notice.");
                 host.Message("new","hello",new { });
                 if (failure) host.api.Fail(0); else host.api.Complete(0);
                 host.WaitHandled("old");

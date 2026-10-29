@@ -10,16 +10,20 @@ internal sealed class DesktopTray : IDisposable
     private readonly ContextMenuStrip menu;
     private readonly Icon artwork;
     private bool disposed;
-    public DesktopTray(string root,Action open,Action exit)
+    public Point? Anchor {get;private set;}
+    public bool MenuVisible=>menu.Visible;
+    public DesktopTray(string root,Action open,Action exit,Action<Point,bool> toggle=null,Func<bool> visible=null)
     {
         menu=new ContextMenuStrip();
-        menu.Items.Add("打开工作台",null,(_,_)=>open());
+        menu.Items.Add("打开弹幕面板",null,(_,_)=>open());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("退出弹幕伴侣",null,(_,_)=>exit());
         artwork=AppIcons.Load(root,true);
         icon=new NotifyIcon {Icon=artwork,Text=Tooltip("",0,"",0),ContextMenuStrip=menu,Visible=true};
         icon.BalloonTipClicked+=(_,_)=>open();
-        icon.MouseClick+=(_,e)=>{if(e.Button==MouseButtons.Left)open();};
+        bool wasVisible=false;
+        icon.MouseDown+=(_,_)=>{Anchor=Cursor.Position;wasVisible=visible?.Invoke()==true;};
+        icon.MouseClick+=(_,e)=>{if(e.Button==MouseButtons.Left){if(toggle!=null)toggle(Anchor??Cursor.Position,wasVisible);else open();}};
     }
     private static string Compact(string value,int limit)
     {

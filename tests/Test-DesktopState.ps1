@@ -5,7 +5,7 @@ $root=Split-Path $PSScriptRoot -Parent
 $source=[IO.File]::ReadAllText((Join-Path $root 'desktop\native\Desktop.cs'))
 $update=[regex]::Match($source,'(?s)    private void UpdatePlayer\(\).*?(?=    private async Task InitializeAsync)')
 $handler=[regex]::Match($source,'(?s)    private async void OnMessage\(.*?(?=\r?\n\})')
-$push=[regex]::Match($source,'(?s)    private void PushState\(\).*?(?=    private async void OnMessage)')
+$push=[regex]::Match($source,'(?s)    private void PushState\(\).*?(?=    private void QueueLocalApiUpdate|    private async void OnMessage)')
 if(-not $update.Success -or -not $handler.Success -or -not $push.Success){ throw 'Could not extract the actual desktop handlers; update the harness boundary.' }
 $template=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'fixtures\DesktopHarness.cs.in'))
 $generated=$template.Replace('/*UPDATE_PLAYER*/',$update.Value).Replace('/*PUSH_STATE*/',$push.Value).Replace('/*ON_MESSAGE*/',$handler.Value)

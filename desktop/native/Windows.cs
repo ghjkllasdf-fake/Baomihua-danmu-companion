@@ -17,6 +17,7 @@ public static class NativeWindows
     [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr window,uint command);
     [DllImport("user32.dll")] private static extern IntPtr WindowFromPoint(Point point);
     [DllImport("user32.dll")] private static extern IntPtr GetAncestor(IntPtr window,uint flags);
+    [DllImport("user32.dll",EntryPoint="SystemParametersInfoW")] private static extern bool SystemParametersInfo(uint action,uint value,out int result,uint flags);
     [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr window,out Rect rect);
     [DllImport("user32.dll")] private static extern bool ClientToScreen(IntPtr window,ref Point point);
     [DllImport("user32.dll",CharSet=CharSet.Unicode)] private static extern int GetWindowText(IntPtr window,StringBuilder text,int size);
@@ -57,6 +58,9 @@ public static class NativeWindows
     public static void ClickThrough(IntPtr window) => SetWindowLongPtr(window,-20,new IntPtr(GetWindowLongPtr(window,-20).ToInt64()|0x20|0x08000000|0x80));
     public static bool HasExtendedStyles(IntPtr window,long flags)=>window!=IntPtr.Zero && (GetWindowLongPtr(window,-20).ToInt64()&flags)==flags;
     internal static uint ProcessId(IntPtr window) {GetWindowThreadProcessId(window,out uint process);return process;}
+    // Read only: SPI_GETCLIENTAREAANIMATION, independent of menu animation.
+    // https://learn.microsoft.com/windows/win32/winauto/client-area-animation
+    internal static bool ClientAreaAnimations=>SystemParametersInfo(0x1042,0,out int enabled,0) && enabled!=0;
     internal static bool IsVideoPointExposed(IntPtr overlay,IntPtr video,int x,int y)
     {
         IntPtr hit=GetAncestor(WindowFromPoint(new Point {X=x,Y=y}),2);

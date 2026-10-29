@@ -26,6 +26,9 @@ internal static class DistributionTests
             if(args.Length>0 && args[0]=="--video-companion-tests"){VideoCompanionTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--retry-match-tests"){RetryMatchTests.Run().GetAwaiter().GetResult();return 0;}
             if(args.Length>0 && args[0]=="--video-notice-tests"){VideoNoticeTests.Run();return 0;}
+            if(args.Length>0 && args[0]=="--video-notice-runtime"){VideoNoticeTests.RunRuntime();return 0;}
+            if(args.Length>0 && args[0]=="--tray-placement-tests"){TrayPlacementTests.Run();return 0;}
+            if(args.Length==2 && args[0]=="--tray-host-runtime"){TrayHostRuntimeTests.Run(args[1]);return 0;}
             if(args.Length>0 && args[0]=="--image-fixture"){Console.WriteLine("ready");Console.Out.Flush();Console.ReadLine();return 0;}
             if(args.Length>0 && args[0]=="--process-image-tests"){NativeProcessImageTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--fixture")return NativeChildTests.Emit(args[^1]);
@@ -58,6 +61,7 @@ internal static class DistributionTests
             NativeStartupTests.Run();
             NativePreferenceTests.Run();
             VideoNoticeTests.Run();
+            TrayPlacementTests.Run();
             PlaybackEventSignalTests.Run();
             ProbeOperationTests.Run();
             ProbeTransportTests.Run("All").GetAwaiter().GetResult();
