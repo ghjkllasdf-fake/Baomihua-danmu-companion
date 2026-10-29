@@ -20,6 +20,11 @@ internal static class NativeRuntimeTests
         var previous=new Dictionary<string,string>();foreach(string name in names)previous[name]=Environment.GetEnvironmentVariable(name);
         try
         {
+            NativeRuntime.ValidateLocalLocation(folder,DriveType.Fixed);
+            NativeRuntime.ValidateLocalLocation(folder,DriveType.Removable);
+            Fails(()=>NativeRuntime.ValidateLocalLocation(@"\\example.invalid\share\app",DriveType.Fixed),"UNC must not be accepted as a local runtime path.");
+            Fails(()=>NativeRuntime.ValidateLocalLocation(@"Z:\app",DriveType.Network),"Mapped network drives must be rejected before browser startup.");
+            Fails(()=>NativeRuntime.ValidateLocalLocation(@"Z:\app",DriveType.NoRootDirectory),"Missing drives must be rejected.");
             Fails(()=>NativeRuntime.ValidateApplication(paths),"Incomplete application payload must fail before startup.");
             foreach(string name in new[]{"DanmuCompanion.Probe.exe","Microsoft.Web.WebView2.Core.dll","WebView2Loader.dll","WinRT.Runtime.dll",
                 "Microsoft.Windows.SDK.NET.dll","assets/app.ico","assets/tray.ico","WebView2Runtime/msedgewebview2.exe","ui/dist/assets/main.js"})

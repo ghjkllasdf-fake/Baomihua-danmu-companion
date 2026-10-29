@@ -4,6 +4,9 @@
 #ifndef PayloadDir
   #error PayloadDir must be supplied by the release build.
 #endif
+#ifndef PayloadFileList
+  #error PayloadFileList must be supplied by the release build.
+#endif
 
 [Setup]
 AppId={{604952AE-033E-4832-9071-A9F995BA8C1D}
@@ -55,15 +58,50 @@ Filename: "{app}\DanmuCompanion.exe"; Description: "启动爆米花弹幕伴侣�
 Filename: "{app}\DanmuCompanion.exe"; Parameters: "--remove-startup"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "RemoveOwnedStartup"
 
 [Code]
+#include "DestinationGuard.iss"
+#include PayloadFileList
+
+function DestinationProblem: String;
+var
+  Registered: String;
+  Incoming: TStringList;
+begin
+  Registered := '';
+  RegQueryStringValue(HKCU64,
+    'Software\Microsoft\Windows\CurrentVersion\Uninstall\{604952AE-033E-4832-9071-A9F995BA8C1D}_is1',
+    'InstallLocation', Registered);
+  Result := DestinationProblemForDrive(WizardDirValue, Registered,
+    LocalDriveType(AddBackslash(ExtractFileDrive(WizardDirValue))));
+  if (Result = '') and FileExists(AddBackslash(WizardDirValue) + 'unins000.exe') then
+  begin
+    Incoming := TStringList.Create;
+    try
+      AddIncomingPayloadFiles(Incoming);
+      Result := PayloadCollisionProblem(WizardDirValue, Incoming);
+    finally
+      Incoming.Free;
+    end;
+  end;
+end;
+
 function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Problem: String;
 begin
   Result := True;
   if CurPageID = wpSelectDir then
   begin
-    if AddBackslash(WizardDirValue) = AddBackslash(ExtractFileDrive(WizardDirValue)) then
+    Problem := DestinationProblem;
+    if Problem <> '' then
     begin
-      MsgBox('请选择专用的安装子目录，不要直接使用磁盘根目录。', mbError, MB_OK);
+      if not WizardSilent then MsgBox(Problem, mbError, MB_OK);
+      Log(Problem);
       Result := False;
     end;
   end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := DestinationProblem;
 end;

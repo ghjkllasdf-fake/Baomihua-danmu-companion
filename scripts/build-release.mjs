@@ -5,6 +5,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { fileHash, inventory, releaseNames, walkFiles } from './release-lib.mjs';
+import { sourceState, requireSameSource } from './source-state.mjs';
+import { constants } from 'node:fs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const args = process.argv.slice(2);
@@ -28,8 +30,9 @@ function run(exe, arguments_, capture = false) {
   return result.stdout?.trim();
 }
 const dotnet = join(root, '.deps', 'dotnet', 'dotnet.exe');
-const sourceCommit = run('git', ['rev-parse', 'HEAD'], true);
-const sourceDirty = Boolean(run('git', ['status', '--porcelain', '--untracked-files=all'], true));
+const source = await sourceState(root);
+const sourceCommit = source.head;
+const sourceDirty = Boolean(source.status);
 if (sourceDirty && !allowDirty) throw new Error('Commit release sources before producing final artifacts; use --allow-dirty only for candidates.');
 for (const name of [names.portable, names.installer, 'SHA256SUMS.txt']) {
   if (existsSync(join(output, name))) throw new Error('Refusing to overwrite an existing release artifact.');
@@ -45,11 +48,14 @@ if (await fileHash(join(root, '.deps', 'inno', 'ISCC.exe')) !== lock.inno.compil
 if (run(dotnet, ['--version'], true) !== lock.dotnetSdk.version) throw new Error('Wrong local SDK version.');
 const work = join(root, 'artifacts', 'native-build', `${version}-${randomUUID()}`);
 const payload = join(work, 'payload');
-await mkdir(payload, { recursive: true }); await mkdir(output, { recursive: true });
+const staged = join(work, 'release');
+await mkdir(payload, { recursive: true }); await mkdir(staged); await mkdir(output, { recursive: true });
+run(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'npm.cmd --prefix ui ci --ignore-scripts']);
 run(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'npm.cmd --prefix ui run build']);
 for (const [project, directory] of [['NativeHost', 'host'], ['NativeProbe', 'probe']]) {
   const published = join(work, directory);
-  run(dotnet, ['publish', `desktop/${project}/${project}.csproj`, '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-o', published]);
+  run(dotnet, ['restore', `desktop/${project}/${project}.csproj`, '--locked-mode', '-r', 'win-x64']);
+  run(dotnet, ['publish', `desktop/${project}/${project}.csproj`, '--no-restore', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-o', published]);
   for (const relative of await walkFiles(published)) {
     if (/\.(?:pdb|xml)$/i.test(relative)) continue;
     const source = join(published, relative), target = join(payload, relative);
@@ -87,17 +93,25 @@ await copyFile(join(root, 'docs', 'BETA-USER-GUIDE.md'), join(payload, 'README.m
 const license = await readFile(join(root, 'LICENSE'), 'utf8');
 const runtimeLicense = await readFile(join(root, 'licenses', 'WebView2Runtime', 'LICENSE.txt'), 'utf8');
 await writeFile(join(payload, 'DISTRIBUTION-LICENSE.txt'), '\ufeff' + license + '\r\n\r\nBundled Microsoft WebView2 Runtime terms (separate from the original application MIT license):\r\n\r\n' + runtimeLicense.replace(/^\ufeff/, ''), 'utf8');
+const payloadFiles = [...await walkFiles(payload), 'manifest.json', 'install-files.txt'].sort();
+await writeFile(join(payload, 'install-files.txt'), payloadFiles.map(file => file.replaceAll('/', '\\')).join('\r\n') + '\r\n');
+const payloadFileList = join(work, 'IncomingPayload.iss');
+await writeFile(payloadFileList, 'procedure AddIncomingPayloadFiles(Files: TStringList);\nbegin\n' +
+  payloadFiles.map(file => `  Files.Add('${file.replaceAll('/', '\\').replaceAll("'", "''")}');`).join('\n') + '\nend;\n');
 const manifest = { schemaVersion: 1, version, sourceCommit, sourceDirty, baseline: 'v0.1.0-preview.15',
   dependencies: Object.fromEntries(['dotnetSdk', 'dotnetRuntime', 'webview2Sdk', 'windowsProjection', 'webview2Runtime', 'inno'].map(key => [key, lock[key]])),
   files: await inventory(payload) };
 await writeFile(join(payload, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 run(join(payload, 'DanmuCompanion.exe'), ['--check']);
-run(dotnet, ['build', 'scripts/NativeReleaseTools/NativeReleaseTools.csproj', '-c', 'Release']);
+run(dotnet, ['restore', 'scripts/NativeReleaseTools/NativeReleaseTools.csproj', '--locked-mode']);
+run(dotnet, ['build', 'scripts/NativeReleaseTools/NativeReleaseTools.csproj', '--no-restore', '-c', 'Release']);
 const tools = join(root, 'scripts', 'NativeReleaseTools', 'bin', 'Release', 'net10.0', 'win-x64', 'NativeReleaseTools.exe');
-run(tools, ['pack', payload, join(output, names.portable)]);
-run(join(root, '.deps', 'inno', 'ISCC.exe'), [`/DAppVersion=${version}`, `/DPayloadDir=${payload}`, `/DReleaseDir=${output}`, 'installer/DanmuCompanion.iss']);
+run(tools, ['pack', payload, join(staged, names.portable)]);
+run(join(root, '.deps', 'inno', 'ISCC.exe'), [`/DAppVersion=${version}`, `/DPayloadDir=${payload}`, `/DPayloadFileList=${payloadFileList}`, `/DReleaseDir=${staged}`, 'installer/DanmuCompanion.iss']);
 let sums = '';
-for (const file of [names.installer, names.portable]) sums += `${await fileHash(join(output, file))}  ${file}\n`;
-await writeFile(join(output, 'SHA256SUMS.txt'), sums, { flag: 'wx' });
+for (const file of [names.installer, names.portable]) sums += `${await fileHash(join(staged, file))}  ${file}\n`;
+await writeFile(join(staged, 'SHA256SUMS.txt'), sums, { flag: 'wx' });
+requireSameSource(source, await sourceState(root));
+for (const file of [names.installer, names.portable, 'SHA256SUMS.txt']) await copyFile(join(staged, file), join(output, file), constants.COPYFILE_EXCL);
 await writeFile(join(work, 'build-result.json'), JSON.stringify({ version, sourceCommit, sourceDirty, payload, output, files: manifest.files.length }, null, 2));
 console.log(JSON.stringify({ passed: true, version, output, payload, sourceDirty, files: manifest.files.length }, null, 2));

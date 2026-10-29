@@ -30,6 +30,15 @@ test('only the exact virtual-origin rejection fixture permits synthetic userinfo
   assert.equal((await scan('tests/Test-BridgeBoundary.ps1', value)).code, 0);
   assert.equal((await scan('source.txt', value)).code, 1);
 });
+test('Inno system DLL declarations are not email addresses; adjacent real-looking addresses remain rejected', async () => {
+  const declarations = "  external 'GetDriveTypeW" + "@kernel32.dll stdcall';\n  external 'GetFileAttributesW" + "@kernel32.dll stdcall';\n";
+  assert.equal((await scan('installer/Guard.iss', declarations)).code, 0);
+  assert.equal((await scan('source.txt', declarations)).code, 1);
+  const address = 'name' + '@' + 'private.test';
+  const result = await scan('installer/Guard.iss', declarations + '// ' + address);
+  assert.equal(result.code, 1);
+  assert.ok(result.report.findings.some(f => f.rule === 'non-placeholder-email'));
+});
 for (const [name, value, rule] of [
   ['source.txt', 'ghp_' + 'a'.repeat(36), 'github-token'],
   ['source.txt', '-'.repeat(5) + 'BEGIN PRIVATE KEY' + '-'.repeat(5), 'private-key'],

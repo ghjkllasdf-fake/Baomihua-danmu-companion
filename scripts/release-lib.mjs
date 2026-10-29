@@ -17,7 +17,7 @@ export function allowedEntry(path) {
   if (parts.some(part => /^(?:pwsh|powershell|System\.Management\.Automation|Microsoft\.PowerShell)(?:\.|$)/i.test(part))) return false;
   if (path === 'WebView2Runtime/show_third_party_software_licenses.bat') return true;
   if (/\.(?:ps1|psm1|psd1|bat|cmd|pdb|cs|csproj|lnk)$/i.test(path)) return false;
-  return /^(DanmuCompanion(?:\.Probe)?\.exe|createdump\.exe|README\.md|LICENSE|DISTRIBUTION-LICENSE\.txt|THIRD-PARTY-NOTICES\.md|manifest\.json)$/.test(path) ||
+  return /^(DanmuCompanion(?:\.Probe)?\.exe|createdump\.exe|README\.md|LICENSE|DISTRIBUTION-LICENSE\.txt|THIRD-PARTY-NOTICES\.md|install-files\.txt|manifest\.json)$/.test(path) ||
     /^DanmuCompanion(?:\.Probe)?\.(?:deps|runtimeconfig)\.json$/.test(path) ||
     /^(?:[a-z]{2}(?:-[A-Za-z0-9]+)?\/)?[A-Za-z0-9_.-]+\.dll$/.test(path) ||
     /^assets\/[A-Za-z0-9_.-]+\.(?:ico|png|svg)$/.test(path) ||

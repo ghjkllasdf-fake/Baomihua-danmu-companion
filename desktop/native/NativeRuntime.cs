@@ -10,6 +10,12 @@ namespace Popcorn;
 
 public static class NativeRuntime
 {
+    internal static void ValidateLocalLocation(string root,DriveType? driveType=null)
+    {
+        if(!Path.IsPathFullyQualified(root) || root.StartsWith(@"\\",StringComparison.Ordinal) ||
+            (driveType??new DriveInfo(Path.GetPathRoot(root)).DriveType) is not (DriveType.Fixed or DriveType.Removable or DriveType.Ram))
+            throw new NotSupportedException("Extract or install to an available local drive, not a network share or mapped network drive.");
+    }
     public static void LoadMediaProjection(string root)
     {
         Assembly.LoadFrom(Path.Combine(root,"WinRT.Runtime.dll"));
@@ -17,7 +23,7 @@ public static class NativeRuntime
     }
     public static void ValidateApplication(ApplicationPaths paths)
     {
-        if(paths.Root.StartsWith(@"\\",StringComparison.Ordinal))throw new NotSupportedException("Extract or install to a local drive, not a network share.");
+        ValidateLocalLocation(paths.Root);
         foreach(string relative in new[]{"DanmuCompanion.Probe.exe","Microsoft.Web.WebView2.Core.dll","WebView2Loader.dll",
             "WinRT.Runtime.dll","Microsoft.Windows.SDK.NET.dll","assets/app.ico","assets/tray.ico","WebView2Runtime/msedgewebview2.exe","ui/dist/index.html"})
             if(!File.Exists(Path.Combine(paths.Root,relative)))throw new FileNotFoundException("Application package file is missing: "+relative);

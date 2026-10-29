@@ -31,7 +31,7 @@ internal static class NativeHost
             }
             if(!OperatingSystem.IsWindows() || !Environment.Is64BitProcess)throw new PlatformNotSupportedException("Windows x64 is required.");
             var paths=new ApplicationPaths(AppContext.BaseDirectory,profile,dataRoot);
-            if(removeStartup){new StartupRegistration(paths.Root).SetEnabled(false);return 0;}
+            if(removeStartup){new StartupRegistration(paths.Root).RemoveOwnedNative();return 0;}
             NativeRuntime.ValidateApplication(paths);
             NativeRuntime.LoadMediaProjection(paths.Root);
             if(check){Console.WriteLine("PASS: native executable payload and projection dependencies.");return 0;}

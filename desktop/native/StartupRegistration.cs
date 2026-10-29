@@ -13,7 +13,7 @@ public sealed class StartupRegistration
     private readonly string root, shortcutPath;
     public StartupRegistration(string projectRoot,string startupFolder=null)
     {
-        root=Path.GetFullPath(projectRoot);
+        root=Path.TrimEndingDirectorySeparator(Path.GetFullPath(projectRoot));
         string folder=startupFolder??Environment.GetFolderPath(Environment.SpecialFolder.Startup);
         if(string.IsNullOrWhiteSpace(folder))throw new InvalidOperationException("无法找到当前用户的开机启动文件夹。");
         shortcutPath=Path.Combine(Path.GetFullPath(folder),"爆米花弹幕伴侣.lnk");
@@ -37,6 +37,30 @@ public sealed class StartupRegistration
             if(shell!=null && Marshal.IsComObject(shell))Marshal.FinalReleaseComObject(shell);
         }
     }
+    private bool IsNative(object link,bool thisCopy)
+    {
+        string directory=Property(link,"WorkingDirectory") as string;
+        if(string.IsNullOrEmpty(directory) || !Path.IsPathFullyQualified(directory))return false;
+        directory=Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+        return (!thisCopy || string.Equals(directory,root,StringComparison.OrdinalIgnoreCase)) &&
+            string.Equals(Property(link,"TargetPath") as string,Path.Combine(directory,"DanmuCompanion.exe"),StringComparison.OrdinalIgnoreCase) &&
+            (Property(link,"Arguments") as string)==Arguments && (Property(link,"Description") as string)==Description;
+    }
+    private bool IsLegacy(object link)
+    {
+        string directory=Property(link,"WorkingDirectory") as string;
+        if(string.IsNullOrEmpty(directory) || !Path.IsPathFullyQualified(directory))return false;
+        string arguments="-NoLogo -NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File \""+Path.Combine(directory,"desktop","Start.ps1")+"\"";
+        return string.Equals(Property(link,"TargetPath") as string,Path.Combine(directory,".deps","pwsh","pwsh.exe"),StringComparison.OrdinalIgnoreCase) &&
+            (Property(link,"Arguments") as string)==arguments && (Property(link,"Description") as string)==Description &&
+            string.Equals(Property(link,"IconLocation") as string,Path.Combine(directory,"assets","app.ico")+",0",StringComparison.OrdinalIgnoreCase) &&
+            (int)Property(link,"WindowStyle")==7;
+    }
+    // Uninstall is intentionally narrower than an explicit user startup opt-out.
+    public void RemoveOwnedNative()
+    {
+        if(File.Exists(shortcutPath) && WithShortcut(shortcutPath,link=>IsNative(link,true)))File.Delete(shortcutPath);
+    }
     public bool Enabled
     {
         get
@@ -44,10 +68,7 @@ public sealed class StartupRegistration
             try
             {
                 if(!File.Exists(shortcutPath))return false;
-                return WithShortcut(shortcutPath,link=>
-                    string.Equals(Property(link,"TargetPath") as string,Runtime,StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(Property(link,"Arguments") as string,Arguments,StringComparison.Ordinal) &&
-                    string.Equals(Property(link,"WorkingDirectory") as string,root,StringComparison.OrdinalIgnoreCase));
+                return WithShortcut(shortcutPath,link=>IsNative(link,true) || IsLegacy(link));
             }
             catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or SecurityException or COMException or TargetInvocationException)
             {throw new InvalidOperationException("无法读取开机启动状态，请检查启动文件夹的访问权限。");}
@@ -62,7 +83,7 @@ public sealed class StartupRegistration
             {
                 if(!File.Exists(Runtime) || !File.Exists(Path.Combine(root,"assets","app.ico")))
                     throw new InvalidOperationException("请确认程序文件完整，再设置开机启动。");
-                if(File.Exists(shortcutPath) && !Enabled && !WithShortcut(shortcutPath,link=>(Property(link,"Description") as string)==Description))
+                if(File.Exists(shortcutPath) && !WithShortcut(shortcutPath,link=>IsNative(link,false) || IsLegacy(link)))
                     throw new InvalidOperationException("开机启动位置已有其他快捷方式，未覆盖原文件。");
                 Directory.CreateDirectory(Path.GetDirectoryName(shortcutPath));
                 temp=Path.Combine(Path.GetDirectoryName(shortcutPath),"爆米花弹幕伴侣-"+Guid.NewGuid().ToString("N")+".lnk");
