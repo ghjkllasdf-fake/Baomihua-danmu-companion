@@ -6,7 +6,7 @@
 
 填入你自己的弹幕 API 服务地址后，助手会识别正在播放的作品和集数，自动寻找弹幕、跟随播放进度，并把弹幕显示在视频窗口上。
 
-**当前版本：`0.1.0-preview.13`，Windows x64 预览版。**
+**当前版本：`0.1.0-preview.14`，Windows x64 预览版。**
 
 ➡️ **[下载预览版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases)**
 

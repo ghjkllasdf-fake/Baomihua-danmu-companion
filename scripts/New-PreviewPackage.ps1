@@ -1,6 +1,6 @@
 #requires -Version 7.6
 param(
-    [ValidatePattern('^\d+\.\d+\.\d+-preview\.[1-9]\d*$')][string]$Version='0.1.0-preview.13',
+    [ValidatePattern('^\d+\.\d+\.\d+-preview\.[1-9]\d*$')][string]$Version='0.1.0-preview.14',
     [string]$OutputDirectory
 )
 $ErrorActionPreference='Stop'

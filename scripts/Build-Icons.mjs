@@ -30,7 +30,8 @@ const browser = await chromium.launch({ channel: 'msedge', headless: true });
 try {
   for (const name of ['app', 'tray']) {
     const svg = await readFile(resolve(root, `assets/${name}.svg`), 'utf8');
-    const page = await browser.newPage({ viewport: { width: 512, height: 512 }, deviceScaleFactor: 1 });
+    const previewSize = name === 'app' ? 1024 : 512;
+    const page = await browser.newPage({ viewport: { width: previewSize, height: previewSize }, deviceScaleFactor: 1 });
     await page.setContent(`<style>html,body{margin:0;background:transparent}svg{display:block;width:100vw;height:100vh}</style>${svg}`);
     const preview = await page.screenshot({ omitBackground: true });
     await writeFile(resolve(root, `docs/assets/${name}-icon.png`), preview);
@@ -57,7 +58,26 @@ try {
   <div class="tray"><p>托盘 · 浅色背景</p><div class="row">${samples}</div><p>托盘 · 深色背景</p><div class="row dark">${samples}</div><small>亮黄 × 珊瑚红 · 电视、爆米花与弹幕点线</small></div>`);
   await sheet.screenshot({ path: resolve(root, 'docs/assets/icon-preview.png') });
   await sheet.close();
-  console.log('Built application/tray ICO files at 9 Windows sizes, PNG previews and the web favicon.');
+  const appSvg = await readFile(resolve(root, 'assets/app.svg'), 'utf8');
+  const review = await browser.newPage({ viewport: { width: 980, height: 370 }, deviceScaleFactor: 1 });
+  await review.setContent(`<style>
+    *{box-sizing:border-box}body{margin:0;padding:24px;background:#f5f3eb;font:14px "Segoe UI","Microsoft YaHei",sans-serif;color:#2d2438}
+    h1{font-size:18px;margin:0 0 20px;font-weight:600}.samples{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
+    figure{margin:0;text-align:center;width:180px}.stage{height:200px;display:flex;align-items:center;justify-content:center}
+    img,svg{display:block}figcaption{font-size:12px;color:#686371}.gray{filter:grayscale(1)}
+    .silhouette svg{width:180px;height:180px}.silhouette #background,.silhouette #contact-shadow{display:none}
+    .silhouette [fill]:not([fill="none"]){fill:#2d2438}.silhouette [stroke]{stroke:#2d2438}.silhouette [opacity]{opacity:1}
+    p{margin:24px 0 0;color:#686371;font-size:12px}
+  </style><h1>尺寸、灰阶与主体轮廓检查</h1><div class="samples">
+    <figure><div class="stage"><img src="data:image/png;base64,${app}" width="180" height="180"></div><figcaption>180px · 应用入口</figcaption></figure>
+    <figure><div class="stage"><img src="data:image/png;base64,${app}" width="60" height="60"></div><figcaption>60px · 中等尺寸</figcaption></figure>
+    <figure><div class="stage"><img src="data:image/png;base64,${app}" width="32" height="32"></div><figcaption>32px · 任务栏</figcaption></figure>
+    <figure><div class="stage gray"><img src="data:image/png;base64,${app}" width="180" height="180"></div><figcaption>灰阶 · 明暗分离</figcaption></figure>
+    <figure><div class="stage silhouette">${appSvg}</div><figcaption>主体剪影 · 无天线／脚</figcaption></figure>
+  </div><p>1024px 原稿另存 app-icon.png；Windows 托盘另有独立的 16–32px 简化图形。</p>`);
+  await review.screenshot({ path: resolve(root, 'docs/assets/icon-size-review.png') });
+  await review.close();
+  console.log('Built application/tray ICO files at 9 Windows sizes, 1024px application artwork, scale/grayscale reviews and the web favicon.');
 } finally {
   await browser.close();
 }
