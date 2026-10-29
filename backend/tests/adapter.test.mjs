@@ -92,6 +92,8 @@ test('rejects unauthorized host, origin, methods, routes, malformed parameters a
 test('preserves upstream status and rejects oversized responses', async t => {
   const f = await fixture(t); f.child.stdin.write(JSON.stringify(config) + '\n'); const { port } = await f.ready();
   assert.equal((await request(port, `/${token}/api/v2/search/anime?keyword=failure`)).status, 429);
+  const valid = await request(port, `/${token}/api/v2/search/anime?keyword=large-valid`);
+  assert.equal(valid.status, 200); assert.equal(Buffer.byteLength(valid.body), 17130234);
   const large = await request(port, `/${token}/api/v2/search/anime?keyword=oversized`);
   assert.equal(large.status, 502); assert.ok(large.body.length < 1024);
 });

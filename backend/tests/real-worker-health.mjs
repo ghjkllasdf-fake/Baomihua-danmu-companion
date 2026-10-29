@@ -24,7 +24,7 @@ try {
     for (const key of Object.keys(dns)) if (/^resolve|^reverse$|^lookupService$/.test(key) && typeof dns[key] === 'function') dns[key] = block;
     syncBuiltinESMExports();
   `);
-  child = spawn(node, ['--max-old-space-size=256', '--import', pathToFileURL(guard).href, join(api, 'entry.mjs')], {
+  child = spawn(node, ['--max-old-space-size=256', '--import', pathToFileURL(guard).href, '--import', new URL('./fixtures/no-database-loader.mjs', import.meta.url).href, join(api, 'entry.mjs')], {
     cwd: temp, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
     env: { ...process.env, BILIBILI_COOKIE: 'poison', HTTP_PROXY: 'http://127.0.0.1:9', NODE_OPTIONS: '' }
   });

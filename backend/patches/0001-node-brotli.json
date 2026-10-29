@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "4d325e096bbbf0c1ff261a9bfa638f7c58784f60",
+  "path": "danmu_api/utils/codec-util.js",
+  "description": "Use Node zlib Brotli decoder in the Windows includeAPI build.",
+  "originalSha256": "367f427a7e3e8c992edf92b2eadf9fad640c545c72e07db66f34111cd0e64463",
+  "modifiedSha256": "14ecd4f92e5ecfd301ac4246c6ab79321d09e7a46faf14c65a7fee6af1eaa091",
+  "replacements": [
+    {
+      "from": "import brotliDecompress from \"brotli/decompress.js\";",
+      "to": "import { brotliDecompressSync } from \"node:zlib\";"
+    },
+    {
+      "from": "// \u7eaf JavaScript Brotli \u89e3\u538b\uff0c\u517c\u5bb9\u4e0d\u63d0\u4f9b\u539f\u751f\u89e3\u538b API \u7684\u6c99\u7bb1\u3002",
+      "to": "// Node includeAPI distribution: use the bundled native Brotli decoder."
+    },
+    {
+      "from": "const output = brotliDecompress(input);",
+      "to": "const output = new Uint8Array(brotliDecompressSync(input));"
+    }
+  ],
+  "license": "AGPL-3.0-only",
+  "modifiedDate": "2026-10-29"
+}

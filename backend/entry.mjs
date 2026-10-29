@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// This adapter is distributed as part of the AGPL-covered includeAPI program.
 import http from 'node:http';
 import net from 'node:net';
 import dns from 'node:dns';
@@ -9,7 +11,7 @@ const COMMIT = '4d325e096bbbf0c1ff261a9bfa638f7c58784f60';
 const SOURCES = new Set(['douban', '360', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'migu', 'renren', 'hanjutv', 'sohu', 'leshi', 'xigua', 'maiduidui', 'aiyifan', 'hongguo', 'bahamut', 'animeko']);
 const MAX_LINE = 4096;
 const MAX_URL = 4096;
-const MAX_RESPONSE = 16 * 1024 * 1024;
+const MAX_RESPONSE = 64 * 1024 * 1024;
 
 // The host already clears Node startup options. Also clear upstream settings and
 // proxy/cookie variables before importing code that may consult process.env.
@@ -114,7 +116,7 @@ async function respond(req, res, worker, env, token) {
   const timeout = setTimeout(() => {
     abort.abort();
     safeReply(res, 504, { success: false, errorMessage: 'Local API timed out' });
-  }, 60000);
+  }, 180000);
   res.once('close', () => abort.abort());
   try {
     const request = new Request(route.url, { method: 'GET', headers: { 'cf-connecting-ip': '127.0.0.1' }, signal: abort.signal });

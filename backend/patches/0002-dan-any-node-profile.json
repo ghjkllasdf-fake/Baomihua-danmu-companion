@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "package": "@dan-uni/dan-any",
+  "version": "2.3.9",
+  "path": "node_modules/@dan-uni/dan-any/package.json",
+  "description": "Exclude database-only dependencies from the pure-API runtime profile; library JavaScript remains unchanged.",
+  "originalSha256": "3a40f123ae14979b33476331cb147bc5ddabc9aca2c204ef50119970a6dc64f7",
+  "modifiedSha256": "f45a31ffc49bb8ed323238bc4e1453d0adfba56a04130dcced4de551e7a411d4",
+  "replacements": [
+    {
+      "from": "    \"@electric-sql/pglite\": \"^0.5.4\",\n",
+      "to": ""
+    },
+    {
+      "from": "    \"@electric-sql/pglite-tools\": \"^0.4.4\",\n",
+      "to": ""
+    },
+    {
+      "from": "    \"drizzle-orm\": \"^1.0.0-rc.4-de6c356\",\n",
+      "to": ""
+    }
+  ],
+  "license": "LGPL-3.0-or-later",
+  "modifiedDate": "2026-10-29"
+}

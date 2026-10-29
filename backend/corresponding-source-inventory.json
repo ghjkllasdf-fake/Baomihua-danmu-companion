@@ -1,0 +1,2100 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "README.md",
+      "length": 5702,
+      "sha256": "8504d9b73aadce7e60f98230a0a4c2a264e2a6593140ce5fc537c90117ca846f"
+    },
+    {
+      "path": "archives/node-v22.23.4.tar.xz",
+      "length": 51413508,
+      "sha256": "7b9adc82d612d0a2a863d96c46de2292552e250cee51956ebbe0146c42aacae9"
+    },
+    {
+      "path": "archives/npm-agent-base-7.1.4.tgz",
+      "length": 7812,
+      "sha256": "7dd4a61668a9a4e8d4e903f1a254f94d53dafd3f316f2b9b597c5ad8c79cb57e"
+    },
+    {
+      "path": "archives/npm-anynum-1.0.1.tgz",
+      "length": 7804,
+      "sha256": "705d5c67f0438588aded995c6f88fee65495d0bf6a785a5fa2c448a2fb1f341a"
+    },
+    {
+      "path": "archives/npm-bignumber.js-9.3.1.tgz",
+      "length": 79843,
+      "sha256": "f5a943ea290e66f64cb9adaaed2ff1b7c4ee02a4cca9d709d9c9c6c222512e82"
+    },
+    {
+      "path": "archives/npm-bufbuild-protobuf-2.16.0.tgz",
+      "length": 253369,
+      "sha256": "99f570d2fbabd3161fd378c602ed97c54a8ef581bebbc0954e68522a4bb9df39"
+    },
+    {
+      "path": "archives/npm-chokidar-4.0.3.tgz",
+      "length": 25133,
+      "sha256": "61a29da9d314c2cd33a7be7327014814c4620673e3d4be41b120aa8544868389"
+    },
+    {
+      "path": "archives/npm-cluster-key-slot-1.1.2.tgz",
+      "length": 5253,
+      "sha256": "da971248204343b147d77395a34a5a0d0804e07c2325cc8b5085867de40aa79a"
+    },
+    {
+      "path": "archives/npm-dan-uni-dan-any-2.3.9.tgz",
+      "length": 200594,
+      "sha256": "46c97e6df8b0a4e5528a40be521506ee5c7cecc864d9e7c82455efeb1b1c03d0"
+    },
+    {
+      "path": "archives/npm-data-uri-to-buffer-4.0.1.tgz",
+      "length": 3680,
+      "sha256": "a5742b1b775d0b29fb562ff7e12f7ca19874e1c47322087b47a79230791642a1"
+    },
+    {
+      "path": "archives/npm-debug-4.4.3.tgz",
+      "length": 13449,
+      "sha256": "89c1ac9c946ee8905a875837114528e97eeae35e03be3190584b2216af43e4a7"
+    },
+    {
+      "path": "archives/npm-dotenv-16.6.1.tgz",
+      "length": 22625,
+      "sha256": "7495c5d7f2182736e3c40d280a72486ee93c278463a94f901a47266dffb47a82"
+    },
+    {
+      "path": "archives/npm-fast-xml-builder-1.3.1.tgz",
+      "length": 60073,
+      "sha256": "0e9583b397ee65ab8cfd32b2f78461bc7d9d4c2d398a03506f524d1973d7642a"
+    },
+    {
+      "path": "archives/npm-fast-xml-parser-5.11.2.tgz",
+      "length": 372179,
+      "sha256": "d8a04c1838235165f66fa2bc8ed6fcc1adfccae6bda34e24e0b2eadd74601321"
+    },
+    {
+      "path": "archives/npm-fetch-blob-3.2.0.tgz",
+      "length": 7689,
+      "sha256": "4abf0d58a4977fce2240e08c280a2bc59f5363e9553a4f236cea6d74cce40c52"
+    },
+    {
+      "path": "archives/npm-formdata-polyfill-4.0.10.tgz",
+      "length": 11359,
+      "sha256": "1ff73b4138ea33f0fd0f41b67910409a2c8eb1b71a4cf1a4f8ab738a6e8487e9"
+    },
+    {
+      "path": "archives/npm-https-proxy-agent-7.0.6.tgz",
+      "length": 8998,
+      "sha256": "960f89e8e5240882f64249d04a538421dd39d62ffacc138544647cc3251bc0e0"
+    },
+    {
+      "path": "archives/npm-is-unsafe-2.0.2.tgz",
+      "length": 20809,
+      "sha256": "d1dd08942d20c78f5156911f77e60a173c87a4f575eca285fbecf2c6bc36db2b"
+    },
+    {
+      "path": "archives/npm-json-bigint-1.0.0.tgz",
+      "length": 11238,
+      "sha256": "4c4f502953cfb36cfe1c6c4989676bf9b76899a253237fc0220814b88ff903b6"
+    },
+    {
+      "path": "archives/npm-ms-2.1.3.tgz",
+      "length": 2967,
+      "sha256": "f6616e15e530ed552f9daa2d3ce71963947c6bc7c98c9b64fd3e673fd02622c6"
+    },
+    {
+      "path": "archives/npm-noble-hashes-2.4.0.tgz",
+      "length": 167626,
+      "sha256": "e1946149b780017b2564fcc092cb01c04e1d7f20627d0296c17da8868f4436dc"
+    },
+    {
+      "path": "archives/npm-nodable-entities-3.1.0.tgz",
+      "length": 22363,
+      "sha256": "3b7cbfe696f570ada57df3eb6981f6c668737a2158ec88a53134f243f9f1db8e"
+    },
+    {
+      "path": "archives/npm-node-domexception-1.0.0.tgz",
+      "length": 3614,
+      "sha256": "eba234134890897807b85c2bc67cd32d0242eb9be1d1c62513797fdaab60c971"
+    },
+    {
+      "path": "archives/npm-node-fetch-3.3.2.tgz",
+      "length": 31722,
+      "sha256": "615af90e363f8f276b4b54f8e6c163cf3686dce1d8867dd7e52cbed4d38d2dab"
+    },
+    {
+      "path": "archives/npm-opencc-js-1.4.2.tgz",
+      "length": 2602149,
+      "sha256": "acde2ed46fecc53eb1c329ff093886bf702975be24ace4caa3d01321167d69c8"
+    },
+    {
+      "path": "archives/npm-pako-2.2.0.tgz",
+      "length": 422678,
+      "sha256": "62510b5d8ce95dd70942540dd5e9360dcd5b475a5cfe525be27b26d2908a2d64"
+    },
+    {
+      "path": "archives/npm-path-expression-matcher-1.6.2.tgz",
+      "length": 43562,
+      "sha256": "a501b52ebf8236b2264e98b23000ca67e30d0d6cbb2815a041e8b2c0e3818a36"
+    },
+    {
+      "path": "archives/npm-readdirp-4.1.2.tgz",
+      "length": 8047,
+      "sha256": "766ea2ba6314aefe6b939c9bbe3999cc473286578aeb1c3805338c2dbd655f5a"
+    },
+    {
+      "path": "archives/npm-redis-5.12.1.tgz",
+      "length": 13969,
+      "sha256": "1a5baf7eb59c08aefbbfd7bd1a6475b18dd04dafd9217edb9f39fd592dda6dea"
+    },
+    {
+      "path": "archives/npm-redis-bloom-5.12.1.tgz",
+      "length": 26629,
+      "sha256": "631b1d762abbc19d55ca856de6fdd83607b23566c2d5e6dea653891b7ec67417"
+    },
+    {
+      "path": "archives/npm-redis-client-5.12.1.tgz",
+      "length": 408431,
+      "sha256": "b729e2cb3000c2009a2d19455488ab317fa3541040dcf6105e79b0d72c95d840"
+    },
+    {
+      "path": "archives/npm-redis-json-5.12.1.tgz",
+      "length": 14270,
+      "sha256": "cea63f5cc5f6463d3adb54f7f3168efec5826216179e85e0b54d800d8ae0df63"
+    },
+    {
+      "path": "archives/npm-redis-search-5.12.1.tgz",
+      "length": 44356,
+      "sha256": "a7f8e39e03f90c205cfb1d3322f77cebd5b924ca6e9b83b2e17e4df80eb0677d"
+    },
+    {
+      "path": "archives/npm-redis-time-series-5.12.1.tgz",
+      "length": 31240,
+      "sha256": "4f2d24bf5d1929550cd1b09cad69228bbd51bc391facdb3eca70db84bf670a45"
+    },
+    {
+      "path": "archives/npm-strnum-2.5.1.tgz",
+      "length": 5047,
+      "sha256": "ced67dded4b9d8122292bc5f41e0c5e65fee378c4fb902e3680790abcb1b90bd"
+    },
+    {
+      "path": "archives/npm-web-streams-polyfill-3.3.3.tgz",
+      "length": 1579083,
+      "sha256": "1ee138d3dc0263ead35c40604da75d7d56c4fa0ef32dc2e3a7fbac10480ebb54"
+    },
+    {
+      "path": "archives/npm-xml-naming-0.3.0.tgz",
+      "length": 9362,
+      "sha256": "da0925864bd4c04ef3384e89ef5d4774d82ed6d9fa241519b003ddbcc0effac8"
+    },
+    {
+      "path": "archives/npm-zod-4.6.7.tgz",
+      "length": 1141941,
+      "sha256": "84efd155bed93270286e793fc951be270b536cbd5b0eeb111f0fa3967201d698"
+    },
+    {
+      "path": "archives/source-agent-base-7.1.4-b923f5363875.zip",
+      "length": 376050,
+      "sha256": "aba24381bfafc309f5526fc6be0e7c757fc8a473083addee975d09b40179ff42"
+    },
+    {
+      "path": "archives/source-anynum-1.0.1-996c47118094.zip",
+      "length": 45095,
+      "sha256": "44d072460e5634768907c6ea0fca8a7e0e54b3fb252a0d2b73a7d376a82a22e3"
+    },
+    {
+      "path": "archives/source-bignumber.js-9.3.1-a7bc1f175c1e.zip",
+      "length": 1917682,
+      "sha256": "e4cf46ade481de89f0dc409bca723a8ecd34768db42f3876bc9aabc8301a7c09"
+    },
+    {
+      "path": "archives/source-bufbuild-protobuf-2.16.0-b3b232f7f466.zip",
+      "length": 2019861,
+      "sha256": "3c0b4a3c9c7f685b514425e4da6cd606c940fe823797fe68c1396ef52f6b709d"
+    },
+    {
+      "path": "archives/source-chokidar-4.0.3-1182965a0d3d.zip",
+      "length": 45635,
+      "sha256": "5778e43d367b51eb29706a0287b94195a170bee288e5fd8dc324b515f3a8af6d"
+    },
+    {
+      "path": "archives/source-cluster-key-slot-1.1.2-992ae4c2599d.zip",
+      "length": 13584,
+      "sha256": "a3c696e79637e1e5d0bd4d18c2061b86cc85a485e87d9080f4155b2d4d1dfb05"
+    },
+    {
+      "path": "archives/source-dan-uni-dan-any-2.3.9-401205834f37.zip",
+      "length": 156789,
+      "sha256": "2f1560006a1f3a9e68402678fab9cf23d1ffb9c01e271eefceb3c34f463800e6"
+    },
+    {
+      "path": "archives/source-data-uri-to-buffer-4.0.1-85cd8c854aef.zip",
+      "length": 41968,
+      "sha256": "41219fc5d8e677c6df4ebf80cd159543b7f4427a0d77486e5285747f3a8116e9"
+    },
+    {
+      "path": "archives/source-debug-4.4.3-6b2c5fbdb7d4.zip",
+      "length": 20358,
+      "sha256": "341a77e1519d199152b2c44792c08549aac7496e0723557247c6dbecc816b077"
+    },
+    {
+      "path": "archives/source-dotenv-16.6.1-076ba3b6a225.zip",
+      "length": 198641,
+      "sha256": "4c70b249b1fbbde4efa4f4b87806b3d5fcff077fe5f45447172eedd826da74cf"
+    },
+    {
+      "path": "archives/source-fast-xml-builder-1.3.1-d7d1d7b7e1ed.zip",
+      "length": 151047,
+      "sha256": "8f7084c161de0bf999b9db382230066416e89d0668b7b7ec1528f732403f588b"
+    },
+    {
+      "path": "archives/source-fast-xml-parser-5.11.2-80e88a848b07.zip",
+      "length": 1993914,
+      "sha256": "b8c208fd8d6b0545b3d69e415356294cf0455ade9caf7ceac8f37fddf8ac1771"
+    },
+    {
+      "path": "archives/source-fetch-blob-3.2.0-b8c8176ba48a.zip",
+      "length": 20852,
+      "sha256": "d87961105e1c7542d99ea1d818d1d8beb15647b460cd1d2d845ff638c69a55c4"
+    },
+    {
+      "path": "archives/source-formdata-polyfill-4.0.10-fbb503396bfd.zip",
+      "length": 34026,
+      "sha256": "a20dba609eed0443e1001433fdcd0a907c88113ceb257d2002170ce0471e11df"
+    },
+    {
+      "path": "archives/source-https-proxy-agent-7.0.6-7cf0b795e052.zip",
+      "length": 358658,
+      "sha256": "248a24db85ba597d3f0cb7432d5f556a30736ddbbea5eaa99e41be467b7a6675"
+    },
+    {
+      "path": "archives/source-is-unsafe-2.0.2-fcc5f3010c1c.zip",
+      "length": 59855,
+      "sha256": "7d064ef49a8cda5400f1f050a419b3f07817f2a1fc142f7e39aa69733dcd68d1"
+    },
+    {
+      "path": "archives/source-json-bigint-1.0.0-390482a8b6b4.zip",
+      "length": 31251,
+      "sha256": "84d25f35f5e3c168784eafb79d5cac7d6c9ee0b1af4fa4dbe5104042db064e15"
+    },
+    {
+      "path": "archives/source-ms-2.1.3-1c6264b79549.zip",
+      "length": 22188,
+      "sha256": "322696d86c51b7991e8858195307117273345a5888c61382a0c9865b9e6e1476"
+    },
+    {
+      "path": "archives/source-noble-hashes-2.4.0-663c2aeeffc3.zip",
+      "length": 15990466,
+      "sha256": "9548673a547498d7f33ec999d534c3254d7f34779155312a886d3ba99d67be5c"
+    },
+    {
+      "path": "archives/source-nodable-entities-3.1.0-b89ecb0d4199.zip",
+      "length": 81032,
+      "sha256": "259be03d4f6508a01a0a2d4d8ff38a50dc0ad4bb18c56f84e78f0857d19c3eca"
+    },
+    {
+      "path": "archives/source-node-domexception-1.0.0-824361dc9b02.zip",
+      "length": 3402,
+      "sha256": "7dbe22d282715a9ce823a59dc9a334e83c9fb26df382d1d33b63f65cc0222177"
+    },
+    {
+      "path": "archives/source-node-fetch-3.3.2-8b3320d2a7c0.zip",
+      "length": 123108,
+      "sha256": "addc998b1f2b123167fa71dfaf18e5cf7325a4bf7bff6c8bba6480d9657ea99e"
+    },
+    {
+      "path": "archives/source-node-redis-5.12.1-5cdad1b34d14.zip",
+      "length": 1397974,
+      "sha256": "18c80c3238fc124e48c05ec9f5bc1d9c84108bccf67f8e2ca9580b8f6bcc74cc"
+    },
+    {
+      "path": "archives/source-opencc-js-1.4.2-ba20c6eda99e.zip",
+      "length": 889143,
+      "sha256": "5032982c55323d13669d242e42066682b23c01d3e6b5e6f6786c65c5715cc7f4"
+    },
+    {
+      "path": "archives/source-pako-2.2.0-c743a323fb7d.zip",
+      "length": 2144499,
+      "sha256": "6b868a052c3087731ad0df477f8f81d176a704fe5d7e70d7ecf9160d1f30bc0c"
+    },
+    {
+      "path": "archives/source-path-expression-matcher-1.6.2-0326c2e78b7d.zip",
+      "length": 115881,
+      "sha256": "77f403d33bfc98a86da8ccf817fc4010d2eb1dca1ffeb55f4c2c2b463e4a1098"
+    },
+    {
+      "path": "archives/source-readdirp-4.1.2-a124cce86eff.zip",
+      "length": 26951,
+      "sha256": "8f6617ab9c87a9e8f3f2b5a6d4080fddbb956b0d8b39e8d0a60e7bbcaea8b726"
+    },
+    {
+      "path": "archives/source-strnum-2.5.1-5aa0a504335d.zip",
+      "length": 26512,
+      "sha256": "589ccc7b7da50531b77b293ab17d6a041033363fae3e50b15d0c5e5d8a19e0a2"
+    },
+    {
+      "path": "archives/source-web-streams-polyfill-3.3.3-ef5c9e909434.zip",
+      "length": 179331,
+      "sha256": "7b123a85aab6180502aacc976775c8fb01575d7278a9307c5f539df1667631f9"
+    },
+    {
+      "path": "archives/source-xml-naming-0.3.0-f732ff38aa3e.zip",
+      "length": 19144,
+      "sha256": "81a432e999019d5843f0db8a26d6952dbc7c5628b09677e3fd3d8abbb3f212ba"
+    },
+    {
+      "path": "archives/source-zod-4.6.7-b500a2ee9513.zip",
+      "length": 10800388,
+      "sha256": "e4c0b18a102a5ed75c5de8269f0fc01dcb40e53a2b3f7fa021ba7a51f93c756e"
+    },
+    {
+      "path": "archives/upstream.zip",
+      "length": 944969,
+      "sha256": "65a2c90ad0b81b4c79c617f21e3f45fce285eeedd7e6f7f353bce4458175c9dc"
+    },
+    {
+      "path": "dependencies/SOURCES.json",
+      "length": 35014,
+      "sha256": "cf58dca9beede0a03b266973b5b36c3c79bf3dc65e482b1fc66e9bc5df8339ab"
+    },
+    {
+      "path": "dependencies/dan-any/README.md",
+      "length": 243,
+      "sha256": "528f0a2d0eea1d020acd3c22df85b8fbac54e030d5c11a1e6b42b03a6973332d"
+    },
+    {
+      "path": "dependencies/node/README.md",
+      "length": 144,
+      "sha256": "d54a3001023c0d80081f475842738758ca882cc75df0bacd7bb9e450593017c9"
+    },
+    {
+      "path": "upstream/modified/.github/workflows/docker-image.yml",
+      "length": 2066,
+      "sha256": "fa36cdaf252c40ca8c20928a075d9c1bb9ffec969161c28e83e4f5f21565bc3b"
+    },
+    {
+      "path": "upstream/modified/.github/workflows/pr_agent.yml",
+      "length": 947,
+      "sha256": "282ac1402e7aca27503424598e968c80c6f8d413cef028a267df582687b3cd43"
+    },
+    {
+      "path": "upstream/modified/.github/workflows/sync_fork.yml",
+      "length": 1411,
+      "sha256": "a4afa1143bc80721ea8d02ca8b15f0c1647be91b055f05f95c5cfb6977dd6352"
+    },
+    {
+      "path": "upstream/modified/.github/workflows/sync_hf.yml",
+      "length": 1035,
+      "sha256": "5793bbedf8c56682325851bf49917e59c16073e38762442c0b4497fb721decf5"
+    },
+    {
+      "path": "upstream/modified/.github/workflows/test.yml",
+      "length": 1489,
+      "sha256": "b63eef0d84397e2925b8079a93c80ebf320fee97e134f92e5cf5ac1a9f0fb3d0"
+    },
+    {
+      "path": "upstream/modified/.gitignore",
+      "length": 54,
+      "sha256": "a4808102930b40031578f21be473883ec9c057cf1320643dfa6ccb0d954aff1b"
+    },
+    {
+      "path": "upstream/modified/.pr_agent.toml",
+      "length": 1145,
+      "sha256": "03ff99ba7e67209dff55ea30b5f7aab4d403e832981ccbc84c3ee800dc8c596b"
+    },
+    {
+      "path": "upstream/modified/Dockerfile",
+      "length": 421,
+      "sha256": "9144aab7f9a1ee89de054205be707dcc3e757667ae256a274e78e22ada66ceed"
+    },
+    {
+      "path": "upstream/modified/LICENSE",
+      "length": 34522,
+      "sha256": "20b067f86de375aae6db0f283ab2e65de24d537733b89bd58432c101259d84cf"
+    },
+    {
+      "path": "upstream/modified/README.hf.md",
+      "length": 255,
+      "sha256": "e1a27871961406337e28403f58a49e6b7080b8891d66d32a9ae31e06c0a76584"
+    },
+    {
+      "path": "upstream/modified/README.md",
+      "length": 84643,
+      "sha256": "769880162f99dfb76dc2b46d3d6b38f747019d336138e87cd9e372da0a8aaeec"
+    },
+    {
+      "path": "upstream/modified/build-forward-widget.js",
+      "length": 9183,
+      "sha256": "bfbb757981af729203cbde73cfc00f3d1b764f0ce6a34513432b496e2124c5b5"
+    },
+    {
+      "path": "upstream/modified/config/.env.example",
+      "length": 28966,
+      "sha256": "81cc1fa487f02f8f588814eda79a7a8ef6114e8711c2aa928c4ada81d5a91566"
+    },
+    {
+      "path": "upstream/modified/danmu_api/apis/clients/fongmi-api.js",
+      "length": 17269,
+      "sha256": "20f7dcd85567bf519a8c149b7ed4b980821ee0956d2054e517efa9d40de202cb"
+    },
+    {
+      "path": "upstream/modified/danmu_api/apis/dandan-api.js",
+      "length": 130003,
+      "sha256": "ef148568dd1cf28dc23373071c086c2a603f855c0dbc451dee785ce98a5da193"
+    },
+    {
+      "path": "upstream/modified/danmu_api/apis/env-api.js",
+      "length": 6072,
+      "sha256": "ae2fe30eda460e7863532903d7e29895c7050ad30dc7dbb0cfa5c1bf13203324"
+    },
+    {
+      "path": "upstream/modified/danmu_api/apis/favorite-api.js",
+      "length": 11653,
+      "sha256": "259611ab6cd2ac08dba6212f5ded761493e517e171120ffb6c045e7ee9e62ce6"
+    },
+    {
+      "path": "upstream/modified/danmu_api/apis/forward-trace-api.js",
+      "length": 2721,
+      "sha256": "b1aff1da97470bd7a08d4969003605bebad1a187fe3e5c7e7ac2fcd442121959"
+    },
+    {
+      "path": "upstream/modified/danmu_api/apis/local-danmu-api.js",
+      "length": 9377,
+      "sha256": "3a8a2aa06954863dc4ab3dc1b6d844d19f3555af36b2e8e8278a33199f3015cd"
+    },
+    {
+      "path": "upstream/modified/danmu_api/apis/system-api.js",
+      "length": 17194,
+      "sha256": "394a217215c9fa0a9c5bfe535761a7b2954dee004704f013b73452b8d9bb4d10"
+    },
+    {
+      "path": "upstream/modified/danmu_api/configs/envs.js",
+      "length": 52245,
+      "sha256": "5834209e23b0d81fc823324448b72a4bb1c837862aa2b36bc7610499a7213b2d"
+    },
+    {
+      "path": "upstream/modified/danmu_api/configs/globals.js",
+      "length": 7792,
+      "sha256": "03967dd013aad54d2135b0d582b9427b4a54162e8b1b6960f6fedaab50cf8709"
+    },
+    {
+      "path": "upstream/modified/danmu_api/configs/handlers/base-handler.js",
+      "length": 2744,
+      "sha256": "cdbe9cc9d8f04196ebb8b556cbefb6ad971284c4567835cea9fab40435ba6d98"
+    },
+    {
+      "path": "upstream/modified/danmu_api/configs/handlers/cloudflare-handler.js",
+      "length": 3723,
+      "sha256": "14c8442487c5851b8d8b59c9640aa5ed175e833a6119b1cbab22ca263c96ec7d"
+    },
+    {
+      "path": "upstream/modified/danmu_api/configs/handlers/edgeone-handler.js",
+      "length": 3057,
+      "sha256": "a6958f1a1b8b9207d26447241f367a53623b1a054182be16ecaa1e76ad4dc611"
+    },
+    {
+      "path": "upstream/modified/danmu_api/configs/handlers/handler-factory.js",
+      "length": 1441,
+      "sha256": "7b7fed7fc8f7f038c8d6d1cbaed99de681950c7b6acf464ce38810c2b11b6605"
+    },
+    {
+      "path": "upstream/modified/danmu_api/configs/handlers/huggingface-handler.js",
+      "length": 2496,
+      "sha256": "2b1110bbe50c9e453f87f6182bebc34038f18c11453ddff312eb3118463e622f"
+    },
+    {
+      "path": "upstream/modified/danmu_api/configs/handlers/netlify-handler.js",
+      "length": 3639,
+      "sha256": "643c4b1bb075bbe17aca1cd2924f8fc2e2bf06defec9c414c2836834ab6f8e7a"
+    },
+    {
+      "path": "upstream/modified/danmu_api/configs/handlers/node-handler.js",
+      "length": 4782,
+      "sha256": "410c5fb812e85fd9bcc8bcecb8d4bff26d9ca24a6baefad12eb1fa042c23890b"
+    },
+    {
+      "path": "upstream/modified/danmu_api/configs/handlers/vercel-handler.js",
+      "length": 5355,
+      "sha256": "c1706066f4a072c2950cb10f1782d4121040978315eab61042f19b477e347310"
+    },
+    {
+      "path": "upstream/modified/danmu_api/esm-shim.cjs",
+      "length": 13876,
+      "sha256": "db59e6c87ae0a2e643068d51582be54f3f65b0d8b1c6229d24815c29fa83ee00"
+    },
+    {
+      "path": "upstream/modified/danmu_api/models/dandan-model.js",
+      "length": 12620,
+      "sha256": "dcad490ec0fb56d2892e53734abadeadb4eb0e082a303cad61885630292d5b4a"
+    },
+    {
+      "path": "upstream/modified/danmu_api/server.js",
+      "length": 20812,
+      "sha256": "90cc9d6d4544b150cbfedd3d2d82d70a204a086995a3ed1d615ff9265ce18910"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/aiyifan.js",
+      "length": 18590,
+      "sha256": "4d780bd18e36cbd42253ab6d613d7995fe1a8cf636219a5c3570cf65027145e0"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/animeko.js",
+      "length": 36855,
+      "sha256": "685b0032f83b52006cc63f15f92e0ef82795a71fed8fc37f76695d3b04bc2db0"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/bahamut.js",
+      "length": 22120,
+      "sha256": "37d03863dfd5acd57c84a01450961df4934caafb2d79f323f3f52c89e56a7a45"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/base.js",
+      "length": 5045,
+      "sha256": "93f60383dad8c1b3bd417a599a4dbd64e4011125254a62160a36b2ce7807a76f"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/bilibili.js",
+      "length": 53352,
+      "sha256": "d85db34ffe5d23904de0fc4b68ef0eda46da103bb0474e669f70d1f746b8a57c"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/custom.js",
+      "length": 6696,
+      "sha256": "dbb2f07b2530d8a53fd15cb8fe2e84d4b4fd3fe8a32531611f30a695b1377aec"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/dandan.js",
+      "length": 44989,
+      "sha256": "2ed3a8ef80741eab2d9ae8bacbdac4dc377d743d3e506cf244f3ba7ed995b3f9"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/douban.js",
+      "length": 11365,
+      "sha256": "3f662437267406f1678c94ab781ff8c885f0b25e1ff114d945471ccded65d282"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/hanjutv.js",
+      "length": 39132,
+      "sha256": "155ac0aed5a1694ab8121d2bab10fb41400a922beeb37bd155fcbb0b69ad1085"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/hongguo.js",
+      "length": 52168,
+      "sha256": "59493f4a812345e8aab5d33a823bdd21d94f359c4f7260bb08c111e86a513147"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/iqiyi.js",
+      "length": 44495,
+      "sha256": "93516c11254bc68a527ef13486dc05312e7e44e1f220740b0e5d92681ec69a92"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/kan360.js",
+      "length": 16491,
+      "sha256": "878345c773f3a37de746444eab0fec2e2c7be9169893afa34902e1a69a605bda"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/leshi.js",
+      "length": 28370,
+      "sha256": "49b12c59c78a246722d663f39fb68584057f4f2be9f1c3145e43eb0e3f2f1896"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/local.js",
+      "length": 3208,
+      "sha256": "2c650c5bbfa575591d65aa6385e1e84c94d9d45cf47d2809b7c24ab94dca8406"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/maiduidui.js",
+      "length": 14735,
+      "sha256": "7e4909aeb9da726142c17a1f2b53df8fc189a6253ac58df5b0ee8806c41b8a6c"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/mango.js",
+      "length": 27273,
+      "sha256": "71edf50401efec470add2a057a29a488cbb0701da65509962104e8ff767f7217"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/migu.js",
+      "length": 14059,
+      "sha256": "fa477cfd4ccaed84ab3dd9453ea5dc1ea1731f730c06bc7c7b42d0b6f2f958ed"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/other.js",
+      "length": 1750,
+      "sha256": "1f3a868561172b648456b62c9d38ab48b9713f6763959b15d4f377bb68fb8a51"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/registry.js",
+      "length": 9172,
+      "sha256": "ec74fa2914658c5f5a9f5d37c3137e46d245c0effc437a185a4c6ae72dfffbae"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/renren.js",
+      "length": 56783,
+      "sha256": "cf57f0b800b37fdaa21d79a8a347a830d146e8236e2b51cf0a377d1a371b7468"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/sohu.js",
+      "length": 22902,
+      "sha256": "1e4e4dbcc993b982079b57e0b8ea495832f0b670f8dcd68ff143710c7698d621"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/tencent.js",
+      "length": 38185,
+      "sha256": "36591d0b1fcb163291f67eed94f2c81936dcd7ca88cc44be4a680dbc1c457ff2"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/tmdb.js",
+      "length": 4447,
+      "sha256": "dd9259312fd312a2875f4ba2f659e698f502bcecddfe1effdf74adb62be7cfc7"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/vod.js",
+      "length": 10014,
+      "sha256": "a97d5d8b10c64addbd54aded9da7dc5e647698f92e211ded93796d071638f735"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/xigua.js",
+      "length": 13991,
+      "sha256": "2b67a342a44ad577aca7275e25176a9d73c49ed7caff6dc1145a5ffc59779db6"
+    },
+    {
+      "path": "upstream/modified/danmu_api/sources/youku.js",
+      "length": 27424,
+      "sha256": "ea0e0a5f2330e4978f9c7dbb2a09f88328ee718e0c69462f312a501b3ef3888b"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/apis/clients/fongmi-api.test.js",
+      "length": 4612,
+      "sha256": "62b81c81f107c5cea058fd18b21902c456181402fa8a27d91ac1f13833efb1e2"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/apis/dandan-api.test.js",
+      "length": 8528,
+      "sha256": "fc508a6d7b3afd7f3c559dcf8292b6e7a2cba7941904ebaf90ecdec0cd40090f"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/apis/env-api.test.js",
+      "length": 3542,
+      "sha256": "80a281017ecfc8c8255f426a5d8427780e914e841a15946f11c180552554f1bc"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/apis/favorite-api.test.js",
+      "length": 16015,
+      "sha256": "de8ed6548267a3b898e9f0c5952333adb23eba17aedf11bac5661c3434a1fdbb"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/apis/forward-trace-api.test.js",
+      "length": 16287,
+      "sha256": "d9462a951285743b795cf880e211a64efbeb119de63e251d7125970d8dd2b83b"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/apis/local-danmu-api.test.js",
+      "length": 32344,
+      "sha256": "84421d42ff0edb22f9a01d02060676aebfae0b97dd633919861cfe5ab3611708"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/apis/match-api.test.js",
+      "length": 21564,
+      "sha256": "6e6bde70c6138204c066d2957da003d99cd0b79fe95ac13085813c553a328993"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/apis/system-api.test.js",
+      "length": 8167,
+      "sha256": "dd0d789cbeba4bee7036867d58cd1dccf10699e951a5adc30fec455a69923652"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/configs/cache-backends.test.js",
+      "length": 30383,
+      "sha256": "f91bd17843ff45d4e21b1d1f6da66a95d2f0fbed2792c49acf836a2258a09271"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/configs/cache-persistence.test.js",
+      "length": 59520,
+      "sha256": "0af51feda3db20391d28a534df2eccbbdf186a9968d1bafbe2382efe6e2c4a9f"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/configs/envs.test.js",
+      "length": 34943,
+      "sha256": "2812416b65fb2e1dd1a62d8cd69889be9925f9c44b1837640b37fb9d5d8e92c4"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/configs/handlers.test.js",
+      "length": 32103,
+      "sha256": "5a9966bb864e1c1eb741ca2ed98ec5df9b7518eb1852cf7e816535c566cbcb23"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/configs/node-handler.test.js",
+      "length": 5420,
+      "sha256": "aee401c3212f4959c7ec06606e4d7a6cf979502720ec8390f886b396fcaf69d5"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/forward-bundle.test.js",
+      "length": 3894,
+      "sha256": "ac60f33044480877643fc71e74f8af01ad828be5e0f312d0fd24905517fe1b2c"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/helpers/animeko.js",
+      "length": 569,
+      "sha256": "7706ea90b6506316c63f5868c890787edd4a5f517b3e785906e76651876e9e4b"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/helpers/context.js",
+      "length": 2274,
+      "sha256": "0b60b74918734ddc7108c7600085bc6b86c49b14c79c738b4922a3f6ddfcf622"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/helpers/dom-page.js",
+      "length": 3931,
+      "sha256": "2a07d236f12fcd7232089114c36743aa9a07aaec7c82080050d61b0ffcf78114"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/helpers/favorites.js",
+      "length": 1437,
+      "sha256": "1a03a284357a6e60d6268859d794a0799c7ca943f6c724bf835b7592c87f48cf"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/helpers/local-danmu.js",
+      "length": 4518,
+      "sha256": "562f2c9710f331caa9b9ae2fe800d85ac8d2f03660d0bc1f1f538bac90812af9"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/manual/live-source-checks.js",
+      "length": 39989,
+      "sha256": "f958a4db500360eeb1d005bf1c478cfafb5f50739c5124811ebc6fa331715a82"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/models/dandan-model.test.js",
+      "length": 5195,
+      "sha256": "2f43c83d449ce750dc266c982e4187b818f7c67d99320cfc48360ffd3a31ae99"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/sources/aiyifan.test.js",
+      "length": 6829,
+      "sha256": "dc521788ee1c7382d9d461b010bdd774ffe0147d494ae763a5882b7c1351945e"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/sources/animeko.test.js",
+      "length": 6211,
+      "sha256": "1e167920692573f5f52ff706cf28de6a4932b4c8d095e4bf5aa75c2102ae3f93"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/sources/bilibili.test.js",
+      "length": 1200,
+      "sha256": "022c58ef487e3bf22dfe713aa8729ed2a16f88dc9d1e940db0203407bb698c36"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/sources/dandan.test.js",
+      "length": 27323,
+      "sha256": "8969c8a6b5547af957c7c5049e52e797f2d7c9befb93db0cd0b3ae00f3d89e10"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/sources/hanjutv.test.js",
+      "length": 9803,
+      "sha256": "fa3c037d919c1622a5997bc120ccf2638f288740a921eef9f57c4a874f1f52f5"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/sources/hongguo.test.js",
+      "length": 9770,
+      "sha256": "f46b417f2dc0b82f17461e2381891b8427507fbf833864d7e667bde5518f4151"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/sources/iqiyi.test.js",
+      "length": 6985,
+      "sha256": "d71da75a649c2c82390b7ab397f76dd3b6bd65f47dd8f18da2e86ce057d8e077"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/sources/mango.test.js",
+      "length": 1548,
+      "sha256": "a7b492d42ed067ef1211899b7d92aa45f344f059bf9f853fe7833c38a68e5de1"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/sources/tencent.test.js",
+      "length": 9136,
+      "sha256": "b282e4d691fe833a87831ede95a01f7f0d028c530220505daed1bfc62e0a314b"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/sources/youku.test.js",
+      "length": 5149,
+      "sha256": "930f900a6c43665d85eb60c825fdece497be47edb88e7f1a8ef8d6cf5f25c55f"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/ui/localdanmu-ui.test.js",
+      "length": 34420,
+      "sha256": "724afe5452333c4bdcf3cbe43093ace4451a8b27f1904d42563c88b172d1fddb"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/ui/systemsettings-ui.test.js",
+      "length": 5462,
+      "sha256": "165c52324f692a746955819a1638f1bf905141b1d89ade81fb2e2cdf33cae101"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/aiyifan-util.test.js",
+      "length": 2537,
+      "sha256": "381c9e6130b591895d99ab8d4dc6ac6b1c9b6b999dd48e5eba1e261e86ebb034"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/animeko-util.test.js",
+      "length": 14554,
+      "sha256": "31eb064bdce86b954373b3c4c31d4bb4d1d163c6a35d0f949b57385754cf5dec"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/auto-match-mapping-util.test.js",
+      "length": 15926,
+      "sha256": "be84fbaed6669374303f93825c820ecbc4e7475019a04904142516f59134f110"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/bangumi-data-util.test.js",
+      "length": 3535,
+      "sha256": "f358d5206dc9bce8ec1312acdbd21b0b7b7b34970214737e24f75e6988242e13"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/cache-util.test.js",
+      "length": 14961,
+      "sha256": "22047b68c4ac8d89400a341b24833d45ef219710e8b35fc200370f8a523da666"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/codec-util.test.js",
+      "length": 16024,
+      "sha256": "27c783caf93f7d8c43b1536764f161b5e3034a54663d95dc9bcf4ea11236df28"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/common-util.test.js",
+      "length": 12327,
+      "sha256": "cf12145f0d97be8d2f66a433d8e1775782c5bf493b63b4ba4414a053229d6490"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/dan-any.test.js",
+      "length": 8448,
+      "sha256": "40eb8f4d7eae019d65c291d8673ef81240dfebe897c40019cf5c28134236ea37"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/danmu-util.test.js",
+      "length": 9544,
+      "sha256": "52066a2bf448720910794fa15a8628af503b5960d402e2d87ad3d108faadf363"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/favorite-schedule-util.test.js",
+      "length": 42977,
+      "sha256": "94fb04bb78cabab4f52ab20cf783947c37db806b28115e30ba7967a8a9c466cf"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/hanjutv-util.test.js",
+      "length": 6299,
+      "sha256": "07671ea955dc69bcb793f1d691dbeae105838a5dd4f89a07329ffd99d1086e48"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/http-util.test.js",
+      "length": 9630,
+      "sha256": "c7f43c8b120c93b3e667bd0c22fc5cbd7d5764c9748901a024e14f85da589958"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/local-danmu-parser.test.js",
+      "length": 10068,
+      "sha256": "b8bee5f8044e9d397d45f76e17cee4ca445bee665bb744efa15ac5440d179d71"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/log-util.test.js",
+      "length": 7979,
+      "sha256": "ef38a6640d53173cd7d0a630f4c3faa3b3a9845810c7a5c2b4142690250eb949"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/merge-util.test.js",
+      "length": 57185,
+      "sha256": "b73a66655688c158d953a1e67dae7dfc8e410a83663239d99a3c348c9afd3c86"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/migu-util.test.js",
+      "length": 8976,
+      "sha256": "63ceb94476fc0b503d306b9c069ebc6ca72dd146838886353071f7923382e69f"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/nipaplay-util.test.js",
+      "length": 5123,
+      "sha256": "9fa74172a9aee28da9856db656cc647160f6585b7cec370aedfe6464c2bd6ac9"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/offset-util.test.js",
+      "length": 2230,
+      "sha256": "a26496749ee31df733610b45693f55d2e504e1f8b2278ce5589a431338aa9524"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/server-listen-util.test.js",
+      "length": 9515,
+      "sha256": "dadb45294097ab7c817c15ae5ced87c66815e8c75b6bfba2995933bfdffbcb36"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/time-util.test.js",
+      "length": 2719,
+      "sha256": "ded9c9c7ff972b544f9f5958e86f3d4b373c6366ad58fdc60a034ac3b56938d8"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/tmdb-util.test.js",
+      "length": 13093,
+      "sha256": "07b4c80466f09b51c67e4047bd8d851f5e0cc67e8c7f14d2de087bfd98cfaad3"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/utils/zh-util.test.js",
+      "length": 3256,
+      "sha256": "6b69c1810846ca69375c2ce18cf0e265e3d4ab931c0ce3d5ceceda28d1471406"
+    },
+    {
+      "path": "upstream/modified/danmu_api/tests/worker-api.test.js",
+      "length": 44402,
+      "sha256": "9e147e5963672729963af202e51d1dd0ea7612181b4fcac4cd16b2e12daba1fb"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/README.md",
+      "length": 15372,
+      "sha256": "b806cd128539184ddbcc7f68a8bb9c2f0395cfeed6a2010d646386bf6fa9a0a8"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/css/base.css.js",
+      "length": 11958,
+      "sha256": "9f14ba043f08b39523637051a47f31016a957907b6c18d7379679935a5f8f364"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/css/components.css.js",
+      "length": 68706,
+      "sha256": "e1b646c5f9cb06e1297b45e7db1198dcc40e5e1471420cf2468f6d9074682e7e"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/css/forms.css.js",
+      "length": 7915,
+      "sha256": "18cee2affa6e3ee7d993023cff1cb0e9733098364ce2e246f3717f87ea3d5b20"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/css/responsive.css.js",
+      "length": 5428,
+      "sha256": "9e8236eea5a7d1e800df5b2614d17cf93b67a5bd183be5eb3c8cc0605a51b785"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/css/themes.css.js",
+      "length": 21247,
+      "sha256": "ccf1fba2381bb5eec0ae8c4910f9f71cfc154f0cfcafead7ef06a8cc2576a096"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/js/apitest.js",
+      "length": 82396,
+      "sha256": "beda8ec9c7185538536377cdf59f5d587e3ff11016ea68a4cd333ebe18c4580a"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/js/icons.js",
+      "length": 10505,
+      "sha256": "73e55cc268fd50f8e05819a917dea1ebf861fd647e0341ebb7da1d5cded6c9e6"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/js/localdanmu.js",
+      "length": 23735,
+      "sha256": "2a7c95528ca4a084deec09f6743d6440ef7641e849492fc1c9306ce71f7132b2"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/js/logview.js",
+      "length": 10397,
+      "sha256": "9ad8367b7e1900ac0f81221c33571e5e25c2937b02402e557c2ab35e799db852"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/js/main.js",
+      "length": 36701,
+      "sha256": "e5d8759b6acbf6c5e1607edeec35d238cced9e5c61aca8a8a942d665ea7ed619"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/js/preview.js",
+      "length": 17797,
+      "sha256": "c98559acf5a836b41c2a67b23b978dcff67ae7808c8c9336c3b1a96d0100b48a"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/js/pushdanmu.js",
+      "length": 9141,
+      "sha256": "0909801a38dba2efa3e67d4cd0d0bdda775d7e604d3a48cf925d6a2bd09f2e5c"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/js/requestrecords.js",
+      "length": 4265,
+      "sha256": "fa17cfcdbde16351384b85bc0cb4f3b98cb798fc7696eb87cba8fb8ff6ed77d2"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/js/systemsettings.js",
+      "length": 148277,
+      "sha256": "992cbfd53a52ab4e921594e9f487855287e76781d24136a9fcf9ef4a7d2e40de"
+    },
+    {
+      "path": "upstream/modified/danmu_api/ui/template.js",
+      "length": 42688,
+      "sha256": "6d937c7018cc0e67f0fcabb0f819de076bc443afd9c1e3b0a637f96b5bcf46f0"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/ai-util.js",
+      "length": 2424,
+      "sha256": "081f79eda934b8e198e7f6d3f96f9d500b43bf136e5a64f3879f0695ff1461ea"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/aiyifan-util.js",
+      "length": 15238,
+      "sha256": "b4f2c007cfacf395ae2c2895c68b622607c0fdfdfd5aa1130fe0fe21b652cad7"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/animeko-util.js",
+      "length": 7553,
+      "sha256": "c0d6f880171f3b6fa637e1d4244327922e16076c963ebbf2d09fca2419e45a7b"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/auto-match-mapping-util.js",
+      "length": 8842,
+      "sha256": "1ca2f46d8768e52da35c067d507b2ba7b877a54239f13fd1dcd822c89a56fc57"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/bangumi-data-util.js",
+      "length": 38657,
+      "sha256": "d28eb766a23fe74dcc7c708f5f61cd53bfbd8a08000dcd7d67bfa75f3c1545fd"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/cache-util.js",
+      "length": 42949,
+      "sha256": "558920fc2355637f88dec1e8279a46aec03f546a958da42cf4be6ababf55d6c4"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/codec-util.js",
+      "length": 37029,
+      "sha256": "14ecd4f92e5ecfd301ac4246c6ab79321d09e7a46faf14c65a7fee6af1eaa091"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/common-util.js",
+      "length": 18388,
+      "sha256": "b6c94480f8b1056f013872b92cb9c48393b17b699d8c360cdb357dd36d959738"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/cookie-util.js",
+      "length": 13215,
+      "sha256": "94ecf903de4ac15b11ac1f2ca00712c87c71b4f827a4545bb649e32ddd608ee5"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/dan-any.js",
+      "length": 1804,
+      "sha256": "76ffd06737f3b7cdc35bcfae8d15530800ae07d4719e20ec672da65389f79b89"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/danmu-util.js",
+      "length": 27624,
+      "sha256": "b11d3646af35210296a9b275af16efd85c41970becad9a06a60bfe8f3305d0d2"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/douban-util.js",
+      "length": 2646,
+      "sha256": "b3321830bce3f08612a5c06ae5d6ca2b5335fa453961c1b2d8b034a226a7534e"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/favorite-schedule-util.js",
+      "length": 5972,
+      "sha256": "37410323322737c63fe75f0510337badf32678fe3161ea71baa1b0c2e78fd9a3"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/favorite-util.js",
+      "length": 6784,
+      "sha256": "98ebad07316a54e46cdae20bacc893f6e9a9ed3bf0bcae28310f2b4914352bda"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/hanjutv-util.js",
+      "length": 11650,
+      "sha256": "759e25bcc3e9f1612e8cf413c62681d914cb6c03390728eeab0a471ee789683a"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/http-util.js",
+      "length": 31650,
+      "sha256": "98e9890c1ac28fd0aac68c88eb3a7be3e78ac754acc7b5562cb517b2a35e4ae5"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/imdb-util.js",
+      "length": 1339,
+      "sha256": "8bda453b9cf04a3e8c23bf44f232504daab80f4c040e21f92c08f75d24de6aa2"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/local-danmu-parser.js",
+      "length": 15194,
+      "sha256": "c50a23513b6f29e553ddc207568068add4defe90dd760e1eb1d005f1ab21d4e0"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/local-danmu-store.js",
+      "length": 11661,
+      "sha256": "ec79fcc6f0becfdc91d4eb102d82574442572cb6c11623caa194a417c79bf63a"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/local-redis-util.js",
+      "length": 11447,
+      "sha256": "9ebf3ca617cbbcdf4e6a889c9306a2e7c7462cfb663df795359305eccc7a11b4"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/log-util.js",
+      "length": 2968,
+      "sha256": "48468c5e7f3c774a6b5b0e69eeb6f07b01bc79a4033af5b85284666bfe4429c5"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/merge-util.js",
+      "length": 203092,
+      "sha256": "fd5dc369eba0d0a2897c1d25b923b8e00cb44d24136dfe52f87686bf34ae0eb1"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/migu-util.js",
+      "length": 3431,
+      "sha256": "a947b6499efd845ca34119ead976b55cff3186ae2250d4751e5cfba00d2b3555"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/nipaplay-util.js",
+      "length": 14250,
+      "sha256": "01036739df8886fe086990183316aa9185963d5204d2a75a0d4529e99ac840b2"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/offset-util.js",
+      "length": 10108,
+      "sha256": "b4780ffbee68b7e29d4d485bac572035d44037db95f8be92659215191fa33e6f"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/redis-util.js",
+      "length": 17503,
+      "sha256": "b7942a401709f9feeccc2f582c3097cf74b3fdcd73f48b73a617b73cc4881956"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/server-listen-util.js",
+      "length": 1982,
+      "sha256": "6796f12a767e16b2532112a32c82a3229b797bb78caf29c159227960c0b3a401"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/time-util.js",
+      "length": 786,
+      "sha256": "35ab33b0009581e81ac0e43bbf6118c94537aad7c7a3ce5d1a858b71548b211a"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/tmdb-util.js",
+      "length": 32931,
+      "sha256": "b707729f35155f18a13c4c3536ff6e65541eeaf6d790de419740c1bd7de04df5"
+    },
+    {
+      "path": "upstream/modified/danmu_api/utils/zh-util.js",
+      "length": 744,
+      "sha256": "e9db4ba24ef9ae6fc1bdccab1db113009133762ae04dbb042a15b432e2b96174"
+    },
+    {
+      "path": "upstream/modified/danmu_api/worker.js",
+      "length": 33982,
+      "sha256": "3ec8eb8ecafab1a8b8907701dc14eeb0764f349215b6fec4108eddeccdc9c4ec"
+    },
+    {
+      "path": "upstream/modified/edgeone.json",
+      "length": 243,
+      "sha256": "ac7ef8b2fc029832a3de31cdcca0d35f341ee1429402d1d0e15a02b838bcd679"
+    },
+    {
+      "path": "upstream/modified/forward/custom-polyfill.js",
+      "length": 8229,
+      "sha256": "b69a72e0f75358fbb5ec558a93ab7511de1536c434bc0c8a57e9dff89d207f3c"
+    },
+    {
+      "path": "upstream/modified/forward/forward-widget.js",
+      "length": 51610,
+      "sha256": "09a7dcf47dfd61cd2efceb85730d1d77a41e63ad51c40b533536fe91cc46440b"
+    },
+    {
+      "path": "upstream/modified/forward/forward-widget.spec.js",
+      "length": 12169,
+      "sha256": "1ddfa19f8c57c7522b93135ddb5ea619152b332f7b4da38cbb5285242a5decc8"
+    },
+    {
+      "path": "upstream/modified/netlify.toml",
+      "length": 313,
+      "sha256": "f9f5f09c828bb9bcd1ca8d93c7d51d52dd1aa5fe5536bd9740f264e2a5c4c82a"
+    },
+    {
+      "path": "upstream/modified/netlify/functions/api.js",
+      "length": 99,
+      "sha256": "8dc5fcc8f6fcfdded2aa63102c11539f307d5b47322aac099b841e634a8fd4ac"
+    },
+    {
+      "path": "upstream/modified/node-functions/[[...path]]..js",
+      "length": 346,
+      "sha256": "92ad009ae12acb426f4e4e936d1df5e88173f3cf2cc91217083dc103c8dbab57"
+    },
+    {
+      "path": "upstream/modified/node-functions/index.js",
+      "length": 1827,
+      "sha256": "db558e6f6deb99250a8d94a9820d8ea2bb513c5aaf76d54d6c9f2aca9ec07db6"
+    },
+    {
+      "path": "upstream/modified/package.json",
+      "length": 737,
+      "sha256": "6deda10bc2f2c1c5c75879ec394011709f5bacbaa6e31013839a6cfae6c1dd4d"
+    },
+    {
+      "path": "upstream/modified/vercel.json",
+      "length": 432,
+      "sha256": "2801bfd94702360568eb1c53b2aa90621fc3fab81ac88d5dc030ba96743175c7"
+    },
+    {
+      "path": "upstream/modified/wrangler.toml",
+      "length": 151,
+      "sha256": "e7c30fae15ca73c66fa1035da4240689eb8a11278961aae1ad4400c0519ee29c"
+    },
+    {
+      "path": "upstream/original/.github/workflows/docker-image.yml",
+      "length": 2066,
+      "sha256": "fa36cdaf252c40ca8c20928a075d9c1bb9ffec969161c28e83e4f5f21565bc3b"
+    },
+    {
+      "path": "upstream/original/.github/workflows/pr_agent.yml",
+      "length": 947,
+      "sha256": "282ac1402e7aca27503424598e968c80c6f8d413cef028a267df582687b3cd43"
+    },
+    {
+      "path": "upstream/original/.github/workflows/sync_fork.yml",
+      "length": 1411,
+      "sha256": "a4afa1143bc80721ea8d02ca8b15f0c1647be91b055f05f95c5cfb6977dd6352"
+    },
+    {
+      "path": "upstream/original/.github/workflows/sync_hf.yml",
+      "length": 1035,
+      "sha256": "5793bbedf8c56682325851bf49917e59c16073e38762442c0b4497fb721decf5"
+    },
+    {
+      "path": "upstream/original/.github/workflows/test.yml",
+      "length": 1489,
+      "sha256": "b63eef0d84397e2925b8079a93c80ebf320fee97e134f92e5cf5ac1a9f0fb3d0"
+    },
+    {
+      "path": "upstream/original/.gitignore",
+      "length": 54,
+      "sha256": "a4808102930b40031578f21be473883ec9c057cf1320643dfa6ccb0d954aff1b"
+    },
+    {
+      "path": "upstream/original/.pr_agent.toml",
+      "length": 1145,
+      "sha256": "03ff99ba7e67209dff55ea30b5f7aab4d403e832981ccbc84c3ee800dc8c596b"
+    },
+    {
+      "path": "upstream/original/Dockerfile",
+      "length": 421,
+      "sha256": "9144aab7f9a1ee89de054205be707dcc3e757667ae256a274e78e22ada66ceed"
+    },
+    {
+      "path": "upstream/original/LICENSE",
+      "length": 34522,
+      "sha256": "20b067f86de375aae6db0f283ab2e65de24d537733b89bd58432c101259d84cf"
+    },
+    {
+      "path": "upstream/original/README.hf.md",
+      "length": 255,
+      "sha256": "e1a27871961406337e28403f58a49e6b7080b8891d66d32a9ae31e06c0a76584"
+    },
+    {
+      "path": "upstream/original/README.md",
+      "length": 84643,
+      "sha256": "769880162f99dfb76dc2b46d3d6b38f747019d336138e87cd9e372da0a8aaeec"
+    },
+    {
+      "path": "upstream/original/build-forward-widget.js",
+      "length": 9183,
+      "sha256": "bfbb757981af729203cbde73cfc00f3d1b764f0ce6a34513432b496e2124c5b5"
+    },
+    {
+      "path": "upstream/original/config/.env.example",
+      "length": 28966,
+      "sha256": "81cc1fa487f02f8f588814eda79a7a8ef6114e8711c2aa928c4ada81d5a91566"
+    },
+    {
+      "path": "upstream/original/danmu_api/apis/clients/fongmi-api.js",
+      "length": 17269,
+      "sha256": "20f7dcd85567bf519a8c149b7ed4b980821ee0956d2054e517efa9d40de202cb"
+    },
+    {
+      "path": "upstream/original/danmu_api/apis/dandan-api.js",
+      "length": 130003,
+      "sha256": "ef148568dd1cf28dc23373071c086c2a603f855c0dbc451dee785ce98a5da193"
+    },
+    {
+      "path": "upstream/original/danmu_api/apis/env-api.js",
+      "length": 6072,
+      "sha256": "ae2fe30eda460e7863532903d7e29895c7050ad30dc7dbb0cfa5c1bf13203324"
+    },
+    {
+      "path": "upstream/original/danmu_api/apis/favorite-api.js",
+      "length": 11653,
+      "sha256": "259611ab6cd2ac08dba6212f5ded761493e517e171120ffb6c045e7ee9e62ce6"
+    },
+    {
+      "path": "upstream/original/danmu_api/apis/forward-trace-api.js",
+      "length": 2721,
+      "sha256": "b1aff1da97470bd7a08d4969003605bebad1a187fe3e5c7e7ac2fcd442121959"
+    },
+    {
+      "path": "upstream/original/danmu_api/apis/local-danmu-api.js",
+      "length": 9377,
+      "sha256": "3a8a2aa06954863dc4ab3dc1b6d844d19f3555af36b2e8e8278a33199f3015cd"
+    },
+    {
+      "path": "upstream/original/danmu_api/apis/system-api.js",
+      "length": 17194,
+      "sha256": "394a217215c9fa0a9c5bfe535761a7b2954dee004704f013b73452b8d9bb4d10"
+    },
+    {
+      "path": "upstream/original/danmu_api/configs/envs.js",
+      "length": 52245,
+      "sha256": "5834209e23b0d81fc823324448b72a4bb1c837862aa2b36bc7610499a7213b2d"
+    },
+    {
+      "path": "upstream/original/danmu_api/configs/globals.js",
+      "length": 7792,
+      "sha256": "03967dd013aad54d2135b0d582b9427b4a54162e8b1b6960f6fedaab50cf8709"
+    },
+    {
+      "path": "upstream/original/danmu_api/configs/handlers/base-handler.js",
+      "length": 2744,
+      "sha256": "cdbe9cc9d8f04196ebb8b556cbefb6ad971284c4567835cea9fab40435ba6d98"
+    },
+    {
+      "path": "upstream/original/danmu_api/configs/handlers/cloudflare-handler.js",
+      "length": 3723,
+      "sha256": "14c8442487c5851b8d8b59c9640aa5ed175e833a6119b1cbab22ca263c96ec7d"
+    },
+    {
+      "path": "upstream/original/danmu_api/configs/handlers/edgeone-handler.js",
+      "length": 3057,
+      "sha256": "a6958f1a1b8b9207d26447241f367a53623b1a054182be16ecaa1e76ad4dc611"
+    },
+    {
+      "path": "upstream/original/danmu_api/configs/handlers/handler-factory.js",
+      "length": 1441,
+      "sha256": "7b7fed7fc8f7f038c8d6d1cbaed99de681950c7b6acf464ce38810c2b11b6605"
+    },
+    {
+      "path": "upstream/original/danmu_api/configs/handlers/huggingface-handler.js",
+      "length": 2496,
+      "sha256": "2b1110bbe50c9e453f87f6182bebc34038f18c11453ddff312eb3118463e622f"
+    },
+    {
+      "path": "upstream/original/danmu_api/configs/handlers/netlify-handler.js",
+      "length": 3639,
+      "sha256": "643c4b1bb075bbe17aca1cd2924f8fc2e2bf06defec9c414c2836834ab6f8e7a"
+    },
+    {
+      "path": "upstream/original/danmu_api/configs/handlers/node-handler.js",
+      "length": 4782,
+      "sha256": "410c5fb812e85fd9bcc8bcecb8d4bff26d9ca24a6baefad12eb1fa042c23890b"
+    },
+    {
+      "path": "upstream/original/danmu_api/configs/handlers/vercel-handler.js",
+      "length": 5355,
+      "sha256": "c1706066f4a072c2950cb10f1782d4121040978315eab61042f19b477e347310"
+    },
+    {
+      "path": "upstream/original/danmu_api/esm-shim.cjs",
+      "length": 13876,
+      "sha256": "db59e6c87ae0a2e643068d51582be54f3f65b0d8b1c6229d24815c29fa83ee00"
+    },
+    {
+      "path": "upstream/original/danmu_api/models/dandan-model.js",
+      "length": 12620,
+      "sha256": "dcad490ec0fb56d2892e53734abadeadb4eb0e082a303cad61885630292d5b4a"
+    },
+    {
+      "path": "upstream/original/danmu_api/server.js",
+      "length": 20812,
+      "sha256": "90cc9d6d4544b150cbfedd3d2d82d70a204a086995a3ed1d615ff9265ce18910"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/aiyifan.js",
+      "length": 18590,
+      "sha256": "4d780bd18e36cbd42253ab6d613d7995fe1a8cf636219a5c3570cf65027145e0"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/animeko.js",
+      "length": 36855,
+      "sha256": "685b0032f83b52006cc63f15f92e0ef82795a71fed8fc37f76695d3b04bc2db0"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/bahamut.js",
+      "length": 22120,
+      "sha256": "37d03863dfd5acd57c84a01450961df4934caafb2d79f323f3f52c89e56a7a45"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/base.js",
+      "length": 5045,
+      "sha256": "93f60383dad8c1b3bd417a599a4dbd64e4011125254a62160a36b2ce7807a76f"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/bilibili.js",
+      "length": 53352,
+      "sha256": "d85db34ffe5d23904de0fc4b68ef0eda46da103bb0474e669f70d1f746b8a57c"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/custom.js",
+      "length": 6696,
+      "sha256": "dbb2f07b2530d8a53fd15cb8fe2e84d4b4fd3fe8a32531611f30a695b1377aec"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/dandan.js",
+      "length": 44989,
+      "sha256": "2ed3a8ef80741eab2d9ae8bacbdac4dc377d743d3e506cf244f3ba7ed995b3f9"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/douban.js",
+      "length": 11365,
+      "sha256": "3f662437267406f1678c94ab781ff8c885f0b25e1ff114d945471ccded65d282"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/hanjutv.js",
+      "length": 39132,
+      "sha256": "155ac0aed5a1694ab8121d2bab10fb41400a922beeb37bd155fcbb0b69ad1085"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/hongguo.js",
+      "length": 52168,
+      "sha256": "59493f4a812345e8aab5d33a823bdd21d94f359c4f7260bb08c111e86a513147"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/iqiyi.js",
+      "length": 44495,
+      "sha256": "93516c11254bc68a527ef13486dc05312e7e44e1f220740b0e5d92681ec69a92"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/kan360.js",
+      "length": 16491,
+      "sha256": "878345c773f3a37de746444eab0fec2e2c7be9169893afa34902e1a69a605bda"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/leshi.js",
+      "length": 28370,
+      "sha256": "49b12c59c78a246722d663f39fb68584057f4f2be9f1c3145e43eb0e3f2f1896"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/local.js",
+      "length": 3208,
+      "sha256": "2c650c5bbfa575591d65aa6385e1e84c94d9d45cf47d2809b7c24ab94dca8406"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/maiduidui.js",
+      "length": 14735,
+      "sha256": "7e4909aeb9da726142c17a1f2b53df8fc189a6253ac58df5b0ee8806c41b8a6c"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/mango.js",
+      "length": 27273,
+      "sha256": "71edf50401efec470add2a057a29a488cbb0701da65509962104e8ff767f7217"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/migu.js",
+      "length": 14059,
+      "sha256": "fa477cfd4ccaed84ab3dd9453ea5dc1ea1731f730c06bc7c7b42d0b6f2f958ed"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/other.js",
+      "length": 1750,
+      "sha256": "1f3a868561172b648456b62c9d38ab48b9713f6763959b15d4f377bb68fb8a51"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/registry.js",
+      "length": 9172,
+      "sha256": "ec74fa2914658c5f5a9f5d37c3137e46d245c0effc437a185a4c6ae72dfffbae"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/renren.js",
+      "length": 56783,
+      "sha256": "cf57f0b800b37fdaa21d79a8a347a830d146e8236e2b51cf0a377d1a371b7468"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/sohu.js",
+      "length": 22902,
+      "sha256": "1e4e4dbcc993b982079b57e0b8ea495832f0b670f8dcd68ff143710c7698d621"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/tencent.js",
+      "length": 38185,
+      "sha256": "36591d0b1fcb163291f67eed94f2c81936dcd7ca88cc44be4a680dbc1c457ff2"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/tmdb.js",
+      "length": 4447,
+      "sha256": "dd9259312fd312a2875f4ba2f659e698f502bcecddfe1effdf74adb62be7cfc7"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/vod.js",
+      "length": 10014,
+      "sha256": "a97d5d8b10c64addbd54aded9da7dc5e647698f92e211ded93796d071638f735"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/xigua.js",
+      "length": 13991,
+      "sha256": "2b67a342a44ad577aca7275e25176a9d73c49ed7caff6dc1145a5ffc59779db6"
+    },
+    {
+      "path": "upstream/original/danmu_api/sources/youku.js",
+      "length": 27424,
+      "sha256": "ea0e0a5f2330e4978f9c7dbb2a09f88328ee718e0c69462f312a501b3ef3888b"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/apis/clients/fongmi-api.test.js",
+      "length": 4612,
+      "sha256": "62b81c81f107c5cea058fd18b21902c456181402fa8a27d91ac1f13833efb1e2"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/apis/dandan-api.test.js",
+      "length": 8528,
+      "sha256": "fc508a6d7b3afd7f3c559dcf8292b6e7a2cba7941904ebaf90ecdec0cd40090f"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/apis/env-api.test.js",
+      "length": 3542,
+      "sha256": "80a281017ecfc8c8255f426a5d8427780e914e841a15946f11c180552554f1bc"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/apis/favorite-api.test.js",
+      "length": 16015,
+      "sha256": "de8ed6548267a3b898e9f0c5952333adb23eba17aedf11bac5661c3434a1fdbb"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/apis/forward-trace-api.test.js",
+      "length": 16287,
+      "sha256": "d9462a951285743b795cf880e211a64efbeb119de63e251d7125970d8dd2b83b"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/apis/local-danmu-api.test.js",
+      "length": 32344,
+      "sha256": "84421d42ff0edb22f9a01d02060676aebfae0b97dd633919861cfe5ab3611708"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/apis/match-api.test.js",
+      "length": 21564,
+      "sha256": "6e6bde70c6138204c066d2957da003d99cd0b79fe95ac13085813c553a328993"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/apis/system-api.test.js",
+      "length": 8167,
+      "sha256": "dd0d789cbeba4bee7036867d58cd1dccf10699e951a5adc30fec455a69923652"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/configs/cache-backends.test.js",
+      "length": 30383,
+      "sha256": "f91bd17843ff45d4e21b1d1f6da66a95d2f0fbed2792c49acf836a2258a09271"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/configs/cache-persistence.test.js",
+      "length": 59520,
+      "sha256": "0af51feda3db20391d28a534df2eccbbdf186a9968d1bafbe2382efe6e2c4a9f"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/configs/envs.test.js",
+      "length": 34943,
+      "sha256": "2812416b65fb2e1dd1a62d8cd69889be9925f9c44b1837640b37fb9d5d8e92c4"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/configs/handlers.test.js",
+      "length": 32103,
+      "sha256": "5a9966bb864e1c1eb741ca2ed98ec5df9b7518eb1852cf7e816535c566cbcb23"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/configs/node-handler.test.js",
+      "length": 5420,
+      "sha256": "aee401c3212f4959c7ec06606e4d7a6cf979502720ec8390f886b396fcaf69d5"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/forward-bundle.test.js",
+      "length": 3894,
+      "sha256": "ac60f33044480877643fc71e74f8af01ad828be5e0f312d0fd24905517fe1b2c"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/helpers/animeko.js",
+      "length": 569,
+      "sha256": "7706ea90b6506316c63f5868c890787edd4a5f517b3e785906e76651876e9e4b"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/helpers/context.js",
+      "length": 2274,
+      "sha256": "0b60b74918734ddc7108c7600085bc6b86c49b14c79c738b4922a3f6ddfcf622"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/helpers/dom-page.js",
+      "length": 3931,
+      "sha256": "2a07d236f12fcd7232089114c36743aa9a07aaec7c82080050d61b0ffcf78114"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/helpers/favorites.js",
+      "length": 1437,
+      "sha256": "1a03a284357a6e60d6268859d794a0799c7ca943f6c724bf835b7592c87f48cf"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/helpers/local-danmu.js",
+      "length": 4518,
+      "sha256": "562f2c9710f331caa9b9ae2fe800d85ac8d2f03660d0bc1f1f538bac90812af9"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/manual/live-source-checks.js",
+      "length": 39989,
+      "sha256": "f958a4db500360eeb1d005bf1c478cfafb5f50739c5124811ebc6fa331715a82"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/models/dandan-model.test.js",
+      "length": 5195,
+      "sha256": "2f43c83d449ce750dc266c982e4187b818f7c67d99320cfc48360ffd3a31ae99"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/sources/aiyifan.test.js",
+      "length": 6829,
+      "sha256": "dc521788ee1c7382d9d461b010bdd774ffe0147d494ae763a5882b7c1351945e"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/sources/animeko.test.js",
+      "length": 6211,
+      "sha256": "1e167920692573f5f52ff706cf28de6a4932b4c8d095e4bf5aa75c2102ae3f93"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/sources/bilibili.test.js",
+      "length": 1200,
+      "sha256": "022c58ef487e3bf22dfe713aa8729ed2a16f88dc9d1e940db0203407bb698c36"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/sources/dandan.test.js",
+      "length": 27323,
+      "sha256": "8969c8a6b5547af957c7c5049e52e797f2d7c9befb93db0cd0b3ae00f3d89e10"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/sources/hanjutv.test.js",
+      "length": 9803,
+      "sha256": "fa3c037d919c1622a5997bc120ccf2638f288740a921eef9f57c4a874f1f52f5"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/sources/hongguo.test.js",
+      "length": 9770,
+      "sha256": "f46b417f2dc0b82f17461e2381891b8427507fbf833864d7e667bde5518f4151"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/sources/iqiyi.test.js",
+      "length": 6985,
+      "sha256": "d71da75a649c2c82390b7ab397f76dd3b6bd65f47dd8f18da2e86ce057d8e077"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/sources/mango.test.js",
+      "length": 1548,
+      "sha256": "a7b492d42ed067ef1211899b7d92aa45f344f059bf9f853fe7833c38a68e5de1"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/sources/tencent.test.js",
+      "length": 9136,
+      "sha256": "b282e4d691fe833a87831ede95a01f7f0d028c530220505daed1bfc62e0a314b"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/sources/youku.test.js",
+      "length": 5149,
+      "sha256": "930f900a6c43665d85eb60c825fdece497be47edb88e7f1a8ef8d6cf5f25c55f"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/ui/localdanmu-ui.test.js",
+      "length": 34420,
+      "sha256": "724afe5452333c4bdcf3cbe43093ace4451a8b27f1904d42563c88b172d1fddb"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/ui/systemsettings-ui.test.js",
+      "length": 5462,
+      "sha256": "165c52324f692a746955819a1638f1bf905141b1d89ade81fb2e2cdf33cae101"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/aiyifan-util.test.js",
+      "length": 2537,
+      "sha256": "381c9e6130b591895d99ab8d4dc6ac6b1c9b6b999dd48e5eba1e261e86ebb034"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/animeko-util.test.js",
+      "length": 14554,
+      "sha256": "31eb064bdce86b954373b3c4c31d4bb4d1d163c6a35d0f949b57385754cf5dec"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/auto-match-mapping-util.test.js",
+      "length": 15926,
+      "sha256": "be84fbaed6669374303f93825c820ecbc4e7475019a04904142516f59134f110"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/bangumi-data-util.test.js",
+      "length": 3535,
+      "sha256": "f358d5206dc9bce8ec1312acdbd21b0b7b7b34970214737e24f75e6988242e13"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/cache-util.test.js",
+      "length": 14961,
+      "sha256": "22047b68c4ac8d89400a341b24833d45ef219710e8b35fc200370f8a523da666"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/codec-util.test.js",
+      "length": 16024,
+      "sha256": "27c783caf93f7d8c43b1536764f161b5e3034a54663d95dc9bcf4ea11236df28"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/common-util.test.js",
+      "length": 12327,
+      "sha256": "cf12145f0d97be8d2f66a433d8e1775782c5bf493b63b4ba4414a053229d6490"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/dan-any.test.js",
+      "length": 8448,
+      "sha256": "40eb8f4d7eae019d65c291d8673ef81240dfebe897c40019cf5c28134236ea37"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/danmu-util.test.js",
+      "length": 9544,
+      "sha256": "52066a2bf448720910794fa15a8628af503b5960d402e2d87ad3d108faadf363"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/favorite-schedule-util.test.js",
+      "length": 42977,
+      "sha256": "94fb04bb78cabab4f52ab20cf783947c37db806b28115e30ba7967a8a9c466cf"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/hanjutv-util.test.js",
+      "length": 6299,
+      "sha256": "07671ea955dc69bcb793f1d691dbeae105838a5dd4f89a07329ffd99d1086e48"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/http-util.test.js",
+      "length": 9630,
+      "sha256": "c7f43c8b120c93b3e667bd0c22fc5cbd7d5764c9748901a024e14f85da589958"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/local-danmu-parser.test.js",
+      "length": 10068,
+      "sha256": "b8bee5f8044e9d397d45f76e17cee4ca445bee665bb744efa15ac5440d179d71"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/log-util.test.js",
+      "length": 7979,
+      "sha256": "ef38a6640d53173cd7d0a630f4c3faa3b3a9845810c7a5c2b4142690250eb949"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/merge-util.test.js",
+      "length": 57185,
+      "sha256": "b73a66655688c158d953a1e67dae7dfc8e410a83663239d99a3c348c9afd3c86"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/migu-util.test.js",
+      "length": 8976,
+      "sha256": "63ceb94476fc0b503d306b9c069ebc6ca72dd146838886353071f7923382e69f"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/nipaplay-util.test.js",
+      "length": 5123,
+      "sha256": "9fa74172a9aee28da9856db656cc647160f6585b7cec370aedfe6464c2bd6ac9"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/offset-util.test.js",
+      "length": 2230,
+      "sha256": "a26496749ee31df733610b45693f55d2e504e1f8b2278ce5589a431338aa9524"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/server-listen-util.test.js",
+      "length": 9515,
+      "sha256": "dadb45294097ab7c817c15ae5ced87c66815e8c75b6bfba2995933bfdffbcb36"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/time-util.test.js",
+      "length": 2719,
+      "sha256": "ded9c9c7ff972b544f9f5958e86f3d4b373c6366ad58fdc60a034ac3b56938d8"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/tmdb-util.test.js",
+      "length": 13093,
+      "sha256": "07b4c80466f09b51c67e4047bd8d851f5e0cc67e8c7f14d2de087bfd98cfaad3"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/utils/zh-util.test.js",
+      "length": 3256,
+      "sha256": "6b69c1810846ca69375c2ce18cf0e265e3d4ab931c0ce3d5ceceda28d1471406"
+    },
+    {
+      "path": "upstream/original/danmu_api/tests/worker-api.test.js",
+      "length": 44402,
+      "sha256": "9e147e5963672729963af202e51d1dd0ea7612181b4fcac4cd16b2e12daba1fb"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/README.md",
+      "length": 15372,
+      "sha256": "b806cd128539184ddbcc7f68a8bb9c2f0395cfeed6a2010d646386bf6fa9a0a8"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/css/base.css.js",
+      "length": 11958,
+      "sha256": "9f14ba043f08b39523637051a47f31016a957907b6c18d7379679935a5f8f364"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/css/components.css.js",
+      "length": 68706,
+      "sha256": "e1b646c5f9cb06e1297b45e7db1198dcc40e5e1471420cf2468f6d9074682e7e"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/css/forms.css.js",
+      "length": 7915,
+      "sha256": "18cee2affa6e3ee7d993023cff1cb0e9733098364ce2e246f3717f87ea3d5b20"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/css/responsive.css.js",
+      "length": 5428,
+      "sha256": "9e8236eea5a7d1e800df5b2614d17cf93b67a5bd183be5eb3c8cc0605a51b785"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/css/themes.css.js",
+      "length": 21247,
+      "sha256": "ccf1fba2381bb5eec0ae8c4910f9f71cfc154f0cfcafead7ef06a8cc2576a096"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/js/apitest.js",
+      "length": 82396,
+      "sha256": "beda8ec9c7185538536377cdf59f5d587e3ff11016ea68a4cd333ebe18c4580a"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/js/icons.js",
+      "length": 10505,
+      "sha256": "73e55cc268fd50f8e05819a917dea1ebf861fd647e0341ebb7da1d5cded6c9e6"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/js/localdanmu.js",
+      "length": 23735,
+      "sha256": "2a7c95528ca4a084deec09f6743d6440ef7641e849492fc1c9306ce71f7132b2"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/js/logview.js",
+      "length": 10397,
+      "sha256": "9ad8367b7e1900ac0f81221c33571e5e25c2937b02402e557c2ab35e799db852"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/js/main.js",
+      "length": 36701,
+      "sha256": "e5d8759b6acbf6c5e1607edeec35d238cced9e5c61aca8a8a942d665ea7ed619"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/js/preview.js",
+      "length": 17797,
+      "sha256": "c98559acf5a836b41c2a67b23b978dcff67ae7808c8c9336c3b1a96d0100b48a"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/js/pushdanmu.js",
+      "length": 9141,
+      "sha256": "0909801a38dba2efa3e67d4cd0d0bdda775d7e604d3a48cf925d6a2bd09f2e5c"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/js/requestrecords.js",
+      "length": 4265,
+      "sha256": "fa17cfcdbde16351384b85bc0cb4f3b98cb798fc7696eb87cba8fb8ff6ed77d2"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/js/systemsettings.js",
+      "length": 148277,
+      "sha256": "992cbfd53a52ab4e921594e9f487855287e76781d24136a9fcf9ef4a7d2e40de"
+    },
+    {
+      "path": "upstream/original/danmu_api/ui/template.js",
+      "length": 42688,
+      "sha256": "6d937c7018cc0e67f0fcabb0f819de076bc443afd9c1e3b0a637f96b5bcf46f0"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/ai-util.js",
+      "length": 2424,
+      "sha256": "081f79eda934b8e198e7f6d3f96f9d500b43bf136e5a64f3879f0695ff1461ea"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/aiyifan-util.js",
+      "length": 15238,
+      "sha256": "b4f2c007cfacf395ae2c2895c68b622607c0fdfdfd5aa1130fe0fe21b652cad7"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/animeko-util.js",
+      "length": 7553,
+      "sha256": "c0d6f880171f3b6fa637e1d4244327922e16076c963ebbf2d09fca2419e45a7b"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/auto-match-mapping-util.js",
+      "length": 8842,
+      "sha256": "1ca2f46d8768e52da35c067d507b2ba7b877a54239f13fd1dcd822c89a56fc57"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/bangumi-data-util.js",
+      "length": 38657,
+      "sha256": "d28eb766a23fe74dcc7c708f5f61cd53bfbd8a08000dcd7d67bfa75f3c1545fd"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/cache-util.js",
+      "length": 42949,
+      "sha256": "558920fc2355637f88dec1e8279a46aec03f546a958da42cf4be6ababf55d6c4"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/codec-util.js",
+      "length": 37019,
+      "sha256": "367f427a7e3e8c992edf92b2eadf9fad640c545c72e07db66f34111cd0e64463"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/common-util.js",
+      "length": 18388,
+      "sha256": "b6c94480f8b1056f013872b92cb9c48393b17b699d8c360cdb357dd36d959738"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/cookie-util.js",
+      "length": 13215,
+      "sha256": "94ecf903de4ac15b11ac1f2ca00712c87c71b4f827a4545bb649e32ddd608ee5"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/dan-any.js",
+      "length": 1804,
+      "sha256": "76ffd06737f3b7cdc35bcfae8d15530800ae07d4719e20ec672da65389f79b89"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/danmu-util.js",
+      "length": 27624,
+      "sha256": "b11d3646af35210296a9b275af16efd85c41970becad9a06a60bfe8f3305d0d2"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/douban-util.js",
+      "length": 2646,
+      "sha256": "b3321830bce3f08612a5c06ae5d6ca2b5335fa453961c1b2d8b034a226a7534e"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/favorite-schedule-util.js",
+      "length": 5972,
+      "sha256": "37410323322737c63fe75f0510337badf32678fe3161ea71baa1b0c2e78fd9a3"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/favorite-util.js",
+      "length": 6784,
+      "sha256": "98ebad07316a54e46cdae20bacc893f6e9a9ed3bf0bcae28310f2b4914352bda"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/hanjutv-util.js",
+      "length": 11650,
+      "sha256": "759e25bcc3e9f1612e8cf413c62681d914cb6c03390728eeab0a471ee789683a"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/http-util.js",
+      "length": 31650,
+      "sha256": "98e9890c1ac28fd0aac68c88eb3a7be3e78ac754acc7b5562cb517b2a35e4ae5"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/imdb-util.js",
+      "length": 1339,
+      "sha256": "8bda453b9cf04a3e8c23bf44f232504daab80f4c040e21f92c08f75d24de6aa2"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/local-danmu-parser.js",
+      "length": 15194,
+      "sha256": "c50a23513b6f29e553ddc207568068add4defe90dd760e1eb1d005f1ab21d4e0"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/local-danmu-store.js",
+      "length": 11661,
+      "sha256": "ec79fcc6f0becfdc91d4eb102d82574442572cb6c11623caa194a417c79bf63a"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/local-redis-util.js",
+      "length": 11447,
+      "sha256": "9ebf3ca617cbbcdf4e6a889c9306a2e7c7462cfb663df795359305eccc7a11b4"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/log-util.js",
+      "length": 2968,
+      "sha256": "48468c5e7f3c774a6b5b0e69eeb6f07b01bc79a4033af5b85284666bfe4429c5"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/merge-util.js",
+      "length": 203092,
+      "sha256": "fd5dc369eba0d0a2897c1d25b923b8e00cb44d24136dfe52f87686bf34ae0eb1"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/migu-util.js",
+      "length": 3431,
+      "sha256": "a947b6499efd845ca34119ead976b55cff3186ae2250d4751e5cfba00d2b3555"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/nipaplay-util.js",
+      "length": 14250,
+      "sha256": "01036739df8886fe086990183316aa9185963d5204d2a75a0d4529e99ac840b2"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/offset-util.js",
+      "length": 10108,
+      "sha256": "b4780ffbee68b7e29d4d485bac572035d44037db95f8be92659215191fa33e6f"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/redis-util.js",
+      "length": 17503,
+      "sha256": "b7942a401709f9feeccc2f582c3097cf74b3fdcd73f48b73a617b73cc4881956"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/server-listen-util.js",
+      "length": 1982,
+      "sha256": "6796f12a767e16b2532112a32c82a3229b797bb78caf29c159227960c0b3a401"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/time-util.js",
+      "length": 786,
+      "sha256": "35ab33b0009581e81ac0e43bbf6118c94537aad7c7a3ce5d1a858b71548b211a"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/tmdb-util.js",
+      "length": 32931,
+      "sha256": "b707729f35155f18a13c4c3536ff6e65541eeaf6d790de419740c1bd7de04df5"
+    },
+    {
+      "path": "upstream/original/danmu_api/utils/zh-util.js",
+      "length": 744,
+      "sha256": "e9db4ba24ef9ae6fc1bdccab1db113009133762ae04dbb042a15b432e2b96174"
+    },
+    {
+      "path": "upstream/original/danmu_api/worker.js",
+      "length": 33982,
+      "sha256": "3ec8eb8ecafab1a8b8907701dc14eeb0764f349215b6fec4108eddeccdc9c4ec"
+    },
+    {
+      "path": "upstream/original/edgeone.json",
+      "length": 243,
+      "sha256": "ac7ef8b2fc029832a3de31cdcca0d35f341ee1429402d1d0e15a02b838bcd679"
+    },
+    {
+      "path": "upstream/original/forward/custom-polyfill.js",
+      "length": 8229,
+      "sha256": "b69a72e0f75358fbb5ec558a93ab7511de1536c434bc0c8a57e9dff89d207f3c"
+    },
+    {
+      "path": "upstream/original/forward/forward-widget.js",
+      "length": 51610,
+      "sha256": "09a7dcf47dfd61cd2efceb85730d1d77a41e63ad51c40b533536fe91cc46440b"
+    },
+    {
+      "path": "upstream/original/forward/forward-widget.spec.js",
+      "length": 12169,
+      "sha256": "1ddfa19f8c57c7522b93135ddb5ea619152b332f7b4da38cbb5285242a5decc8"
+    },
+    {
+      "path": "upstream/original/netlify.toml",
+      "length": 313,
+      "sha256": "f9f5f09c828bb9bcd1ca8d93c7d51d52dd1aa5fe5536bd9740f264e2a5c4c82a"
+    },
+    {
+      "path": "upstream/original/netlify/functions/api.js",
+      "length": 99,
+      "sha256": "8dc5fcc8f6fcfdded2aa63102c11539f307d5b47322aac099b841e634a8fd4ac"
+    },
+    {
+      "path": "upstream/original/node-functions/[[...path]]..js",
+      "length": 346,
+      "sha256": "92ad009ae12acb426f4e4e936d1df5e88173f3cf2cc91217083dc103c8dbab57"
+    },
+    {
+      "path": "upstream/original/node-functions/index.js",
+      "length": 1827,
+      "sha256": "db558e6f6deb99250a8d94a9820d8ea2bb513c5aaf76d54d6c9f2aca9ec07db6"
+    },
+    {
+      "path": "upstream/original/package.json",
+      "length": 737,
+      "sha256": "6deda10bc2f2c1c5c75879ec394011709f5bacbaa6e31013839a6cfae6c1dd4d"
+    },
+    {
+      "path": "upstream/original/vercel.json",
+      "length": 432,
+      "sha256": "2801bfd94702360568eb1c53b2aa90621fc3fab81ac88d5dc030ba96743175c7"
+    },
+    {
+      "path": "upstream/original/wrangler.toml",
+      "length": 151,
+      "sha256": "e7c30fae15ca73c66fa1035da4240689eb8a11278961aae1ad4400c0519ee29c"
+    }
+  ]
+}

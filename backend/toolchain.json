@@ -4,7 +4,8 @@
     "repository": "https://github.com/huangxd-/danmu_api",
     "commit": "4d325e096bbbf0c1ff261a9bfa638f7c58784f60",
     "archiveUrl": "https://codeload.github.com/huangxd-/danmu_api/zip/4d325e096bbbf0c1ff261a9bfa638f7c58784f60",
-    "archiveSha256": "65a2c90ad0b81b4c79c617f21e3f45fce285eeedd7e6f7f353bce4458175c9dc"
+    "archiveSha256": "65a2c90ad0b81b4c79c617f21e3f45fce285eeedd7e6f7f353bce4458175c9dc",
+    "packageManifestSha256": "6deda10bc2f2c1c5c75879ec394011709f5bacbaa6e31013839a6cfae6c1dd4d"
   },
   "node": {
     "version": "22.23.4",
@@ -13,11 +14,18 @@
     "sha256": "dccc52de28d8df2ee22d2062424f8c563070d95d8ad70c54c4bf01d590dec14f",
     "checksumUrl": "https://nodejs.org/dist/v22.23.4/SHASUMS256.txt",
     "licenseUrl": "https://raw.githubusercontent.com/nodejs/node/v22.23.4/LICENSE",
-    "licenseSha256": "c738ae413cf561f174e34f6961f8ca458aae2369a73640dda6234c629b98bcc4"
+    "licenseSha256": "c738ae413cf561f174e34f6961f8ca458aae2369a73640dda6234c629b98bcc4",
+    "sourceUrl": "https://nodejs.org/dist/v22.23.4/node-v22.23.4.tar.xz",
+    "sourceSha256": "7b9adc82d612d0a2a863d96c46de2292552e250cee51956ebbe0146c42aacae9"
   },
   "productionLock": {
     "path": "backend/package-lock.json",
-    "sha256": "c3990570d531d9a32c83877ed51c7209d66ec20d5777bf5250ec0c6fd777593f"
+    "sha256": "fdfc83ad221511f585359f39bbc79f22fb10e84b22628a321e376c4487b10f46"
   },
-  "packageManifestSha256": "6deda10bc2f2c1c5c75879ec394011709f5bacbaa6e31013839a6cfae6c1dd4d"
+  "packageManifestSha256": "7dc75ec75b24bdaee986c00ed5bd206851b20da3b4030913bc886727672edaa2",
+  "patches": {
+    "0001-node-brotli.json": "9d03378b7ca6afac37750e42bc12362cd1d712f52e6687155869496cb200c9d2",
+    "0002-dan-any-node-profile.json": "5096a840148d91a5583f61842bbece29fb7a619781cd5678a9fd90c501473034"
+  },
+  "dependencySourcesSha256": "cf58dca9beede0a03b266973b5b36c3c79bf3dc65e482b1fc66e9bc5df8339ab"
 }
