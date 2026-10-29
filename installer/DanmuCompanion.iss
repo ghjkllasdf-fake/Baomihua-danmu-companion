@@ -1,6 +1,9 @@
 #ifndef AppVersion
   #error AppVersion must be supplied by the release build.
 #endif
+#ifndef AppFileVersion
+  #error AppFileVersion must be supplied by the release build.
+#endif
 #ifndef PayloadDir
   #error PayloadDir must be supplied by the release build.
 #endif
@@ -26,7 +29,7 @@ AppId={#ProductId}
 AppName={#ProductName}
 AppVersion={#AppVersion}
 AppPublisher=ghjkllasdf-fake
-VersionInfoVersion=0.1.0.3
+VersionInfoVersion={#AppFileVersion}
 DefaultDirName={localappdata}\Programs\{#ProductDirectory}
 DefaultGroupName={#ProductName}
 PrivilegesRequired=lowest

@@ -4,24 +4,27 @@ import { cp, mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { fileHash, inventory, releaseNames, walkFiles, assertPayloadBudget, validateApiProvenance } from './release-lib.mjs';
+import { fileHash, inventory, releaseNames, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory, walkFiles, assertPayloadBudget, validateApiProvenance } from './release-lib.mjs';
 import { sourceState, requireSameSource } from './source-state.mjs';
 import { constants } from 'node:fs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const args = process.argv.slice(2);
-let version, output, allowDirty = false, includeApi = false;
+let version, output, candidateApiInput, allowDirty = false, includeApi = false;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--version') version = args[++i];
   else if (args[i] === '--output') output = resolve(args[++i]);
   else if (args[i] === '--allow-dirty') allowDirty = true;
   else if (args[i] === '--include-api') includeApi = true;
+  else if (args[i] === '--candidate-api-input' && args[i + 1]) candidateApiInput = args[++i];
   else throw new Error('Unknown release build argument.');
 }
 const names = releaseNames(version, includeApi);
+const candidateApi = candidateApiDirectory(candidateApiInput, includeApi, allowDirty, Boolean(output));
 output ??= join(root, 'artifacts', 'releases', version, ...(includeApi ? ['includeAPI'] : []));
-const projectVersion = (await readFile(join(root, 'desktop', 'NativeCommon.props'), 'utf8')).match(/<Version>([^<]+)<\/Version>/)?.[1];
-if (version !== projectVersion) throw new Error('Artifact version must match the compiled application version.');
+const { fileVersion } = releaseVersions(await readFile(join(root, 'desktop', 'NativeCommon.props'), 'utf8'), version);
+const guidePath = join(root, 'docs', includeApi ? 'INCLUDEAPI-USER-GUIDE.md' : 'BETA-USER-GUIDE.md');
+assertReleaseGuide(await readFile(guidePath, 'utf8'), version);
 const lock = JSON.parse(await readFile(join(root, 'native-toolchain.json'), 'utf8'));
 const env = { ...process.env, DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1',
   DOTNET_CLI_HOME: join(root, '.deps', 'dotnet-home') };
@@ -34,8 +37,7 @@ function run(exe, arguments_, capture = false) {
 const dotnet = join(root, '.deps', 'dotnet', 'dotnet.exe');
 const source = await sourceState(root);
 const sourceCommit = source.head;
-const sourceDirty = Boolean(source.status);
-if (sourceDirty && !allowDirty) throw new Error('Commit release sources before producing final artifacts; use --allow-dirty only for candidates.');
+let { sourceDirty, customDanAny } = releaseSourceStatus(Boolean(source.status), false, allowDirty);
 for (const name of [names.portable, names.installer, 'SHA256SUMS.txt']) {
   if (existsSync(join(output, name))) throw new Error('Refusing to overwrite an existing release artifact.');
 }
@@ -72,8 +74,9 @@ await cp(join(root, 'assets'), join(payload, 'assets'), { recursive: true });
 await cp(join(root, 'licenses', 'WebView2Runtime'), join(payload, 'licenses', 'WebView2Runtime'), { recursive: true });
 let apiInventory = null, apiInventorySha256 = null;
 if (includeApi) {
-  const apiSource = join(root, '.deps', 'includeapi', 'payload');
-  const inventoryPath = join(root, '.deps', 'includeapi', 'payload-inventory.json');
+  const apiBase = candidateApi ?? join(root, '.deps', 'includeapi');
+  const apiSource = join(apiBase, 'payload');
+  const inventoryPath = join(apiBase, 'payload-inventory.json');
   const sourceInventory = JSON.parse(await readFile(inventoryPath, 'utf8'));
   if (sourceInventory.schemaVersion !== 1 || !Array.isArray(sourceInventory.files) ||
       sourceInventory.fileCount !== sourceInventory.files.length ||
@@ -82,7 +85,9 @@ if (includeApi) {
     throw new Error('Invalid or incomplete includeAPI input inventory.');
   apiInventory = sourceInventory.files;
   await inventory(apiSource, apiInventory);
-  await validateApiProvenance(join(apiSource, 'api'), join(root, 'backend'));
+  const provenance = await validateApiProvenance(join(apiSource, 'api'), join(root, 'backend'), { allowCustom: allowDirty });
+  if (candidateApi && !provenance.customDanAny) throw new Error('Candidate API input must identify a custom dan-any payload.');
+  ({ sourceDirty, customDanAny } = releaseSourceStatus(Boolean(source.status), provenance.customDanAny, allowDirty));
   apiInventorySha256 = await fileHash(inventoryPath);
   await cp(join(apiSource, 'api'), join(payload, 'api'), { recursive: true });
 }
@@ -105,7 +110,7 @@ await mkdir(join(payload, 'licenses', 'Dotnet'), { recursive: true });
 for (const file of ['LICENSE.txt', 'ThirdPartyNotices.txt']) await copyFile(join(root, '.deps', 'dotnet', file), join(payload, 'licenses', 'Dotnet', file));
 await copyFile(join(root, 'LICENSE'), join(payload, 'LICENSE'));
 await copyFile(join(root, 'docs', 'THIRD-PARTY-NOTICES.md'), join(payload, 'THIRD-PARTY-NOTICES.md'));
-await copyFile(join(root, 'docs', includeApi ? 'INCLUDEAPI-USER-GUIDE.md' : 'BETA-USER-GUIDE.md'), join(payload, 'README.md'));
+await copyFile(guidePath, join(payload, 'README.md'));
 const license = await readFile(join(root, 'LICENSE'), 'utf8');
 const runtimeLicense = await readFile(join(root, 'licenses', 'WebView2Runtime', 'LICENSE.txt'), 'utf8');
 await writeFile(join(payload, 'DISTRIBUTION-LICENSE.txt'), '\ufeff' + license + '\r\n\r\nMicrosoft WebView2 Runtime terms (shared Evergreen Runtime; only its bootstrapper is bundled; separate from application MIT license):\r\n\r\n' + runtimeLicense.replace(/^\ufeff/, '') +
@@ -116,7 +121,7 @@ const payloadFileList = join(work, 'IncomingPayload.iss');
 await writeFile(payloadFileList, 'procedure AddIncomingPayloadFiles(Files: TStringList);\nbegin\n' +
   payloadFiles.map(file => `  Files.Add('${file.replaceAll('/', '\\').replaceAll("'", "''")}');`).join('\n') + '\nend;\n');
 const manifest = { schemaVersion: 1, version, sourceCommit, sourceDirty, baseline: 'v0.1.0-preview.15', browserDistribution: 'evergreen', variant: includeApi ? 'includeAPI' : 'standard',
-  ...(includeApi ? { apiInventorySha256 } : {}),
+  ...(includeApi ? { apiInventorySha256, customDanAny } : {}),
   dependencies: { ...Object.fromEntries(['dotnetSdk', 'dotnetRuntime', 'webview2Sdk', 'windowsProjection', 'webview2Bootstrapper', 'inno'].map(key => [key, lock[key]])),
     webview2Runtime: { distribution: 'evergreen', minimumMajor: 124, bundled: false } },
   files: await inventory(payload, apiInventory) };
@@ -128,7 +133,7 @@ run(dotnet, ['restore', 'scripts/NativeReleaseTools/NativeReleaseTools.csproj', 
 run(dotnet, ['build', 'scripts/NativeReleaseTools/NativeReleaseTools.csproj', '--no-restore', '-c', 'Release']);
 const tools = join(root, 'scripts', 'NativeReleaseTools', 'bin', 'Release', 'net10.0', 'win-x64', 'NativeReleaseTools.exe');
 run(tools, ['pack', payload, join(staged, names.portable)]);
-run(join(root, '.deps', 'inno', 'ISCC.exe'), [`/DAppVersion=${version}`, `/DPayloadDir=${payload}`, `/DPayloadFileList=${payloadFileList}`, `/DReleaseDir=${staged}`,
+run(join(root, '.deps', 'inno', 'ISCC.exe'), [`/DAppVersion=${version}`, `/DAppFileVersion=${fileVersion}`, `/DPayloadDir=${payload}`, `/DPayloadFileList=${payloadFileList}`, `/DReleaseDir=${staged}`,
   ...(includeApi ? ['/DIncludeApi=1'] : []), 'installer/DanmuCompanion.iss']);
 let sums = '';
 for (const file of [names.installer, names.portable]) sums += `${await fileHash(join(staged, file))}  ${file}\n`;

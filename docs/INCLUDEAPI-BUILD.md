@@ -1,68 +1,98 @@
-# Building the local includeAPI candidate
+# Building includeAPI Beta3
 
-This is an additional beta.3 variant, not a replacement for published beta.2.
-The approved boundary is in `INCLUDEAPI-CONTRACT.md`. Follow the existing native
-toolchain setup before these steps; do not install global runtimes for the app.
+This is an additional v0.1.1-beta.3 variant, alongside the ordinary installer
+and Portable. It does not replace old release assets or tags. The runtime
+boundary is in `INCLUDEAPI-CONTRACT.md`; prepare the pinned native toolchain
+as described in `DEVELOPMENT.md`. End users do not install global build tools.
 
 ## Inputs and preparation
 
-- `native-toolchain.json` pins the workspace .NET SDK, runtime, WebView2 SDK,
+- `native-toolchain.json` pins the workspace .NET SDK/runtime, WebView2 SDK,
   projection assemblies, Microsoft bootstrapper and Inno compiler.
-- `backend/toolchain.json` pins the official Windows x64 Node executable and
-  license, complete upstream commit archive, package manifest and npm lock hash.
-- `backend/package-lock.json` records exact production npm tarball integrity.
-- `backend/entry.mjs` is the complete loopback adapter source. It imports the
-  unchanged upstream worker, not its public-facing Node server.
+- `backend/toolchain.json` pins the official Node executable/source, upstream
+  archive, manifests, locks, patches and dependency-source metadata.
+- `backend/dependency-sources.json` maps every production package to its exact
+  npm archive and preferred editable source archive, with hashes and caveats.
+- The original upstream AGPL root license and conflicting ISC package metadata
+  are both retained. The local adapter and covered modifications are offered
+  under AGPL-3.0-only; the separate original .NET/UI remains MIT.
+- Exact patch 0001 uses Node's built-in Brotli decoder. Patch 0002 removes unused
+  database dependency declarations from dan-any's package metadata, not its JS.
+  The unused esbuild/server and database dependency graph is not installed.
+  Source/API business defaults and the upstream limiter are not tuned away.
 
-Run on Windows x64 with build-time Node/npm available:
+Run from the checkout on Windows x64 with build-time Node/npm and tar available:
 
 ```text
+node backend/prepare-corresponding-source.mjs
 node scripts/prepare-includeapi.mjs
 node --test backend/tests/*.test.mjs
 node backend/tests/real-worker-health.mjs
 ```
 
-Preparation verifies downloads, keeps the full upstream source and dependency
-contents, installs locked production packages without lifecycle scripts or npm
-shell wrappers, and emits `.deps/includeapi/payload-inventory.json`. It does not
-start a Windows service or change firewall settings. Real-worker health tests
-do not request any provider. Runtime entrypoint, manifest, lock and provenance
-must match the current source, not a stale preparation from a previous build.
+The first command prepares `.deps/includeapi/corresponding-source/` and verifies
+it against the tracked source inventory. It refuses to overwrite an existing
+source tree. A maintainer changing reviewed source inputs can explicitly use
+`--update-inventory`, review the generated inventory and commit it before the
+final build; this is not a way to bypass missing source or integrity failures.
 
-Run the native regression harness, UI check and browser tests as described in
-the project, plus `node --test tests/*.test.mjs`. Audit both UI and production
-backend dependencies with npm's native audit command. Do not equate an empty
-advisory result with a security proof.
+Runtime preparation uses locked npm production packages without lifecycle
+scripts or shell wrappers, applies exact hash-checked patches and emits
+`.deps/includeapi/payload-inventory.json`. It does not install a Windows service
+or change firewall rules. The offline real-worker health test makes no provider
+requests. For library rebuilding/replacement, follow
+`../backend/CORRESPONDING-SOURCE.md`; custom builds must be labeled as such and
+cannot pass official-release gates.
 
-## Build and artifact verification
+Run the native regression harness, UI check and browser tests from the project,
+plus `node --test tests/*.test.mjs`. Audit both UI and production backend
+packages. A zero-advisory audit is not a proof of security. Real-player/provider
+acceptance is separate from fixture tests and must use isolated user data;
+never read or publish saved external API credentials, private paths or viewing
+history.
 
-Commit the reviewed sources before the final build:
+## Final artifacts
+
+Commit reviewed sources before the final build:
 
 ```text
-node scripts/build-release.mjs --version 0.1.0-beta.3 --include-api
-node scripts/test-release.mjs --version 0.1.0-beta.3 --include-api --evidence artifacts/includeapi/final-validation
+node scripts/build-release.mjs --version 0.1.1-beta.3
+node scripts/build-release.mjs --version 0.1.1-beta.3 --include-api
+node scripts/build-corresponding-source.mjs --version 0.1.1-beta.3
+node scripts/test-release.mjs --version 0.1.1-beta.3 --evidence artifacts/beta3/final-standard
+node scripts/test-release.mjs --version 0.1.1-beta.3 --include-api --evidence artifacts/beta3/final-includeapi
 ```
 
-Use a new evidence directory for each run. The installer and portable ZIP share
-one manifest-hashed payload. Normal builds retain the 210 MiB limit; this variant
-has an explicit 400 MiB limit and exact API file inventory. PowerShell, batch
-wrappers, private credentials and private WebView2 remain prohibited. The
-variant's 16,384-file verification ceiling does not apply to ordinary manifests.
+Use a new evidence directory for each test run. Keep BaoMiHua closed for offline
+artifact/lifecycle QA, then explicitly conduct actual movie acceptance on the
+same final payload. The installer and Portable of each variant share one
+manifest-hashed payload. Ordinary builds retain a 210 MiB budget; includeAPI
+has a separate 400 MiB budget and exact API inventory. Runtime PowerShell,
+batch wrappers, private credentials and private WebView2 remain prohibited.
+The includeAPI 16,384-file ceiling does not apply to ordinary manifests.
 
-Additional actual-UI QA may be run against the built payload with
-`scripts/test-includeapi-runtime.mjs`; it must use a new isolated profile and
-keep the real player closed to avoid automatic provider requests. Never use a
-test to modify an existing user's application installation or credentials.
+The separate corresponding-source ZIP contains tracked project source,
+original/modified upstream trees, exact patches, full pinned source archives,
+npm input archives, notices and build controls. Nested source archives are
+allowed only under their locked `archives/` paths. They may retain upstream
+compiled test fixtures; this source asset is not described as binary-free and
+is never copied into application runtime payloads. Runtime allowlists are not
+relaxed by the source-archive rules. Complete inventories, hash checks, source
+stability checks and no-overwrite guards bind the source archive to the same
+clean commit as the EXE packages. Byte matching does not replace review of
+source completeness or license obligations.
 
-No command here publishes, pushes, tags or merges anything. Local candidates
-may use `--allow-dirty` for debugging, but dirty artifacts cannot pass final
-release QA and must not be presented as reproducible release assets.
+Additional actual source-picker/lifecycle QA is available in
+`scripts/test-includeapi-runtime.mjs`, with a new isolated profile and the player
+closed. Do not overwrite or uninstall an existing user's application for QA.
+Local debugging may use `--allow-dirty`; a custom dependency is explicitly
+marked custom/dirty and cannot be published as an official release.
 
-## Publication gate
+## Publication
 
-Keep the full source, lockfiles, modifications, notices and build instructions
-available with any later distribution, and resolve the outstanding licensing
-questions before a public release. The upstream root AGPL-3.0 versus package
-ISC inconsistency and brotli's missing standalone MIT text are retained in
-`backend/NOTICES.md`; copying original metadata is not a legal determination.
-The present task produces a local test candidate only.
+These build commands do not push, merge, tag or publish. Publication requires
+separate user authorization after final-byte, real-source and license checks.
+Use a draft prerelease, verify uploaded assets by downloaded bytes, then publish
+with the concise version title and Changelog-only notes. Do not rewrite old
+assets/tags or mislabel the Beta as a stable release. The corresponding-source
+asset and checksums must remain available with the executable release.

@@ -1,4 +1,4 @@
-# 爆米花弹幕伴侣 0.1.0-beta.2（精简版）
+# 爆米花弹幕伴侣 0.1.1-beta.3（精简版）
 
 本版提供 Windows x64 安装版和 Portable 版。主程序、后台播放器采样和开机启动均直接使用 EXE，不再调用 PowerShell，不需要调整执行策略。
 
@@ -8,7 +8,7 @@ Windows 11 通常已有 WebView2，大多数 Windows 10 也已安装。没有或
 
 ## 安装版
 
-1. 运行 `DanmuCompanion-0.1.0-beta.2-win-x64-setup.exe`。
+1. 运行 `DanmuCompanion-0.1.1-beta.3-win-x64-setup.exe`。
 2. 阅读原创程序 MIT 许可和包内 Microsoft WebView2 的独立许可条款。
 3. 在“选择目标位置”页面指定安装文件夹。可以选择其他本地磁盘及包含中文、空格的路径；请选择当前账户可写的专用子目录，不要选择磁盘根目录或网络共享。
 4. 已有合适的 WebView2 时直接复用；没有时安装器会运行微软引导程序联网补装并再次检测，失败会停止应用安装。完成后从开始菜单打开“爆米花弹幕伴侣”。桌面快捷方式可选，开机启动不会自动开启。
@@ -19,7 +19,7 @@ Windows 11 通常已有 WebView2，大多数 Windows 10 也已安装。没有或
 
 ## Portable 版
 
-完整解压 `DanmuCompanion-0.1.0-beta.2-win-x64-portable.zip` 到本地文件夹，然后双击 `DanmuCompanion.exe`。不要在压缩软件中直接运行，也不要只取出一个 EXE。
+完整解压 `DanmuCompanion-0.1.1-beta.3-win-x64-portable.zip` 到本地文件夹，然后双击 `DanmuCompanion.exe`。不要在压缩软件中直接运行，也不要只取出一个 EXE。
 
 Portable 不为应用创建安装记录；**已有 WebView2 时解压即用**。缺少时会明确提示，请先手动运行同目录 `MicrosoftEdgeWebview2Setup.exe` 联网安装／更新，再打开主程序。这个精简版不承诺在没有 WebView2 的电脑上完全离线、零前置环境启动。微软运行库自己的安装登记不属于应用 Portable 安装记录。
 
@@ -69,7 +69,7 @@ API 地址继续使用当前 Windows 用户的 DPAPI 加密，并兼容 preview.
 
 ## Beta 验证边界
 
-本版面向 Windows 10/11 x64；实际测试操作系统和结果以随交付提供的验证报告为准，不把单机结果外推到其他系统。ARM64、网络共享运行和不同安全策略环境未作兼容性承诺。
+本版面向 Windows 10/11 x64；当前验收环境为 Windows 11 x64，不把单机结果外推为 Windows 10 的完整兼容性证明。ARM64、网络共享运行和不同安全策略环境未作兼容性承诺。
 
 应用显式请求稳定版 Runtime，并清理继承的浏览器／调试环境覆盖；受管电脑的 WebView2 注册表策略仍可能改变 SDK 的选择。此类策略环境未验证，不应通过关闭系统安全策略来强行运行。
 

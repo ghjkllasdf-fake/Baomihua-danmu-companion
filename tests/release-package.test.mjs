@@ -5,7 +5,34 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance } from '../scripts/release-lib.mjs';
+import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory } from '../scripts/release-lib.mjs';
+
+test('installer file version comes from the same native properties as the artifact version', () => {
+  const props = '<Project><Version>0.1.1-beta.3</Version><FileVersion>0.1.1.3</FileVersion></Project>';
+  assert.deepEqual(releaseVersions(props, '0.1.1-beta.3'), { fileVersion: '0.1.1.3' });
+  assert.throws(() => releaseVersions(props, '0.1.0-beta.3'));
+  assert.throws(() => releaseVersions(props.replace('0.1.1.3', '0.1.0.3'), '0.1.1-beta.3'));
+  assert.throws(() => releaseVersions(props.replace('<FileVersion>0.1.1.3</FileVersion>', ''), '0.1.1-beta.3'));
+});
+
+test('release guide identifies the same version in its title', () => {
+  assert.doesNotThrow(() => assertReleaseGuide('# App 0.1.1-beta.3 (portable)\n\nBody', '0.1.1-beta.3'));
+  assert.throws(() => assertReleaseGuide('# App 0.1.0-beta.2\n\nBody mentions 0.1.1-beta.3', '0.1.1-beta.3'));
+});
+
+test('custom library packages are explicit dirty candidates, never final artifacts', () => {
+  assert.throws(() => releaseSourceStatus(false, true, false), /custom|dirty/i);
+  assert.deepEqual(releaseSourceStatus(false, true, true), { sourceDirty: true, customDanAny: true });
+  assert.deepEqual(releaseSourceStatus(false, false, false), { sourceDirty: false, customDanAny: false });
+});
+
+test('isolated custom API input requires the explicit candidate flags', () => {
+  assert.throws(() => candidateApiDirectory('custom', false, true, true), /candidate/i);
+  assert.throws(() => candidateApiDirectory('custom', true, false, true), /candidate/i);
+  assert.throws(() => candidateApiDirectory('custom', true, true, false), /candidate/i);
+  assert.equal(candidateApiDirectory('custom', true, true, true), resolve('custom'));
+  assert.equal(candidateApiDirectory(undefined, false, false), null);
+});
 
 test('beta filenames are fixed and reject traversal/shell fragments', () => {
   assert.equal(releaseNames('0.1.0-beta.1').installer, 'DanmuCompanion-0.1.0-beta.1-win-x64-setup.exe');
@@ -68,6 +95,9 @@ test('includeAPI refuses a stale prepared adapter or mismatched runtime provenan
     await assert.rejects(() => validateApiProvenance(api, backend), /runtime|provenance/i);
     await writeFile(join(api, 'runtime.json'), JSON.stringify({ schemaVersion: 1, upstreamCommit: 'a'.repeat(40), nodeVersion: '22.0.0' }));
     await assert.rejects(() => validateApiProvenance(api, backend), /runtime|provenance/i);
+    await writeFile(join(api, 'runtime.json'), JSON.stringify({ schemaVersion: 1, upstreamCommit: 'a'.repeat(40), nodeVersion: '22.23.4', customDanAny: true }));
+    await assert.rejects(() => validateApiProvenance(api, backend), /custom|provenance/i);
+    assert.deepEqual(await validateApiProvenance(api, backend, { allowCustom: true }), { customDanAny: true });
     await writeFile(join(api, 'runtime.json'), JSON.stringify({ schemaVersion: 1, upstreamCommit: 'a'.repeat(40), nodeVersion: '22.23.4' }));
     await writeFile(join(api, 'node.exe'), 'wrong-node');
     await assert.rejects(() => validateApiProvenance(api, backend), /node|provenance/i);
@@ -86,11 +116,17 @@ test('Inno compiles standard and includeAPI to distinct installer names', async 
       // Exercise the real includeAPI scale rather than just compiling an empty list.
       const incoming = includeApi ? Array.from({ length: 11000 }, (_, i) => `  Files.Add('api\\node_modules\\entry-${i}.js');`).join('\n') : '';
       await writeFile(list, `procedure AddIncomingPayloadFiles(Files: TStringList);\nbegin\n${incoming}\nend;\n`);
-      const args = ['--quiet', '/DAppVersion=0.1.0-beta.3', `/DPayloadDir=${payload}`, `/DPayloadFileList=${list}`,
+      const args = ['--quiet', '/DAppVersion=0.1.0-beta.3', '/DAppFileVersion=0.1.0.3', `/DPayloadDir=${payload}`, `/DPayloadFileList=${list}`,
         `/DReleaseDir=${tmp}`, ...(includeApi ? ['/DIncludeApi=1'] : []), 'installer/DanmuCompanion.iss'];
       const result = spawnSync(join(root, '.deps', 'inno', 'ISCC.exe'), args, { cwd: root, encoding: 'utf8', windowsHide: true, timeout: 60000 });
       assert.equal(result.status, 0, result.stdout + result.stderr);
-      assert.ok((await stat(join(tmp, releaseNames('0.1.0-beta.3', includeApi).installer))).size > 0);
+      const installer = join(tmp, releaseNames('0.1.0-beta.3', includeApi).installer);
+      assert.ok((await stat(installer)).size > 0);
+      const metadata = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        '[System.Diagnostics.FileVersionInfo]::GetVersionInfo($env:DANMU_TEST_INSTALLER).FileVersion'],
+        { encoding: 'utf8', windowsHide: true, env: { ...process.env, DANMU_TEST_INSTALLER: installer } });
+      assert.equal(metadata.status, 0, metadata.stderr);
+      assert.equal(metadata.stdout.trim(), '0.1.0.3');
     }
   } finally { await rm(tmp, { recursive: true, force: true }); }
 });

@@ -80,5 +80,9 @@ test('only explicit includeAPI manifests receive the bounded large file inventor
     await writeFile(join(root, 'manifest.json'), JSON.stringify(manifest));
     const tooMany = run('verify-dir', root); fail(tooMany);
     assert.match(tooMany.stderr, /Invalid payload count/);
+    manifest.variant = 'corresponding-source';
+    await writeFile(join(root, 'manifest.json'), JSON.stringify(manifest));
+    const sourceVariant = run('verify-dir', root); fail(sourceVariant);
+    assert.match(sourceVariant.stderr, /Unexpected directory payload files/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

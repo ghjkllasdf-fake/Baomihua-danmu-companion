@@ -4,7 +4,7 @@
 
 ## 原生 Beta 构建（当前）
 
-`0.1.0-beta.2` 从 preview.15 的 C# 和 React 功能构建，入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`。用户运行、采样、自启动、WebView2 前置环境安装和卸载无需 PowerShell。本文后半的 PS 命令仅保留为历史预览版开发参考，不能用于生成 Beta。
+`0.1.1-beta.3` 从 preview.15 的 C# 和 React 功能构建，入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`。用户运行、采样、自启动、WebView2 前置环境安装和卸载无需 PowerShell。本文后半的 PS 命令仅保留为历史预览版开发参考，不能用于生成 Beta。
 
 本地工具由 `native-toolchain.json` 固定：.NET SDK 10.0.403／运行时 10.0.14、WebView2 SDK 1.0.4314.35、Windows 投影 10.0.26100.84、微软 Evergreen Bootstrapper 1.3.307.15、Inno Setup 7.1.1。Fixed Runtime 归档记录仅用于历史 beta.1，不再参与精简版 payload。按清单的官方来源准备 `.deps` 原始归档及对应解压目录；构建器校验归档、投影 DLL、引导程序和编译器，不修改全局 SDK。Node/npm 与 UI 依赖见下表和 `ui/package-lock.json`。
 
@@ -16,11 +16,11 @@ npm.cmd --prefix ui run test:e2e
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release
 node --test tests/release-package.test.mjs tests/native-archive.test.mjs tests/installer-guard.test.mjs tests/browser-prerequisite.test.mjs tests/source-state.test.mjs
 node scripts/check-release-mutation.mjs
-node scripts/build-release.mjs --version 0.1.0-beta.2
-node scripts/test-release.mjs --version 0.1.0-beta.2
+node scripts/build-release.mjs --version 0.1.1-beta.3
+node scripts/test-release.mjs --version 0.1.1-beta.3
 ```
 
-运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.1.0-beta.2/`，两个版本来自同一 manifest payload；应用文件不得超过 210 MiB，且白名单拒绝私有浏览器目录。
+运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.1.1-beta.3/`，两个版本来自同一 manifest payload；应用文件不得超过 210 MiB，且白名单拒绝私有浏览器目录。
 
 `test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝孤立旧安装、原位重装、卸载和外来文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
 

@@ -1,12 +1,42 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { readdir, lstat, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 export function releaseNames(version, includeApi = false) {
   if (!/^\d+\.\d+\.\d+-beta\.[1-9]\d*$/.test(version)) throw new Error('Invalid beta version.');
   const base = `DanmuCompanion-${version}-win-x64${includeApi ? '-includeAPI' : ''}`;
   return { base, installer: `${base}-setup.exe`, portable: `${base}-portable.zip` };
+}
+
+export function releaseVersions(properties, version) {
+  releaseNames(version);
+  const projectVersion = properties.match(/<Version>([^<]+)<\/Version>/)?.[1];
+  const fileVersion = properties.match(/<FileVersion>([^<]+)<\/FileVersion>/)?.[1];
+  const expected = version.replace('-beta.', '.');
+  if (projectVersion !== version || fileVersion !== expected ||
+      expected.split('.').some(part => Number(part) > 65535))
+    throw new Error('Artifact, native version and numeric file version must agree.');
+  return { fileVersion };
+}
+
+export function assertReleaseGuide(guide, version) {
+  releaseNames(version);
+  const heading = guide.replace(/^\ufeff/, '').split(/\r?\n/, 1)[0];
+  if (!heading.startsWith('# ') || !heading.includes(version) ||
+      (heading.match(/\d+\.\d+\.\d+-beta\.\d+/g) ?? []).some(found => found !== version))
+    throw new Error('Release guide title must identify the artifact version.');
+}
+
+export function releaseSourceStatus(dirty, customDanAny, allowDirty) {
+  if ((dirty || customDanAny) && !allowDirty) throw new Error('Dirty source or custom dan-any requires an explicit --allow-dirty candidate.');
+  return { sourceDirty: Boolean(dirty || customDanAny), customDanAny: Boolean(customDanAny) };
+}
+
+export function candidateApiDirectory(path, includeApi, allowDirty, explicitOutput) {
+  if (path === undefined) return null;
+  if (!path || !includeApi || !allowDirty || !explicitOutput) throw new Error('Candidate API input requires --include-api, --allow-dirty and an explicit --output.');
+  return resolve(path);
 }
 
 export function allowedEntry(path, apiEntries = null) {
@@ -42,19 +72,23 @@ export async function fileHash(path, algorithm = 'sha256') {
   return hash.digest('hex');
 }
 
-export async function validateApiProvenance(api, backend) {
+export async function validateApiProvenance(api, backend, { allowCustom = false } = {}) {
   for (const name of ['entry.mjs', 'package.json', 'package-lock.json', 'toolchain.json']) {
     if (await fileHash(join(api, name)) !== await fileHash(join(backend, name)))
       throw new Error(`Stale includeAPI input differs from current backend: ${name}`);
   }
   const toolchain = JSON.parse(await readFile(join(backend, 'toolchain.json'), 'utf8'));
   const runtime = JSON.parse(await readFile(join(api, 'runtime.json'), 'utf8'));
+  if (runtime.customDanAny !== undefined && typeof runtime.customDanAny !== 'boolean') throw new Error('Invalid custom dan-any provenance.');
+  if (runtime.customDanAny && !allowCustom)
+    throw new Error('Custom dan-any builds cannot be released as official includeAPI artifacts.');
   if (toolchain.schemaVersion !== 1 || runtime.schemaVersion !== 1 || !/^[a-f0-9]{40}$/.test(toolchain.upstream?.commit ?? '') ||
       runtime.upstreamCommit !== toolchain.upstream.commit || runtime.nodeVersion !== toolchain.node?.version) throw new Error('includeAPI runtime provenance mismatch.');
   if (await fileHash(join(api, 'node.exe')) !== toolchain.node?.sha256 ||
       await fileHash(join(api, 'package-lock.json')) !== toolchain.productionLock?.sha256 ||
       await fileHash(join(api, 'package.json')) !== toolchain.packageManifestSha256)
     throw new Error('includeAPI Node or dependency provenance mismatch.');
+  return { customDanAny: runtime.customDanAny === true };
 }
 
 export async function walkFiles(root, prefix = '') {

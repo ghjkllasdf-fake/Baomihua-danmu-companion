@@ -3,7 +3,10 @@
 Approved in conversation on 2026-10-29: local EXE installer, app-owned loopback
 API, automatic connection, source-only controls, at most three randomly sampled
 candidates per matching round, no complicated retry/scheduling system. This is
-an additional local candidate, not permission to replace or publish old releases.
+an additional local candidate. The later publication goal on 2026-10-29 now
+authorizes a new Beta3 release after real-source acceptance and license work,
+not replacement of old releases. Its consistently versioned tag will be
+v0.1.1-beta.3 to preserve newest-first ordering across Preview/Beta channels.
 
 ## Runtime boundary
 
@@ -66,8 +69,11 @@ sources including a previously bound source attempt; sample remaining candidates
 without replacement. Select the most comments among those tried, NOT globally.
 Reuse the same-work binding as before. 429 is an actionable failure, not a reason
 to try every other source or start a retry queue. External mode retains baseline.
+Embedded matching has a bounded 180-second whole-round deadline; external mode
+retains 60 seconds. The local adapter caps each response at 64 MiB and each
+business request at 180 seconds, matching the native API client's boundaries.
 
-Candidate version: 0.1.0-beta.3, variant includeAPI, separate installer AppId,
+Release version: 0.1.1-beta.3, variant includeAPI, separate installer AppId,
 default directory and Start-menu name. Existing beta.2 bytes/tags stay unchanged.
 Retain source notices, AGPL text and reproducible upstream/dependency provenance;
 do not relabel upstream as MIT (upstream package metadata says ISC while its
