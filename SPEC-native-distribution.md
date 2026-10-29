@@ -1,6 +1,6 @@
 # Spec: Native Beta Installer and Portable Distribution
 
-Status: implementation in progress under the reiterated installer/portable goal.
+Status: implemented and locally validated; see docs/BETA-VERIFICATION.md. No remote publication.
 Date: 2026-10-29, Asia/Shanghai.
 
 ## Objective and Baseline
