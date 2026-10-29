@@ -12,6 +12,12 @@ internal static class SampledMatchTests
     private static void Check(bool value,string message) { if(!value)throw new Exception(message); }
     internal static async Task Run()
     {
+        using(var embedded=new AutomaticMatcher((_,_,_,_)=>throw new Exception("No request expected."),_=>{},_=>{},_=>{},3))
+        using(var external=new AutomaticMatcher((_,_,_,_)=>throw new Exception("No request expected."),_=>{},_=>{},_=>{}))
+        {
+            Check(embedded.RoundTimeout==TimeSpan.FromSeconds(180),"Embedded movie downloads need a bounded three-minute matching round.");
+            Check(external.RoundTimeout==TimeSpan.FromSeconds(60),"The external API matching deadline must remain unchanged.");
+        }
         foreach(bool sampled in new[]{true,false})
         foreach(int count in new[]{2,7})
         {

@@ -22,20 +22,24 @@ public sealed class AutomaticMatcher : IDisposable
     private readonly Action<string> notify;
     private readonly int candidateLimit;
     private readonly Func<int,int> randomIndex;
+    private readonly TimeProvider timeProvider;
     private CancellationTokenSource pending;
     private long generation;
     private string key="";
     private SourceBinding binding;
     private bool disposed;
+    // Real movie sources can take almost a minute for a single response.
+    internal TimeSpan RoundTimeout=>TimeSpan.FromSeconds(candidateLimit>0 ? 180 : 60);
     public Task Completion { get; private set; }=Task.CompletedTask;
     public AutomaticMatchStatus Status { get; private set; }=new("waiting","等待爆米花播放视频，识别后自动匹配弹幕。");
     public AutomaticMatcher(Func<string,string,string,CancellationToken,Task<JsonObject>> fetch,
         Action<AutomaticMatchResult> loaded,Action<AutomaticMatchStatus> changed,Action<string> notify,
-        int candidateLimit=0,Func<int,int> randomIndex=null)
+        int candidateLimit=0,Func<int,int> randomIndex=null,TimeProvider timeProvider=null)
     {
         if(candidateLimit is not (0 or 3))throw new ArgumentOutOfRangeException(nameof(candidateLimit));
         this.fetch=fetch;this.loaded=loaded;this.changed=changed;this.notify=notify;
         this.candidateLimit=candidateLimit;this.randomIndex=randomIndex??Random.Shared.Next;
+        this.timeProvider=timeProvider??TimeProvider.System;
     }
 
     private T[] Candidates<T>(T[] source,int remaining)
@@ -62,7 +66,7 @@ public sealed class AutomaticMatcher : IDisposable
         {
             Set(new("waiting","等待爆米花播放视频，识别后自动匹配弹幕。"));return;
         }
-        pending=new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        pending=new CancellationTokenSource(RoundTimeout,timeProvider);
         Completion=Match(apiBase,title,episode,revision,generation,pending.Token);
     }
     public void Suspend()

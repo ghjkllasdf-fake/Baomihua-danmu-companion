@@ -60,6 +60,7 @@ internal static class DistributionTests
             ProbeSupervisorTests.Run(Environment.ProcessPath,"--fixture","unused").GetAwaiter().GetResult();
             AutomaticMatchTests.Run().GetAwaiter().GetResult();
             SampledMatchTests.Run().GetAwaiter().GetResult();
+            MatchingDeadlineTests.Run().GetAwaiter().GetResult();
             EmbeddedApiTests.Run().GetAwaiter().GetResult();
             ApiTimeoutTests.Run().GetAwaiter().GetResult();
             Console.WriteLine($"PASS: {assertions} native distribution path assertions.");
