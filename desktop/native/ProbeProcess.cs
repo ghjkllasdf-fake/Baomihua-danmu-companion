@@ -31,13 +31,12 @@ internal sealed class ProbeProcess : IProbeChild
     public int Id=>process.Id;
     public long StartTimeTicks=>process.StartTime.ToUniversalTime().Ticks;
     public bool Reaped=>Volatile.Read(ref reaped)!=0;
-    public ProbeProcess(string runtime,string script,params string[] arguments)
+    public ProbeProcess(string executable,params string[] arguments)
     {
-        runtime=Path.GetFullPath(runtime); script=Path.GetFullPath(script);
-        if (!File.Exists(runtime) || !File.Exists(script)) throw new FileNotFoundException("Probe runtime or entry point is missing.");
-        var info=new ProcessStartInfo(runtime) {UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,
-            RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true,StandardInputEncoding=new UTF8Encoding(false),WorkingDirectory=Path.GetDirectoryName(script)};
-        foreach (string value in new[] {"-NoLogo","-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-MTA","-File",script}) info.ArgumentList.Add(value);
+        executable=Path.GetFullPath(executable);
+        if (!File.Exists(executable)) throw new FileNotFoundException("Probe executable is missing.");
+        var info=new ProcessStartInfo(executable) {UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden,
+            RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true,StandardInputEncoding=new UTF8Encoding(false),WorkingDirectory=Path.GetDirectoryName(executable)};
         foreach (string value in arguments) info.ArgumentList.Add(value);
         info.Environment.Clear();
         foreach (string name in new[] {"SystemRoot","WINDIR","TEMP","TMP","USERPROFILE","LOCALAPPDATA","APPDATA","ProgramFiles","ProgramW6432"})

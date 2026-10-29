@@ -42,24 +42,27 @@ public sealed class DesktopWindow : Form
     private bool initialized,openRequested,exitRequested;
     public bool Ready { get; private set; }
     public string Failure { get; private set; } = "";
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    internal bool SuppressErrorDialogs { get; set; }
     public DanmakuSettings Settings { get; private set; } = new();
     public int CommentCount { get; private set; }
     public event Action<Comment[]> CommentsLoaded;
     public event Action<DanmakuSettings> SettingsUpdated;
     public event Action<double,bool> ManualClockUpdated;
 
-    public DesktopWindow(string projectRoot,string initialApi,string dataProfile="app")
+    public DesktopWindow(string projectRoot,string initialApi,string dataProfile="app",string userDataRoot=null)
     {
         if (!System.Text.RegularExpressions.Regex.IsMatch(dataProfile,@"^[a-z0-9][a-z0-9-]{0,47}$")) throw new ArgumentException("Invalid data profile.");
         root=projectRoot; apiBase=initialApi;
         applicationIcon=AppIcons.Load(root);Icon=applicationIcon;
         Text="爆米花 · 弹幕工作台"; ClientSize=new Size(1120,790); MinimumSize=new Size(760,620);
         StartPosition=FormStartPosition.CenterScreen; BackColor=Color.FromArgb(245,243,235);
-        string data=Path.Combine(root,".cache",dataProfile); Directory.CreateDirectory(data);browserData=data;
-        preferences=Path.Combine(data,"preferences.json");
+        var paths=new ApplicationPaths(root,dataProfile,userDataRoot);
+        string data=paths.ProfileRoot; Directory.CreateDirectory(data);browserData=data;
+        preferences=paths.Preferences;
         var savedPreferences=SettingsPreferences.Load(preferences);
         Settings=savedPreferences.Settings; Failure=savedPreferences.Notice;
-        apiPreferences=dataProfile=="app" ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"BaomihuaDanmuCompanion","api.dat") : Path.Combine(data,"api.dat");
+        apiPreferences=paths.ApiPreferences;
         var savedApi=ApiPreferences.Load(apiPreferences);
         savedApiBase=savedApi.ApiBase;apiNotice=savedApi.Notice;
         if(string.IsNullOrEmpty(apiBase))apiBase=savedApiBase;
@@ -141,8 +144,8 @@ public sealed class DesktopWindow : Form
         settings.IsPasswordAutosaveEnabled=false;
     }
     private static string DescribeInitializationFailure(Exception error) => error is WebView2RuntimeNotFoundException
-        ? "缺少或无法找到 Microsoft Edge WebView2 Runtime。\r\n请从微软官方网站下载 Evergreen 独立安装程序（x64），安装后重新打开弹幕助手。\r\nhttps://developer.microsoft.com/microsoft-edge/webview2/\r\n无需以管理员身份运行弹幕助手。\r\n如需暂时使用旧版，请回到保留的旧版文件夹，双击“启动弹幕助手.bat”。"
-        : "桌面界面初始化失败："+error.Message+"\r\n请检查发行包是否完整解压，并运行“检查文件.bat”。";
+        ? "包内 WebView2 运行环境缺失或不可用。\r\n请完整解压或重新安装本版本，无需另外安装 PowerShell 或 .NET。"
+        : "桌面界面初始化失败："+error.Message+"\r\n请检查发行包是否完整解压，或重新安装本版本。";
     private void ApplyAutomaticMatch(AutomaticMatchResult result)
     {
         if(closing)return;
@@ -190,8 +193,8 @@ public sealed class DesktopWindow : Form
     {
         try
         {
-            CoreWebView2Environment.SetLoaderDllFolderPath(Path.Combine(root,".deps","webview2","runtimes","win-x64","native"));
-            var env=await CoreWebView2Environment.CreateAsync(null,Path.Combine(data,"webview"));
+            CoreWebView2Environment.SetLoaderDllFolderPath(root);
+            var env=await CoreWebView2Environment.CreateAsync(Path.Combine(root,"WebView2Runtime"),Path.Combine(data,"webview"));
             if (closing) return;
             controller=await env.CreateCoreWebView2ControllerAsync(surface.Handle);
             if (closing) { controller.Close(); return; }
@@ -208,7 +211,7 @@ public sealed class DesktopWindow : Form
             core.Navigate("https://danmu.local/index.html");
             timer.Start();
         }
-        catch (Exception ex) { Failure=DescribeInitializationFailure(ex); MessageBox.Show(Failure,"爆米花弹幕助手",MessageBoxButtons.OK,MessageBoxIcon.Error); RequestExit(); }
+        catch (Exception ex) { Failure=DescribeInitializationFailure(ex); if(!SuppressErrorDialogs)MessageBox.Show(Failure,"爆米花弹幕助手",MessageBoxButtons.OK,MessageBoxIcon.Error); RequestExit(); }
     }
     public static bool IsAppSource(string source) => Uri.TryCreate(source,UriKind.Absolute,out var uri) && uri.Scheme=="https" && uri.Host=="danmu.local" && uri.IsDefaultPort && string.IsNullOrEmpty(uri.UserInfo);
     private void Send(object message)

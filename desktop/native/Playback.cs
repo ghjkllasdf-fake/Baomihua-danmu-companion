@@ -11,7 +11,7 @@ public sealed class PlayerProbe : IDisposable
     public PlayerProbe(string projectRoot)
     {
         string root=Path.GetFullPath(projectRoot);
-        supervisor=new ProbeSupervisor(()=>new ProbeProcess(Path.Combine(root,".deps","pwsh","pwsh.exe"),Path.Combine(root,"desktop","ProbeWorker.ps1")));
+        supervisor=new ProbeSupervisor(()=>new ProbeProcess(Path.Combine(root,"DanmuCompanion.Probe.exe")));
     }
     public static double? ParseTime(string text)=>PlayerSampler.ParseTime(text);
     public void Dispose()=>supervisor.Dispose();

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../desktop/NativeCommon.props" />
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>NativeDistribution.Tests</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../desktop/native/*.cs" Link="Native/%(Filename)%(Extension)" />
+    <Compile Include="../fixtures/ProbeProcessTests.cs" Link="Fixtures/ProbeProcessTests.cs" />
+    <Compile Include="../fixtures/ProbeTransportTests.cs;../fixtures/ProbeOperationTests.cs;../fixtures/ProbeSupervisorTests.cs;../fixtures/PlaybackEventSignalTests.cs;../fixtures/AutomaticMatchTests.cs;../fixtures/ApiTimeoutTests.cs" Link="Fixtures/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

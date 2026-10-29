@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../NativeCommon.props" />
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>DanmuCompanion</AssemblyName>
+    <ApplicationIcon>../../assets/app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../native/*.cs" Link="Native/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
