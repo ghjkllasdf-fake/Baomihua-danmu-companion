@@ -24,9 +24,40 @@ export function validSettingsSnapshot(value: unknown): value is SettingsSnapshot
   const s = value as Record<string, unknown>;
   return typeof s.settingsRevision === 'number' && Number.isSafeInteger(s.settingsRevision) && s.settingsRevision >= 0 && validSettings(s.settings);
 }
+export const localSourceIds = ['douban', '360', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'migu', 'renren', 'hanjutv', 'sohu', 'leshi', 'xigua', 'maiduidui', 'aiyifan', 'hongguo', 'bahamut', 'animeko'] as const;
+export const defaultLocalSources = ['douban', '360', 'renren', 'hanjutv'];
+export interface LocalApi {
+  enabled: true; state: 'starting' | 'ready' | 'failed'; message: string;
+  sources: string[]; availableSources: { id: string; label: string }[];
+}
+const object = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+const exactKeys = (value: object, keys: string[]) => Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
+export function validLocalSources(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length > 0 && value.length <= localSourceIds.length &&
+    value.every(id => typeof id === 'string' && (localSourceIds as readonly string[]).includes(id)) && new Set(value).size === value.length;
+}
+export function validLocalApi(value: unknown): value is LocalApi {
+  if (!object(value) || !exactKeys(value, ['enabled', 'state', 'message', 'sources', 'availableSources']) ||
+    value.enabled !== true || typeof value.state !== 'string' || !['starting', 'ready', 'failed'].includes(value.state) ||
+    typeof value.message !== 'string' || value.message.length > 500 || !validLocalSources(value.sources) ||
+    !Array.isArray(value.availableSources) || value.availableSources.length < 1 || value.availableSources.length > localSourceIds.length) return false;
+  const ids: string[] = [];
+  for (const source of value.availableSources) {
+    if (!object(source) || !exactKeys(source, ['id', 'label']) || typeof source.id !== 'string' ||
+      !(localSourceIds as readonly string[]).includes(source.id) || typeof source.label !== 'string' ||
+      !source.label.trim() || source.label.length > 100) return false;
+    ids.push(source.id);
+  }
+  return new Set(ids).size === ids.length && value.sources.every(id => ids.includes(id));
+}
+export function safeLocalApiText(value: string, fallback: string): string {
+  // Host-provided display text must not accidentally expose a loopback URL or credential.
+  return value && /^[\p{Script=Han}\p{L}\p{N}\s，。！？、；（）·!?,;()]+$/u.test(value) &&
+    !/[a-f0-9]{32,}/i.test(value) && !/token|password|credential|config|admin/i.test(value) ? value : fallback;
+}
 export interface Hello extends SettingsSnapshot {
   apiBase: string; stateSequence: number; protocolVersion: 1; capabilities: string[];
-  apiSaved?: boolean; apiNotice?: string;
+  apiSaved?: boolean; apiNotice?: string; localApi?: LocalApi;
 }
 export function validHello(value: unknown): value is Hello {
   if (!validSettingsSnapshot(value)) return false;
@@ -36,6 +67,7 @@ export function validHello(value: unknown): value is Hello {
     hello.protocolVersion === 1 && Array.isArray(hello.capabilities) && hello.capabilities.length <= 32 &&
     hello.capabilities.every(capability => typeof capability === 'string' && capability.length <= 64) &&
     hello.capabilities.includes('media-context-v1') &&
+    (!hello.capabilities.includes('embedded-api-v1') || validLocalApi(hello.localApi)) &&
     (!hello.capabilities.includes('api-persistence-v1') || typeof hello.apiSaved === 'boolean' &&
       typeof hello.apiNotice === 'string' && hello.apiNotice.length <= 500);
 }

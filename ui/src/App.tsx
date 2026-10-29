@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { inDesktop, request, revokeConnection, subscribe, subscribeConnection, type Connection } from './bridge';
-import { defaultSettings, emptyPlayer, formatTime, parseTime, playbackStatus, validPlayer, type Settings } from './model';
+import { defaultSettings, emptyPlayer, formatTime, parseTime, playbackStatus, validLocalApi, validPlayer, type LocalApi, type Settings } from './model';
 import { SettingsSession, settingsStatusText, type SettingsStatus } from './settings-session';
 import { createNativeNoticeHandler } from './host-notices';
 import { initialPlayback, observePlayer } from './player-observation';
@@ -9,6 +9,7 @@ import { StartupOptions } from './components/StartupOptions';
 import { Preview } from './components/Preview';
 import { SourcePanel } from './components/SourcePanel';
 import { ApiConnection } from './components/ApiConnection';
+import { LocalApiConnection } from './components/LocalApiConnection';
 import { validAutomaticMatch, type AutomaticMatchStatus } from './automatic-match';
 
 export function App() {
@@ -20,12 +21,14 @@ export function App() {
   const [automaticMatching, setAutomaticMatching] = useState(false), [automaticMatch, setAutomaticMatch] = useState<AutomaticMatchStatus>();
   const [desktopLifecycle, setDesktopLifecycle] = useState(false);
   const [apiPersistence, setApiPersistence] = useState(false), [apiSaved, setApiSaved] = useState(false), [apiNotice, setApiNotice] = useState('');
+  const [localApi, setLocalApi] = useState<LocalApi>();
   const [count, setCount] = useState(0), [error, setError] = useState(''), [manual, setManual] = useState('00:00:00');
   const [settingsStatus, setSettingsStatus] = useState<SettingsStatus>('preview'), [settingsError, setSettingsError] = useState('');
   const settingsSession = useRef<SettingsSession | null>(null);
   const latestPlayback = useRef(initialPlayback);
+  const localSavePending = useRef(false), localRefreshNeeded = useRef(false);
   useEffect(() => {
-    let active = true, trusted = false;
+    let active = true, trusted = false, embeddedApi = false, localState: LocalApi['state'] | undefined;
     const session = new SettingsSession(defaultSettings, (type, payload) => type === 'get-settings' ? request('get-settings') :
       payload ? request('update-settings', payload) : Promise.reject(new Error('缺少完整显示设置。')), view => {
       if (!active) return;
@@ -44,6 +47,9 @@ export function App() {
           setDesktopLifecycle(connection.hello.capabilities.includes('desktop-lifecycle-v1'));
           setApiPersistence(connection.hello.capabilities.includes('api-persistence-v1'));
           setApiSaved(connection.hello.apiSaved === true); setApiNotice(connection.hello.apiNotice || '');
+          embeddedApi = connection.hello.capabilities.includes('embedded-api-v1');
+          localState = embeddedApi ? connection.hello.localApi?.state : undefined;
+          setLocalApi(embeddedApi ? connection.hello.localApi : undefined);
         } catch { revokeConnection('宿主显示设置不一致，请重新确认连接。'); }
       } else {
         setConnectionStatus(connection.status);
@@ -56,7 +62,7 @@ export function App() {
     });
     const stop = subscribe(data => {
       if (!active || !trusted || !data || typeof data !== 'object') return;
-      const state = data as { player?: unknown; commentCount?: unknown; notice?: unknown; settings?: unknown; automaticMatch?: unknown };
+      const state = data as { player?: unknown; commentCount?: unknown; notice?: unknown; settings?: unknown; automaticMatch?: unknown; localApi?: unknown };
       if (state.settings !== undefined) session.observe(data);
       if (state.player !== undefined) {
         const incoming = state.player, valid = validPlayer(incoming);
@@ -67,6 +73,18 @@ export function App() {
       if (typeof state.commentCount === 'number' && Number.isSafeInteger(state.commentCount) && state.commentCount >= 0) setCount(state.commentCount);
       nativeNotice(state.notice);
       if (validAutomaticMatch(state.automaticMatch)) setAutomaticMatch(state.automaticMatch);
+      if (embeddedApi && state.localApi !== undefined) {
+        if (validLocalApi(state.localApi)) {
+          const becameReady = localState === 'starting' && state.localApi.state === 'ready';
+          localState = state.localApi.state;
+          setLocalApi(state.localApi);
+          if (becameReady) {
+            if (localSavePending.current) localRefreshNeeded.current = true;
+            else void request('hello').catch(() => undefined);
+          }
+        }
+        else setError('本地服务状态消息无效，请重新打开工作台。');
+      }
     });
     // Connection notifications handle every handshake, including rejection and later recovery.
     if (inDesktop) void request('hello').catch(() => undefined);
@@ -74,6 +92,21 @@ export function App() {
   }, []);
   function update(patch: Partial<Settings>) {
     settingsSession.current?.edit(patch);
+  }
+  async function applyLocalSources(sources: string[]) {
+    localSavePending.current = true;
+    try {
+      await request('set-local-sources', { sources });
+      // Only a new handshake can provide the restarted child's current address.
+      await request('hello');
+      localRefreshNeeded.current = false;
+    } finally {
+      localSavePending.current = false;
+      if (localRefreshNeeded.current) {
+        localRefreshNeeded.current = false;
+        void request('hello').catch(() => undefined);
+      }
+    }
   }
   async function manualClock(playing: boolean) {
     const positionMs = parseTime(manual);
@@ -88,14 +121,14 @@ export function App() {
       <span className="edition">给好故事，加一点共鸣。 <span>01 / DESKTOP</span></span>
       <label className="master-switch"><span>显示弹幕</span><input type="checkbox" role="switch" checked={settings.enabled} onChange={e => update({ enabled: e.target.checked })} /></label>
     </header>
-    <ApiConnection apiBase={apiBase} saved={apiSaved} available={connected && apiPersistence} notice={apiNotice} onSaved={(base, saved) => { setApiBase(base); setApiSaved(saved); setApiNotice(''); }} />
+    {localApi ? <LocalApiConnection localApi={localApi} available={connected} onApply={applyLocalSources} /> : <ApiConnection apiBase={apiBase} saved={apiSaved} available={connected && apiPersistence} notice={apiNotice} onSaved={(base, saved) => { setApiBase(base); setApiSaved(saved); setApiNotice(''); }} />}
     <section className="playback-strip" aria-label="播放器连接状态"><span className={`connection-light ${auto ? 'online' : ''}`} /><div className="playback-title"><span className="eyebrow">NOW WATCHING</span><strong>{player.title || '等待爆米花开始播放'}</strong><small>{player.detail || (player.title ? (player.episodeNumber ? `第 ${player.episodeNumber} 集` : '已识别播放窗口') : '打开爆米花视频窗口，弹幕会跟随它。')}</small></div>
       <div className="sync-status"><span>{playbackStatus(player)}</span><strong className="timecode">{player.positionMs === null ? '--:--:--' : formatTime(player.positionMs)}</strong></div>
     </section>
     {!inDesktop && <div className="preview-banner" role="status">浏览器预览模式：可调整演示外观，尚未连接桌面宿主或播放器。</div>}
     {shownError && <div className="app-error" role="alert">{shownError}<button aria-label="关闭提示" onClick={() => { setConnectionError(''); setError(''); settingsSession.current?.dismissMessage(); }}>×</button></div>}
     <h1 className="sr-only">爆米花弹幕工作台</h1>
-    <main id="main" className="workspace"><SourcePanel apiBase={apiBase} connected={connected} playback={playback} getPlayback={() => latestPlayback.current} onLoaded={setCount} automaticMatching={automaticMatching} automaticStatus={automaticMatch} />
+    <main id="main" className="workspace"><SourcePanel apiBase={localApi && localApi.state !== 'ready' ? '' : apiBase} connected={connected && (!localApi || localApi.state === 'ready')} playback={playback} getPlayback={() => latestPlayback.current} onLoaded={setCount} automaticMatching={automaticMatching} automaticStatus={automaticMatch} />
       <div className="main-controls"><Preview settings={settings} /><DisplaySettings settings={settings} update={update} /><StartupOptions available={connected && desktopLifecycle} />
         <details className="manual-sync"><summary>手动时间校准 <span>{auto ? '自动同步中，无需手动校准' : '播放器未公开时间时使用'}</span></summary><div className="manual-controls"><label htmlFor="manual-time">视频当前时间</label><input id="manual-time" value={manual} onChange={e => setManual(e.target.value)} disabled={auto} /><button className="secondary" disabled={!connected || auto} onClick={() => void manualClock(true)}>校时并播放</button><button className="text-button" disabled={!connected || auto} onClick={() => void manualClock(false)}>校时并暂停</button></div></details>
       </div>
