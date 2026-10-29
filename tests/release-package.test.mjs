@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, copyFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { allowedEntry, inventory, releaseNames, assertPayloadBudget } from '../scripts/release-lib.mjs';
+import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance } from '../scripts/release-lib.mjs';
 
 test('beta filenames are fixed and reject traversal/shell fragments', () => {
   assert.equal(releaseNames('0.1.0-beta.1').installer, 'DanmuCompanion-0.1.0-beta.1-win-x64-setup.exe');
@@ -11,6 +13,86 @@ test('beta filenames are fixed and reject traversal/shell fragments', () => {
   for (const version of ['../test', '0.1.0-beta.0', '0.1.0;whoami', 'v0.1.0-beta.1', '0.1.0-preview.15']) {
     assert.throws(() => releaseNames(version));
   }
+});
+
+test('includeAPI names and size budget are explicit and leave ordinary defaults unchanged', () => {
+  assert.equal(releaseNames('0.1.0-beta.3', true).installer, 'DanmuCompanion-0.1.0-beta.3-win-x64-includeAPI-setup.exe');
+  assert.equal(releaseNames('0.1.0-beta.3', true).portable, 'DanmuCompanion-0.1.0-beta.3-win-x64-includeAPI-portable.zip');
+  assert.equal(assertPayloadBudget([{ length: 300 * 1024 * 1024 }], 0, true), 300 * 1024 * 1024);
+  assert.throws(() => assertPayloadBudget([{ length: 300 * 1024 * 1024 }]));
+  assert.equal(assertPayloadBudget([{ length: 390 * 1024 * 1024 }], 0, true), 390 * 1024 * 1024);
+  assert.throws(() => assertPayloadBudget([{ length: 400 * 1024 * 1024 }], 1, true));
+});
+
+test('includeAPI admits only exact inventoried bytes and never permits PowerShell or launch scripts', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'DanmuApiReleaseTest-'));
+  try {
+    await mkdir(join(root, 'api'));
+    const data = join(root, 'api', 'entry.mjs');
+    await writeFile(data, 'controlled');
+    const record = { path: 'api/entry.mjs', length: 10, sha256: createHash('sha256').update('controlled').digest('hex') };
+    await assert.rejects(() => inventory(root), /Forbidden/);
+    assert.equal((await inventory(root, [record])).length, 1);
+    await writeFile(data, 'tampered!!');
+    await assert.rejects(() => inventory(root, [record]), /inventory|hash/i);
+    await writeFile(data, 'controlled');
+    await writeFile(join(root, 'api', 'extra.mjs'), 'unlisted');
+    await assert.rejects(() => inventory(root, [record]), /Forbidden|inventory/i);
+    await rm(join(root, 'api', 'extra.mjs'));
+    await writeFile(join(root, 'api', 'bad.ps1'), 'bad');
+    const bad = { path: 'api/bad.ps1', length: 3, sha256: createHash('sha256').update('bad').digest('hex') };
+    await assert.rejects(() => inventory(root, [record, bad]), /Forbidden/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('includeAPI refuses a stale prepared adapter or mismatched runtime provenance', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'DanmuApiSourceTest-'));
+  try {
+    const backend = join(root, 'backend'), api = join(root, 'api');
+    await mkdir(backend); await mkdir(api);
+    for (const name of ['entry.mjs', 'package.json', 'package-lock.json']) {
+      await writeFile(join(backend, name), name); await writeFile(join(api, name), name);
+    }
+    const sha = value => createHash('sha256').update(value).digest('hex');
+    const toolchain = { schemaVersion: 1, upstream: { commit: 'a'.repeat(40) }, node: { version: '22.23.4', sha256: sha('node') },
+      productionLock: { sha256: sha('package-lock.json') }, packageManifestSha256: sha('package.json') };
+    await writeFile(join(backend, 'toolchain.json'), JSON.stringify(toolchain));
+    await writeFile(join(api, 'toolchain.json'), JSON.stringify(toolchain));
+    await writeFile(join(api, 'node.exe'), 'node');
+    await writeFile(join(api, 'runtime.json'), JSON.stringify({ schemaVersion: 1, upstreamCommit: 'a'.repeat(40), nodeVersion: '22.23.4' }));
+    await validateApiProvenance(api, backend);
+    await writeFile(join(backend, 'entry.mjs'), 'updated adapter');
+    await assert.rejects(() => validateApiProvenance(api, backend), /stale|mismatch/i);
+    await writeFile(join(backend, 'entry.mjs'), 'entry.mjs');
+    await writeFile(join(api, 'runtime.json'), JSON.stringify({ schemaVersion: 1, upstreamCommit: 'b'.repeat(40), nodeVersion: '22.23.4' }));
+    await assert.rejects(() => validateApiProvenance(api, backend), /runtime|provenance/i);
+    await writeFile(join(api, 'runtime.json'), JSON.stringify({ schemaVersion: 1, upstreamCommit: 'a'.repeat(40), nodeVersion: '22.0.0' }));
+    await assert.rejects(() => validateApiProvenance(api, backend), /runtime|provenance/i);
+    await writeFile(join(api, 'runtime.json'), JSON.stringify({ schemaVersion: 1, upstreamCommit: 'a'.repeat(40), nodeVersion: '22.23.4' }));
+    await writeFile(join(api, 'node.exe'), 'wrong-node');
+    await assert.rejects(() => validateApiProvenance(api, backend), /node|provenance/i);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Inno compiles standard and includeAPI to distinct installer names', async () => {
+  const root = resolve(import.meta.dirname, '..'), tmp = await mkdtemp(join(tmpdir(), 'DanmuInnoVariant-'));
+  try {
+    const payload = join(tmp, 'payload'); await mkdir(join(payload, 'assets'), { recursive: true });
+    await copyFile(join(root, 'assets', 'app.ico'), join(payload, 'assets', 'app.ico'));
+    await writeFile(join(payload, 'DISTRIBUTION-LICENSE.txt'), 'test license');
+    await writeFile(join(payload, 'MicrosoftEdgeWebview2Setup.exe'), 'test-only placeholder');
+    const list = join(tmp, 'incoming.iss');
+    for (const includeApi of [false, true]) {
+      // Exercise the real includeAPI scale rather than just compiling an empty list.
+      const incoming = includeApi ? Array.from({ length: 11000 }, (_, i) => `  Files.Add('api\\node_modules\\entry-${i}.js');`).join('\n') : '';
+      await writeFile(list, `procedure AddIncomingPayloadFiles(Files: TStringList);\nbegin\n${incoming}\nend;\n`);
+      const args = ['--quiet', '/DAppVersion=0.1.0-beta.3', `/DPayloadDir=${payload}`, `/DPayloadFileList=${list}`,
+        `/DReleaseDir=${tmp}`, ...(includeApi ? ['/DIncludeApi=1'] : []), 'installer/DanmuCompanion.iss'];
+      const result = spawnSync(join(root, '.deps', 'inno', 'ISCC.exe'), args, { cwd: root, encoding: 'utf8', windowsHide: true, timeout: 60000 });
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+      assert.ok((await stat(join(tmp, releaseNames('0.1.0-beta.3', includeApi).installer))).size > 0);
+    }
+  } finally { await rm(tmp, { recursive: true, force: true }); }
 });
 
 test('payload admits compiled dependencies and forbids app scripts/private files', () => {

@@ -63,3 +63,22 @@ test('reparse input is rejected without following it', async () => {
     assert.equal(await readFile(join(outside, 'sentinel.txt'), 'utf8'), 'do not follow');
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('only explicit includeAPI manifests receive the bounded large file inventory allowance', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'DanmuNativeVariantCount-'));
+  try {
+    const manifest = { schemaVersion: 1, version: '0.1.0-beta.3', sourceCommit: 'a'.repeat(40),
+      files: Array.from({ length: 4097 }, (_, i) => ({ path: `api/file-${i}.js`, length: 0, sha256: 'a'.repeat(64) })) };
+    await writeFile(join(root, 'manifest.json'), JSON.stringify(manifest));
+    const ordinary = run('verify-dir', root); fail(ordinary);
+    assert.match(ordinary.stderr, /Invalid payload count/);
+    manifest.variant = 'includeAPI';
+    await writeFile(join(root, 'manifest.json'), JSON.stringify(manifest));
+    const variant = run('verify-dir', root); fail(variant);
+    assert.match(variant.stderr, /Unexpected directory payload files/);
+    manifest.files = Array.from({ length: 16385 }, (_, i) => ({ path: `api/file-${i}.js`, length: 0, sha256: 'a'.repeat(64) }));
+    await writeFile(join(root, 'manifest.json'), JSON.stringify(manifest));
+    const tooMany = run('verify-dir', root); fail(tooMany);
+    assert.match(tooMany.stderr, /Invalid payload count/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

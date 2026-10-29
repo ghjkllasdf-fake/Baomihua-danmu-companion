@@ -4,21 +4,22 @@ import { cp, mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { fileHash, inventory, releaseNames, walkFiles, assertPayloadBudget } from './release-lib.mjs';
+import { fileHash, inventory, releaseNames, walkFiles, assertPayloadBudget, validateApiProvenance } from './release-lib.mjs';
 import { sourceState, requireSameSource } from './source-state.mjs';
 import { constants } from 'node:fs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const args = process.argv.slice(2);
-let version, output, allowDirty = false;
+let version, output, allowDirty = false, includeApi = false;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--version') version = args[++i];
   else if (args[i] === '--output') output = resolve(args[++i]);
   else if (args[i] === '--allow-dirty') allowDirty = true;
+  else if (args[i] === '--include-api') includeApi = true;
   else throw new Error('Unknown release build argument.');
 }
-const names = releaseNames(version);
-output ??= join(root, 'artifacts', 'releases', version);
+const names = releaseNames(version, includeApi);
+output ??= join(root, 'artifacts', 'releases', version, ...(includeApi ? ['includeAPI'] : []));
 const projectVersion = (await readFile(join(root, 'desktop', 'NativeCommon.props'), 'utf8')).match(/<Version>([^<]+)<\/Version>/)?.[1];
 if (version !== projectVersion) throw new Error('Artifact version must match the compiled application version.');
 const lock = JSON.parse(await readFile(join(root, 'native-toolchain.json'), 'utf8'));
@@ -69,6 +70,22 @@ for (const [project, directory] of [['NativeHost', 'host'], ['NativeProbe', 'pro
 await cp(join(root, 'ui', 'dist'), join(payload, 'ui', 'dist'), { recursive: true });
 await cp(join(root, 'assets'), join(payload, 'assets'), { recursive: true });
 await cp(join(root, 'licenses', 'WebView2Runtime'), join(payload, 'licenses', 'WebView2Runtime'), { recursive: true });
+let apiInventory = null, apiInventorySha256 = null;
+if (includeApi) {
+  const apiSource = join(root, '.deps', 'includeapi', 'payload');
+  const inventoryPath = join(root, '.deps', 'includeapi', 'payload-inventory.json');
+  const sourceInventory = JSON.parse(await readFile(inventoryPath, 'utf8'));
+  if (sourceInventory.schemaVersion !== 1 || !Array.isArray(sourceInventory.files) ||
+      sourceInventory.fileCount !== sourceInventory.files.length ||
+      sourceInventory.totalBytes !== sourceInventory.files.reduce((sum, record) => sum + record.length, 0) ||
+      !['api/runtime.json', 'api/node.exe', 'api/entry.mjs'].every(name => sourceInventory.files.some(record => record.path === name)))
+    throw new Error('Invalid or incomplete includeAPI input inventory.');
+  apiInventory = sourceInventory.files;
+  await inventory(apiSource, apiInventory);
+  await validateApiProvenance(join(apiSource, 'api'), join(root, 'backend'));
+  apiInventorySha256 = await fileHash(inventoryPath);
+  await cp(join(apiSource, 'api'), join(payload, 'api'), { recursive: true });
+}
 async function copyLicense(source, component, name) {
   const directory = join(payload, 'licenses', component);
   await mkdir(directory, { recursive: true });
@@ -88,28 +105,31 @@ await mkdir(join(payload, 'licenses', 'Dotnet'), { recursive: true });
 for (const file of ['LICENSE.txt', 'ThirdPartyNotices.txt']) await copyFile(join(root, '.deps', 'dotnet', file), join(payload, 'licenses', 'Dotnet', file));
 await copyFile(join(root, 'LICENSE'), join(payload, 'LICENSE'));
 await copyFile(join(root, 'docs', 'THIRD-PARTY-NOTICES.md'), join(payload, 'THIRD-PARTY-NOTICES.md'));
-await copyFile(join(root, 'docs', 'BETA-USER-GUIDE.md'), join(payload, 'README.md'));
+await copyFile(join(root, 'docs', includeApi ? 'INCLUDEAPI-USER-GUIDE.md' : 'BETA-USER-GUIDE.md'), join(payload, 'README.md'));
 const license = await readFile(join(root, 'LICENSE'), 'utf8');
 const runtimeLicense = await readFile(join(root, 'licenses', 'WebView2Runtime', 'LICENSE.txt'), 'utf8');
-await writeFile(join(payload, 'DISTRIBUTION-LICENSE.txt'), '\ufeff' + license + '\r\n\r\nMicrosoft WebView2 Runtime terms (shared Evergreen Runtime; only its bootstrapper is bundled; separate from application MIT license):\r\n\r\n' + runtimeLicense.replace(/^\ufeff/, ''), 'utf8');
+await writeFile(join(payload, 'DISTRIBUTION-LICENSE.txt'), '\ufeff' + license + '\r\n\r\nMicrosoft WebView2 Runtime terms (shared Evergreen Runtime; only its bootstrapper is bundled; separate from application MIT license):\r\n\r\n' + runtimeLicense.replace(/^\ufeff/, '') +
+  (includeApi ? '\r\n\r\nincludeAPI includes separately licensed Node.js, danmu_api and dependencies. See README.md, THIRD-PARTY-NOTICES.md and the license files under api/. The upstream danmu_api LICENSE is AGPL-3.0; it is not covered by the application MIT license.\r\n' : ''), 'utf8');
 const payloadFiles = [...await walkFiles(payload), 'manifest.json', 'install-files.txt'].sort();
 await writeFile(join(payload, 'install-files.txt'), payloadFiles.map(file => file.replaceAll('/', '\\')).join('\r\n') + '\r\n');
 const payloadFileList = join(work, 'IncomingPayload.iss');
 await writeFile(payloadFileList, 'procedure AddIncomingPayloadFiles(Files: TStringList);\nbegin\n' +
   payloadFiles.map(file => `  Files.Add('${file.replaceAll('/', '\\').replaceAll("'", "''")}');`).join('\n') + '\nend;\n');
-const manifest = { schemaVersion: 1, version, sourceCommit, sourceDirty, baseline: 'v0.1.0-preview.15', browserDistribution: 'evergreen',
+const manifest = { schemaVersion: 1, version, sourceCommit, sourceDirty, baseline: 'v0.1.0-preview.15', browserDistribution: 'evergreen', variant: includeApi ? 'includeAPI' : 'standard',
+  ...(includeApi ? { apiInventorySha256 } : {}),
   dependencies: { ...Object.fromEntries(['dotnetSdk', 'dotnetRuntime', 'webview2Sdk', 'windowsProjection', 'webview2Bootstrapper', 'inno'].map(key => [key, lock[key]])),
     webview2Runtime: { distribution: 'evergreen', minimumMajor: 124, bundled: false } },
-  files: await inventory(payload) };
+  files: await inventory(payload, apiInventory) };
 const manifestText = JSON.stringify(manifest, null, 2) + '\n';
-const payloadBytes = assertPayloadBudget(manifest.files, Buffer.byteLength(manifestText));
+const payloadBytes = assertPayloadBudget(manifest.files, Buffer.byteLength(manifestText), includeApi);
 await writeFile(join(payload, 'manifest.json'), manifestText);
 run(join(payload, 'DanmuCompanion.exe'), ['--check']);
 run(dotnet, ['restore', 'scripts/NativeReleaseTools/NativeReleaseTools.csproj', '--locked-mode']);
 run(dotnet, ['build', 'scripts/NativeReleaseTools/NativeReleaseTools.csproj', '--no-restore', '-c', 'Release']);
 const tools = join(root, 'scripts', 'NativeReleaseTools', 'bin', 'Release', 'net10.0', 'win-x64', 'NativeReleaseTools.exe');
 run(tools, ['pack', payload, join(staged, names.portable)]);
-run(join(root, '.deps', 'inno', 'ISCC.exe'), [`/DAppVersion=${version}`, `/DPayloadDir=${payload}`, `/DPayloadFileList=${payloadFileList}`, `/DReleaseDir=${staged}`, 'installer/DanmuCompanion.iss']);
+run(join(root, '.deps', 'inno', 'ISCC.exe'), [`/DAppVersion=${version}`, `/DPayloadDir=${payload}`, `/DPayloadFileList=${payloadFileList}`, `/DReleaseDir=${staged}`,
+  ...(includeApi ? ['/DIncludeApi=1'] : []), 'installer/DanmuCompanion.iss']);
 let sums = '';
 for (const file of [names.installer, names.portable]) sums += `${await fileHash(join(staged, file))}  ${file}\n`;
 await writeFile(join(staged, 'SHA256SUMS.txt'), sums, { flag: 'wx' });

@@ -110,6 +110,13 @@ internal static class ProcessSmoke
                 if(!owned.Any(p=>string.Equals(p.Image,browser,StringComparison.OrdinalIgnoreCase)))throw new InvalidDataException("No private WebView2 process observed.");
             }
             if(!owned.Any(p=>string.Equals(p.Image,Path.Combine(app,"DanmuCompanion.Probe.exe"),StringComparison.OrdinalIgnoreCase)))throw new InvalidDataException("No native sampling worker observed.");
+            if(File.Exists(Path.Combine(app,"api","runtime.json")))
+            {
+                if(!owned.Any(p=>string.Equals(p.Image,Path.Combine(app,"api","node.exe"),StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidDataException("No packaged includeAPI worker observed.");
+                if(!ready.TryGetProperty("LocalApi",out var localApi) || !localApi.GetProperty("Enabled").GetBoolean() || localApi.GetProperty("State").GetString()!="ready")
+                    throw new InvalidDataException("Packaged includeAPI did not complete its authenticated health check.");
+            }
             if(owned.Any(p=>new[]{"pwsh.exe","powershell.exe","cmd.exe","wscript.exe","cscript.exe"}.Contains(Path.GetFileName(p.Image),StringComparer.OrdinalIgnoreCase)))throw new InvalidDataException("Application spawned a script interpreter.");
             passed=true;
         }

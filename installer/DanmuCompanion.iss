@@ -7,15 +7,28 @@
 #ifndef PayloadFileList
   #error PayloadFileList must be supplied by the release build.
 #endif
+#ifdef IncludeApi
+  #define ProductId "{{D5C0CE54-F622-40E2-9F4A-D70D17C31BD2}"
+  #define UninstallKey "{D5C0CE54-F622-40E2-9F4A-D70D17C31BD2}_is1"
+  #define ProductName "爆米花弹幕伴侣 includeAPI"
+  #define ProductDirectory "BaomihuaDanmuCompanion-includeAPI"
+  #define ArtifactSuffix "-includeAPI"
+#else
+  #define ProductId "{{604952AE-033E-4832-9071-A9F995BA8C1D}"
+  #define UninstallKey "{604952AE-033E-4832-9071-A9F995BA8C1D}_is1"
+  #define ProductName "爆米花弹幕伴侣"
+  #define ProductDirectory "BaomihuaDanmuCompanion"
+  #define ArtifactSuffix ""
+#endif
 
 [Setup]
-AppId={{604952AE-033E-4832-9071-A9F995BA8C1D}
-AppName=爆米花弹幕伴侣
+AppId={#ProductId}
+AppName={#ProductName}
 AppVersion={#AppVersion}
 AppPublisher=ghjkllasdf-fake
-VersionInfoVersion=0.1.0.2
-DefaultDirName={localappdata}\Programs\BaomihuaDanmuCompanion
-DefaultGroupName=爆米花弹幕伴侣
+VersionInfoVersion=0.1.0.3
+DefaultDirName={localappdata}\Programs\{#ProductDirectory}
+DefaultGroupName={#ProductName}
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -26,7 +39,7 @@ UsePreviousAppDir=yes
 AlwaysShowDirOnReadyPage=yes
 LicenseFile={#PayloadDir}\DISTRIBUTION-LICENSE.txt
 OutputDir={#ReleaseDir}
-OutputBaseFilename=DanmuCompanion-{#AppVersion}-win-x64-setup
+OutputBaseFilename=DanmuCompanion-{#AppVersion}-win-x64{#ArtifactSuffix}-setup
 SetupIconFile={#PayloadDir}\assets\app.ico
 UninstallDisplayIcon={app}\DanmuCompanion.exe
 Compression=lzma2/fast
@@ -49,8 +62,8 @@ Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 Source: "{#PayloadDir}\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
 
 [Icons]
-Name: "{group}\爆米花弹幕伴侣"; Filename: "{app}\DanmuCompanion.exe"; WorkingDir: "{app}"
-Name: "{autodesktop}\爆米花弹幕伴侣"; Filename: "{app}\DanmuCompanion.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\{#ProductName}"; Filename: "{app}\DanmuCompanion.exe"; WorkingDir: "{app}"
+Name: "{autodesktop}\{#ProductName}"; Filename: "{app}\DanmuCompanion.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\DanmuCompanion.exe"; Description: "启动爆米花弹幕伴侣（后台托盘）"; Flags: nowait postinstall skipifsilent
@@ -69,9 +82,9 @@ var
   Incoming: TStringList;
 begin
   Registered := '';
-  if RegKeyExists(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{604952AE-033E-4832-9071-A9F995BA8C1D}_is1') and
+  if RegKeyExists(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#UninstallKey}') and
     (not RegQueryStringValue(HKCU64,
-    'Software\Microsoft\Windows\CurrentVersion\Uninstall\{604952AE-033E-4832-9071-A9F995BA8C1D}_is1',
+    'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#UninstallKey}',
     'InstallLocation', Registered) or (Registered = '')) then
   begin
     Result := '已存在安装登记，但无法确认原安装位置。请先修复或卸载旧安装，未覆盖现有文件。';

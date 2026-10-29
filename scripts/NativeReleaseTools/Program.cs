@@ -34,7 +34,8 @@ internal static class ReleaseTools
         Check(Regex.IsMatch(root.GetProperty("sourceCommit").GetString()??"",@"^[a-f0-9]{40}$"),"Missing source identity.");
         var records=root.GetProperty("files").EnumerateArray().Select(file=>
             new FileRecord(file.GetProperty("path").GetString()??"",file.GetProperty("length").GetInt64(),file.GetProperty("sha256").GetString()??"")).ToArray();
-        Check(records.Length is >0 and <=4096,"Invalid payload count.");
+        bool includeApi=root.TryGetProperty("variant",out var variant) && variant.GetString()=="includeAPI";
+        Check(records.Length>0 && records.Length<=(includeApi ? 16384 : 4096),"Invalid payload count.");
         Check(records.Select(f=>f.Path).Distinct(StringComparer.OrdinalIgnoreCase).Count()==records.Length,"Duplicate manifest file.");
         long total=0;
         foreach(var file in records){SafePath(file.Path);Check(file.Path!="manifest.json" && file.Length is >=0 and <=MaxFile && Regex.IsMatch(file.Sha256,@"^[a-f0-9]{64}$"),"Invalid file record.");total+=file.Length;}
@@ -64,7 +65,7 @@ internal static class ReleaseTools
     }
     private static int VerifyZip(string path)
     {
-        using var zip=ZipFile.OpenRead(path);Check(zip.Entries.Count is >1 and <=4097,"Invalid ZIP entry count.");
+        using var zip=ZipFile.OpenRead(path);Check(zip.Entries.Count is >1 and <=16385,"Invalid ZIP entry count.");
         Check(zip.Entries.Select(e=>e.FullName).Distinct(StringComparer.OrdinalIgnoreCase).Count()==zip.Entries.Count,"Duplicate ZIP paths.");
         foreach(var entry in zip.Entries)SafePath(entry.FullName);
         var raw=zip.GetEntry("manifest.json")??throw new InvalidDataException("Missing manifest.");
@@ -106,6 +107,7 @@ internal static class ReleaseTools
         try
         {
             if(args is ["installation-location"]){Console.WriteLine(JsonSerializer.Serialize(new{location=InstallationState.Read()}));return 0;}
+            if(args is ["installation-location","includeAPI"]){Console.WriteLine(JsonSerializer.Serialize(new{location=InstallationState.Read(true)}));return 0;}
             int files;
             if(args is ["pack",var root,var destination])files=Pack(root,destination);
             else if(args is ["verify",var archive])files=VerifyZip(archive);

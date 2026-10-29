@@ -5,35 +5,37 @@ import { mkdir, readFile, writeFile, rename, rm, rmdir, realpath, stat } from 'n
 import { randomUUID } from 'node:crypto';
 import { join, resolve, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { fileHash, inventory, releaseNames, assertPayloadBudget } from './release-lib.mjs';
+import { fileHash, inventory, releaseNames, assertPayloadBudget, walkFiles } from './release-lib.mjs';
 
 const root = resolve(import.meta.dirname, '..');
-let directory, version = '0.1.0-beta.2';
-let evidence = join(root, 'artifacts', 'shared-beta', 'final-validation');
+let directory, version = '0.1.0-beta.2', includeApi = false;
+let evidence;
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === '--directory') directory = resolve(process.argv[++i]);
   else if (process.argv[i] === '--evidence') evidence = resolve(process.argv[++i]);
   else if (process.argv[i] === '--version') version = process.argv[++i];
+  else if (process.argv[i] === '--include-api') includeApi = true;
   else throw new Error('Unknown release test argument.');
 }
-directory ??= join(root, 'artifacts', 'releases', version);
-const names = releaseNames(version), id = randomUUID();
+directory ??= join(root, 'artifacts', 'releases', version, ...(includeApi ? ['includeAPI'] : []));
+evidence ??= join(root, 'artifacts', includeApi ? 'includeapi' : 'shared-beta', 'final-validation');
+const names = releaseNames(version, includeApi), id = randomUUID();
 const qaParent = join(root, 'artifacts', 'native-qa'), qa = join(qaParent, `beta-${id}`);
 const install = join(qa, '\u5b89\u88c5\u4f4d\u7f6e Beta'), portable = join(qa, '\u79fb\u52a8\u540e\u7684 Portable \u4e2d\u6587');
 // The installer hides the group page, so Inno intentionally ignores /GROUP.
-const group = '\u7206\u7c73\u82b1\u5f39\u5e55\u4f34\u4fa3';
+const group = '\u7206\u7c73\u82b1\u5f39\u5e55\u4f34\u4fa3' + (includeApi ? ' includeAPI' : '');
 const menu = join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', group);
-const link = join(menu, '\u7206\u7c73\u82b1\u5f39\u5e55\u4f34\u4fa3.lnk');
+const link = join(menu, group + '.lnk');
 const tools = join(root, 'scripts', 'NativeReleaseTools', 'bin', 'Release', 'net10.0', 'win-x64', 'NativeReleaseTools.exe');
 const checks = [], artifacts = [];
-let sourceCommit = null, payloadFiles = null;
+let sourceCommit = null, payloadFiles = null, payloadBytes = null, installedBytes = null;
 function run(exe, args, expected = 0) {
   const result = spawnSync(exe, args, { cwd: root, windowsHide: true, encoding: 'utf8', timeout: 240000, maxBuffer: 8 * 1024 * 1024 });
   if (result.error || (expected !== null && result.status !== expected)) throw new Error(`${exe}: ${result.error?.message ?? result.stderr ?? result.status}`);
   return result;
 }
 function registered() {
-  return JSON.parse(run(tools, ['installation-location']).stdout).location;
+  return JSON.parse(run(tools, ['installation-location', ...(includeApi ? ['includeAPI'] : [])]).stdout).location;
 }
 function ownedInstallation() { return registered()?.toLowerCase() === install.toLowerCase(); }
 function setupArgs(target, log) {
@@ -66,15 +68,24 @@ try {
   const manifest = JSON.parse(await readFile(join(portable, 'manifest.json'), 'utf8'));
   assert.equal(manifest.version, version);assert.equal(manifest.sourceDirty, false, 'Only clean final artifacts may pass release QA.');
   sourceCommit = manifest.sourceCommit;payloadFiles = manifest.files.length;
-  const records = await inventory(portable);
+  assert.equal(manifest.variant ?? 'standard', includeApi ? 'includeAPI' : 'standard');
+  assert.equal(existsSync(join(portable, 'api', 'runtime.json')), includeApi);
+  let apiRecords = null;
+  if (includeApi) {
+    const apiInventoryPath = join(root, '.deps', 'includeapi', 'payload-inventory.json');
+    assert.equal(await fileHash(apiInventoryPath), manifest.apiInventorySha256, 'The independently prepared API inventory must match the packaged provenance.');
+    apiRecords = JSON.parse(await readFile(apiInventoryPath, 'utf8')).files;
+    assert.ok(Array.isArray(apiRecords) && apiRecords.length > 0);
+  }
+  const records = await inventory(portable, apiRecords);
   assert.equal(records.length, manifest.files.length);
   assert.equal(manifest.browserDistribution, 'evergreen');
   assert.equal(existsSync(join(portable, 'WebView2Runtime')), false);
   assert.ok(existsSync(join(portable, 'MicrosoftEdgeWebview2Setup.exe')));
   const toolchain = JSON.parse(await readFile(join(root, 'native-toolchain.json'), 'utf8'));
   assert.equal(await fileHash(join(portable, 'MicrosoftEdgeWebview2Setup.exe')), toolchain.webview2Bootstrapper.sha256);
-  assertPayloadBudget(records, (await stat(join(portable, 'manifest.json'))).size);
-  checks.push('shared-browser-payload-under-210-MiB-with-signed-bootstrapper-and-no-private-runtime');
+  payloadBytes = assertPayloadBudget(records, (await stat(join(portable, 'manifest.json'))).size, includeApi);
+  checks.push(`shared-browser-${includeApi ? 'includeAPI-under-400' : 'standard-under-210'}-MiB-with-signed-bootstrapper-and-no-private-runtime`);
   const localPaths = [root, process.env.USERPROFILE].filter(Boolean);
   const prefixes = [...new Set(localPaths.flatMap(value => [value, value.toLowerCase(), value.replaceAll('\\', '/')]))];
   const privateBytes = prefixes.flatMap(value => [Buffer.from(value, 'utf8'), Buffer.from(value, 'utf16le')]);
@@ -98,6 +109,8 @@ try {
   assert.equal(registered(), null);checks.push('actual-silent-installer-rejects-portable-and-foreign-nonempty-directories');
   run(join(directory, names.installer), setupArgs(install, 'install.log'));
   assert.ok(ownedInstallation());run(tools, ['verify-installed', install]);
+  installedBytes = 0;
+  for (const file of await walkFiles(install)) installedBytes += (await stat(join(install, file))).size;
   run(tools, ['check-shortcut', link, join(install, 'DanmuCompanion.exe')]);
   checks.push('custom-chinese-space-installation-hashes-registration-and-direct-exe-shortcut');
   const alternate = join(qa, 'alternate-install-location');
@@ -132,7 +145,7 @@ try {
   passed = true;
 } finally {
   if (ownedInstallation()) await uninstall();
-  await writeFile(join(evidence, 'result.json'), JSON.stringify({ passed, version, sourceCommit, payloadFiles, artifacts, directory, checks, isolatedQaRoot: qa, installationAbsent: registered() === null }, null, 2));
+  await writeFile(join(evidence, 'result.json'), JSON.stringify({ passed, version, sourceCommit, payloadFiles, payloadBytes, installedBytes, artifacts, directory, checks, isolatedQaRoot: qa, installationAbsent: registered() === null }, null, 2));
   if (passed) {
     const parent = await realpath(qaParent), target = await realpath(qa);
     assert.ok(target.toLowerCase().startsWith((parent + sep).toLowerCase()) && target.endsWith(`beta-${id}`));
