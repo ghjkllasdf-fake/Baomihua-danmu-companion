@@ -22,6 +22,8 @@ internal static class DistributionTests
     {
         try
         {
+            if(args.Length>0 && args[0]=="--image-fixture"){Console.WriteLine("ready");Console.Out.Flush();Console.ReadLine();return 0;}
+            if(args.Length>0 && args[0]=="--process-image-tests"){NativeProcessImageTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--fixture")return NativeChildTests.Emit(args[^1]);
             if(args.Length>0 && args[0]=="--api-fixture")return EmbeddedApiTests.Emit(args[^1]).GetAwaiter().GetResult();
             if(args.Length>0 && args[0]=="--api-tests"){EmbeddedApiTests.Run().GetAwaiter().GetResult();return 0;}
@@ -45,6 +47,7 @@ internal static class DistributionTests
             Reject(()=>new ApplicationPaths("relative-path","app",data),"Relative executable roots must be rejected.");
             Reject(()=>new ApplicationPaths(root,"app","relative-data"),"Relative data roots must be rejected.");
             NativeRuntimeTests.Run();
+            NativeProcessImageTests.Run();
             SharedBrowserTests.Run();
             NativeSandboxTests.Run();
             NativeInstanceTests.Run();

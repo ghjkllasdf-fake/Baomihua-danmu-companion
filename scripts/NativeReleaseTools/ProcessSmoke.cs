@@ -53,11 +53,11 @@ internal static class ProcessSmoke
                 try
                 {
                     process=Process.GetProcessById(pair.Key);
+                    _=process.Handle;
                     long ticks=process.StartTime.ToUniversalTime().Ticks;
                     if(owned.Any(p=>p.Id==pair.Key && p.Started==ticks)){process.Dispose();continue;}
                     if(ticks<parent.Started || (parent.Handle.HasExited && ticks>parent.Handle.ExitTime.ToUniversalTime().Ticks)){process.Dispose();continue;}
-                    string image=process.MainModule?.FileName??throw new InvalidDataException("Cannot identify an owned process image.");
-                    _=process.Handle;
+                    string image=ProcessImage.Read(process);
                     owned.Add(new Owned(pair.Key,pair.Value,ticks,image,process));process=null;added=true;
                 }
                 catch(ArgumentException){}
