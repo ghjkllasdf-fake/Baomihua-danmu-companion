@@ -1,9 +1,10 @@
 # Building includeAPI Beta4
 
 This is an additional v0.1.1-beta.4 variant, alongside the ordinary installer
-and Portable. It does not replace old release assets or tags. The runtime
-boundary is in `INCLUDEAPI-CONTRACT.md`; prepare the pinned native toolchain
-as described in `DEVELOPMENT.md`. End users do not install global build tools.
+and Portable. It does not replace old release assets or tags. Runtime behavior
+and source settings are described in `INCLUDEAPI-USER-GUIDE.md`; prepare the
+pinned native toolchain as described in `DEVELOPMENT.md`. End users do not
+install global build tools.
 
 ## Inputs and preparation
 

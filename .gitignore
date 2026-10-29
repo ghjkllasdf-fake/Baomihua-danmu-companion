@@ -34,3 +34,24 @@ Start-DanmuCompanion.ps1
 tasks/
 HANDOFF*
 PERFORMANCE.md
+
+# Keep local specifications, reviews and verification records out of Git.
+/SPEC-*.md
+/docs/*
+!/docs/BETA-USER-GUIDE.md
+!/docs/INCLUDEAPI-USER-GUIDE.md
+!/docs/PREVIEW-USER-GUIDE.md
+!/docs/THIRD-PARTY-NOTICES.md
+!/docs/DEVELOPMENT.md
+!/docs/INCLUDEAPI-BUILD.md
+!/docs/assets/
+/docs/assets/*
+!/docs/assets/app-icon.png
+!/docs/assets/tray-icon.png
+!/docs/assets/preview-playback.png
+!/docs/assets/preview-settings.png
+!/docs/assets/preview-workbench.png
+!/docs/assets/tray-panel.png
+!/docs/assets/tray-includeapi.png
+!/docs/assets/tray-more.png
+!/docs/assets/tray-source.png
