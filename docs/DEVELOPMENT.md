@@ -4,7 +4,7 @@
 
 ## 原生 Beta 构建（当前）
 
-`0.1.1-beta.3` 从 preview.15 的 C# 和 React 功能构建，入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`。用户运行、采样、自启动、WebView2 前置环境安装和卸载无需 PowerShell。本文后半的 PS 命令仅保留为历史预览版开发参考，不能用于生成 Beta。
+`0.1.1-beta.4` 从 preview.15 的 C# 和 React 功能构建，入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`。用户运行、采样、自启动、WebView2 前置环境安装和卸载无需 PowerShell。本文后半的 PS 命令仅保留为历史预览版开发参考，不能用于生成 Beta。
 
 本地工具由 `native-toolchain.json` 固定：.NET SDK 10.0.403／运行时 10.0.14、WebView2 SDK 1.0.4314.35、Windows 投影 10.0.26100.84、微软 Evergreen Bootstrapper 1.3.307.15、Inno Setup 7.1.1。Fixed Runtime 归档记录仅用于历史 beta.1，不再参与精简版 payload。按清单的官方来源准备 `.deps` 原始归档及对应解压目录；构建器校验归档、投影 DLL、引导程序和编译器，不修改全局 SDK。Node/npm 与 UI 依赖见下表和 `ui/package-lock.json`。
 
@@ -16,11 +16,11 @@ npm.cmd --prefix ui run test:e2e
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release
 node --test tests/release-package.test.mjs tests/native-archive.test.mjs tests/installer-guard.test.mjs tests/browser-prerequisite.test.mjs tests/source-state.test.mjs
 node scripts/check-release-mutation.mjs
-node scripts/build-release.mjs --version 0.1.1-beta.3
-node scripts/test-release.mjs --version 0.1.1-beta.3
+node scripts/build-release.mjs --version 0.1.1-beta.4
+node scripts/test-release.mjs --version 0.1.1-beta.4
 ```
 
-运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.1.1-beta.3/`，两个版本来自同一 manifest payload；应用文件不得超过 210 MiB，且白名单拒绝私有浏览器目录。
+运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.1.1-beta.4/`，两个版本来自同一 manifest payload；应用文件不得超过 210 MiB，且白名单拒绝私有浏览器目录。
 
 `test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝孤立旧安装、原位重装、卸载和外来文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
 
@@ -73,7 +73,7 @@ npm.cmd --prefix ui run test:e2e
 
 原生全套检查会短暂打开自有测试窗口，用于核对焦点和覆盖层行为；不会控制爆米花播放器。`Test-PlaybackIntegration.ps1` 是另外的真实播放器观察工具，不属于自动播放输入。
 
-真实 API 检查默认不运行、不附带账号。需要时在本机为测试进程配置 `DANMU_API_BASE` 环境变量；不要把真实值写入源码、命令示例或提交历史。桌面入口以显式环境变量优先，`-NoDefaultApi` 仅禁用环境变量读取。普通使用在顶部输入并点击保存即可。
+真实 API 检查默认不运行、不附带账号。需要时在本机为测试进程配置 `DANMU_API_BASE` 环境变量；不要把真实值写入源码、命令示例或提交历史。桌面入口以显式环境变量优先，`-NoDefaultApi` 仅禁用环境变量读取。普通版在托盘面板第一行输入并点击保存即可。
 
 API 使用 `ProtectedData` 的 `CurrentUser` 范围加密，独立存于 `%LOCALAPPDATA%\BaomihuaDanmuCompanion\api.dat`，原子写入失败时保留旧文件与活动地址；空地址表示显式清除。`DataProfile` 非 `app` 时改用项目 `.cache/<profile>/api.dat`，所有自动化使用隔离 profile，不读写用户的真实 API。客户端不使用 localStorage/sessionStorage 保存服务地址。参考微软的 [ProtectedData 文档](https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.protecteddata.protect)，相同 Windows 用户下的程序属于同一信任范围。
 
@@ -87,7 +87,7 @@ API 使用 `ProtectedData` 的 `CurrentUser` 范围加密，独立存于 `%LOCAL
 
 发布前运行 `npm.cmd --prefix ui audit --json`。提交源文件后可运行 `node scripts/Test-PublicPrivacy.mjs` 检查 Git 索引；它不会上传数据。任何日志、缓存、私人配置、私人截图或未审查二进制都不应进入 Git。项目原创部分使用 MIT，组包必须包含根目录 `LICENSE`；第三方许可保留原文。
 
-README 预览图可在 UI 构建后依次运行 `scripts/Capture-ReadmeOverlay.ps1`（PS7，STA）和 `node scripts/Capture-ReadmeScreenshots.mjs` 重建。前两张为真实 React 界面配隔离 fixture，第三张为自制动画视频画面与生产原生渲染器输出的1:1叠合示意，均明确标注演示用途，不访问用户播放器或真实 API。临时 WebM 位于忽略的 `.cache/readme-demo/`，只提交已审查的三张 PNG。
+当前托盘面板图在 UI 构建后运行 `node scripts/Capture-TrayScreenshots.mjs`；四张图使用隔离 fixture，明确标注演示，不访问真实 API 或播放器。原有视频效果示意仍可依次运行 `scripts/Capture-ReadmeOverlay.ps1`（PS7，STA）和 `node scripts/Capture-ReadmeScreenshots.mjs` 重建。前两张为真实 React 界面配隔离 fixture，第三张为自制动画视频画面与生产原生渲染器输出的1:1叠合示意，均明确标注演示用途，不访问用户播放器或真实 API。临时 WebM 位于忽略的 `.cache/readme-demo/`，只提交已审查的三张 PNG。
 
 ## 质量约定
 

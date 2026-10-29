@@ -1,6 +1,6 @@
-# Building includeAPI Beta3
+# Building includeAPI Beta4
 
-This is an additional v0.1.1-beta.3 variant, alongside the ordinary installer
+This is an additional v0.1.1-beta.4 variant, alongside the ordinary installer
 and Portable. It does not replace old release assets or tags. The runtime
 boundary is in `INCLUDEAPI-CONTRACT.md`; prepare the pinned native toolchain
 as described in `DEVELOPMENT.md`. End users do not install global build tools.
@@ -56,11 +56,11 @@ history.
 Commit reviewed sources before the final build:
 
 ```text
-node scripts/build-release.mjs --version 0.1.1-beta.3
-node scripts/build-release.mjs --version 0.1.1-beta.3 --include-api
-node scripts/build-corresponding-source.mjs --version 0.1.1-beta.3
-node scripts/test-release.mjs --version 0.1.1-beta.3 --evidence artifacts/beta3/final-standard
-node scripts/test-release.mjs --version 0.1.1-beta.3 --include-api --evidence artifacts/beta3/final-includeapi
+node scripts/build-release.mjs --version 0.1.1-beta.4
+node scripts/build-release.mjs --version 0.1.1-beta.4 --include-api
+node scripts/build-corresponding-source.mjs --version 0.1.1-beta.4
+node scripts/test-release.mjs --version 0.1.1-beta.4 --evidence artifacts/beta4/final-standard
+node scripts/test-release.mjs --version 0.1.1-beta.4 --include-api --evidence artifacts/beta4/final-includeapi
 ```
 
 Use a new evidence directory for each test run. Keep BaoMiHua closed for offline

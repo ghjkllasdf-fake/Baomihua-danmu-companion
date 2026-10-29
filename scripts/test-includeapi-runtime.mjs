@@ -119,6 +119,7 @@ async function startApp() {
   browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout: 10000 });
   page = await waitFor(() => browser.contexts().flatMap(context => context.pages()).find(item => item.url().startsWith('https://danmu.local/')), 30000);
   await expect(page.getByText('桌面宿主已连接')).toBeVisible({ timeout: 30000 });
+  await page.getByRole('button', { name: '更多设置', exact: true }).click();
   await expect(page.getByText('本机弹幕服务已就绪，仅允许本机连接。')).toBeVisible({ timeout: 30000 });
   await playerAbsent();
   await safeView();
