@@ -53,7 +53,9 @@ internal static class MatchingDeadlineTests
             matcher.Observe("http://fixture.invalid/token","Movie",1,1);
             await waiting.Task.WaitAsync(TimeSpan.FromSeconds(2));
             if(!observed.CanBeCanceled)throw new Exception("The pending request must carry a deadline token.");
-            clock.Advance(TimeSpan.FromSeconds(60));
+            clock.Advance(TimeSpan.FromSeconds(59));
+            if(observed.IsCancellationRequested || matcher.Completion.IsCompleted)throw new Exception("Neither matching mode may time out before 60 seconds.");
+            clock.Advance(TimeSpan.FromSeconds(1));
             if(embedded)
             {
                 if(observed.IsCancellationRequested || matcher.Completion.IsCompleted)throw new Exception("A real movie must not be cut off at the old 60-second embedded deadline.");
