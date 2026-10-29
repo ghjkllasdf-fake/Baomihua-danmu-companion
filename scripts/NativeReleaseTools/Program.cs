@@ -100,6 +100,7 @@ internal static class ReleaseTools
         }
         finally{if(File.Exists(temporary))File.Delete(temporary);}
     }
+    [STAThread]
     private static int Main(string[] args)
     {
         try
@@ -109,12 +110,14 @@ internal static class ReleaseTools
             else if(args is ["verify",var archive])files=VerifyZip(archive);
             else if(args is ["verify-dir",var directory])files=VerifyDirectory(directory);
             else if(args is ["verify-installed",var installed])files=VerifyDirectory(installed,true);
+            else if(args is ["smoke",var app,var data,var report]){ProcessSmoke.Run(app,data,report);files=0;}
+            else if(args is ["check-shortcut",var shortcut,var executable]){ShortcutCheck.Run(shortcut,executable);files=0;}
             else if(args is ["extract",var source,var target])
             {
                 files=VerifyZip(source);if(Directory.Exists(target) || File.Exists(target))throw new IOException("Extraction destination already exists.");
                 ZipFile.ExtractToDirectory(source,target);VerifyDirectory(target);
             }
-            else throw new ArgumentException("Expected pack, verify, verify-dir, verify-installed or extract arguments.");
+            else throw new ArgumentException("Expected pack, verify, verify-dir, verify-installed, extract, smoke or check-shortcut arguments.");
             Console.WriteLine(JsonSerializer.Serialize(new{passed=true,files}));return 0;
         }
         catch(Exception error){Console.Error.WriteLine(error.Message);return 1;}
