@@ -41,7 +41,7 @@ internal static class NativeHost
             using var instance=new ApplicationInstance(paths);
             if(!instance.Acquired)throw new InvalidOperationException("本用户的弹幕伴侣已在运行，请从托盘打开，或先退出旧实例。");
             Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);Application.EnableVisualStyles();
-            string api=Environment.GetEnvironmentVariable("DANMU_API_BASE");
+            string api=EmbeddedApiService.IsPackaged(paths) ? "" : Environment.GetEnvironmentVariable("DANMU_API_BASE");
             api=string.IsNullOrWhiteSpace(api) ? "" : ApiClient.NormalizeBase(api);
             using var window=new DesktopWindow(paths.Root,api,profile,paths.DataRoot){SuppressErrorDialogs=smoke>0};
             using var timer=new System.Windows.Forms.Timer();
@@ -52,7 +52,7 @@ internal static class NativeHost
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(result));
                 File.WriteAllText(result,JsonSerializer.Serialize(new{window.Ready,window.Failure,Runtime=Environment.Version.ToString(),
-                    ApplicationRoot=paths.Root,DataRoot=paths.DataRoot,BrowserMode="evergreen",BrowserVersion=browserVersion},new JsonSerializerOptions{WriteIndented=true}));
+                    ApplicationRoot=paths.Root,DataRoot=paths.DataRoot,BrowserMode="evergreen",BrowserVersion=browserVersion,LocalApi=window.LocalApiDiagnostics},new JsonSerializerOptions{WriteIndented=true}));
             }
             return smoke>0 && !window.Ready ? 1 : 0;
         }

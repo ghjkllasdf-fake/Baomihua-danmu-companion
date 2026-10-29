@@ -18,8 +18,11 @@ public sealed class DesktopWindow : Form
     private readonly Panel surface = new() { Dock=DockStyle.Fill };
     private CoreWebView2Controller controller;
     private CoreWebView2 core;
-    private readonly ApiClient api = new();
+    private readonly ApiClient api;
     private readonly AutomaticMatcher automaticMatcher;
+    private readonly EmbeddedApiService localApi;
+    private readonly string localSourcesFile;
+    private bool localSourcesChanging;
     private readonly DesktopTray tray;
     private readonly StartupRegistration startup;
     private readonly Icon applicationIcon;
@@ -42,6 +45,7 @@ public sealed class DesktopWindow : Form
     private bool initialized,openRequested,exitRequested;
     public bool Ready { get; private set; }
     public string Failure { get; private set; } = "";
+    internal object LocalApiDiagnostics=>localApi==null ? null : new {localApi.View.Enabled,localApi.View.State,localApi.View.Message,localApi.View.Sources,ProcessId=localApi.ProcessId};
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     internal bool SuppressErrorDialogs { get; set; }
     public DanmakuSettings Settings { get; private set; } = new();
@@ -60,12 +64,18 @@ public sealed class DesktopWindow : Form
         var paths=new ApplicationPaths(root,dataProfile,userDataRoot);
         string data=paths.ProfileRoot; Directory.CreateDirectory(data);browserData=paths.BrowserData;
         preferences=paths.Preferences;
+        localSourcesFile=Path.Combine(data,"embedded-api","sources.json");
+        if(EmbeddedApiService.IsPackaged(paths)){localApi=new EmbeddedApiService(paths);apiBase="";localApi.Changed+=QueueLocalApiUpdate;}
+        api=new ApiClient(useProxy:localApi==null);
         var savedPreferences=SettingsPreferences.Load(preferences);
         Settings=savedPreferences.Settings; Failure=savedPreferences.Notice;
         apiPreferences=paths.ApiPreferences;
-        var savedApi=ApiPreferences.Load(apiPreferences);
-        savedApiBase=savedApi.ApiBase;apiNotice=savedApi.Notice;
-        if(string.IsNullOrEmpty(apiBase))apiBase=savedApiBase;
+        if(localApi==null)
+        {
+            var savedApi=ApiPreferences.Load(apiPreferences);
+            savedApiBase=savedApi.ApiBase;apiNotice=savedApi.Notice;
+            if(string.IsNullOrEmpty(apiBase))apiBase=savedApiBase;
+        }
         Controls.Add(surface);
         surface.Resize+=(_,_)=>UpdateBrowserPresentation();
         VisibleChanged+=(_,_)=>UpdateBrowserPresentation();
@@ -75,7 +85,7 @@ public sealed class DesktopWindow : Form
         probe=new PlayerProbe(root); probe.SampleUpdated+=QueuePlayerUpdate; sample=probe.Latest;
         startup=new StartupRegistration(root);
         tray=new DesktopTray(root,OpenWorkbench,RequestExit);
-        automaticMatcher=new AutomaticMatcher(api.FetchAsync,ApplyAutomaticMatch,_=>PushState(),message=>tray.ShowFailure(message));
+        automaticMatcher=new AutomaticMatcher(api.FetchAsync,ApplyAutomaticMatch,_=>PushState(),message=>tray.ShowFailure(message),localApi==null ? 0 : 3);
         CommentsLoaded+=overlay.SetComments;
         SettingsUpdated+=overlay.SetSettings;
         ManualClockUpdated+=(position,playing)=>sync.Manual(position,playing,Monotonic.Now);
@@ -86,6 +96,7 @@ public sealed class DesktopWindow : Form
     {
         if(closing)return;
         closing=true;timer.Stop();timer.Dispose();automaticMatcher?.Dispose();tray?.Dispose();
+        if(localApi!=null){localApi.Changed-=QueueLocalApiUpdate;localApi.Dispose();}
         pending.Cancel();pending.Dispose();api.Dispose();
         if(probe!=null){probe.SampleUpdated-=QueuePlayerUpdate;probe.Dispose();}
         overlay?.Dispose();controller?.Close();
@@ -180,7 +191,7 @@ public sealed class DesktopWindow : Form
         sync.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,media,sample.PositionResolutionMs); sync.Tick(now);
         var video=sample.Title.Length>0 && sync.Mode is "automatic" or "manual" ? sample.Window : null;
         overlay.Update(video,sync.At(now),sync.Running,sync.SeekRevision,sync.Mode=="automatic",sync.LastProofMs);
-        automaticMatcher?.Observe(apiBase,identified ? sample.Title : "",sample.EpisodeNumber,mediaRevision);
+        automaticMatcher?.Observe(apiBase,identified && (localApi==null || apiBase.Length>0) ? sample.Title : "",sample.EpisodeNumber,mediaRevision);
     }
     private void OnNavigationStarting(object sender,CoreWebView2NavigationStartingEventArgs e)
     {
@@ -193,6 +204,14 @@ public sealed class DesktopWindow : Form
     {
         try
         {
+            if(localApi!=null)
+            {
+                var selection=EmbeddedApiSources.Load(localSourcesFile);
+                if(selection.Notice.Length>0)Failure=selection.Notice;
+                await localApi.StartAsync(selection.Sources);
+                if(closing)return;
+                apiBase=localApi.ApiBase;
+            }
             SharedBrowserRuntime.ConfigureLoader(root);
             var env=await CoreWebView2Environment.CreateAsync(null,data,SharedBrowserRuntime.Options);
             if (closing) return;
@@ -226,7 +245,22 @@ public sealed class DesktopWindow : Form
         double now=Monotonic.Now; sync.Tick(now);
         Send(new { type="state", sequence, data=new { settings=Settings,settingsRevision,
             player=PlaybackSnapshot.Capture(sample,sync,now,sequence,mediaRevision),
-            commentCount=CommentCount, notice=Failure,automaticMatch=automaticMatcher?.Status } });
+            commentCount=CommentCount, notice=Failure,automaticMatch=automaticMatcher?.Status,localApi=localApi?.View } });
+    }
+    private void QueueLocalApiUpdate()
+    {
+        if(closing || IsDisposed || !IsHandleCreated)return;
+        try{BeginInvoke(new Action(()=>
+        {
+            if(closing)return;
+            string next=localApi.ApiBase;
+            if(apiBase!=next)
+            {
+                pending.Cancel();revision++;automaticMatcher.Suspend();apiBase=next;
+                CommentCount=0;commentSourceTitle="";CommentsLoaded?.Invoke(Array.Empty<Comment>());
+            }
+            UpdatePlayer();PushState();
+        }));}catch(InvalidOperationException){}
     }
     private async void OnMessage(object sender,CoreWebView2WebMessageReceivedEventArgs e)
     {
@@ -245,8 +279,29 @@ public sealed class DesktopWindow : Form
             type=msg.GetProperty("type").GetString()??"";
             var payload=msg.GetProperty("payload");
             object result;
-            if (type=="hello") { Ready=true; result=new { apiBase, apiSaved=apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","api-persistence-v1" } }; }
+            if (type=="hello") { Ready=true; result=new { apiBase, apiSaved=localApi==null && apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=localApi==null ? new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","api-persistence-v1" } : new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","api-persistence-v1","embedded-api-v1" },localApi=localApi?.View }; }
             else if (type=="get-settings") result=new { settings=Settings,settingsRevision };
+            else if(type is "get-local-api" or "set-local-sources")
+            {
+                if(localApi==null)throw new InvalidOperationException("此版本不包含本机弹幕服务。");
+                bool write=type=="set-local-sources";
+                if(payload.ValueKind!=JsonValueKind.Object || payload.EnumerateObject().Count()!=(write ? 1 : 0))throw new ArgumentException("弹幕源设置格式无效。");
+                if(write)
+                {
+                    if(localSourcesChanging)throw new InvalidOperationException("正在应用弹幕源，请稍候。");
+                    string[] sources=EmbeddedApiSources.Validate(payload.GetProperty("sources").Deserialize<string[]>());
+                    try{EmbeddedApiSources.Save(localSourcesFile,sources);}
+                    catch(Exception storageError) when(storageError is IOException or UnauthorizedAccessException){throw new InvalidOperationException("弹幕源保存失败，原设置未更改。");}
+                    localSourcesChanging=true;
+                    try
+                    {
+                        pending.Cancel();revision++;automaticMatcher.Suspend();apiBase="";CommentCount=0;commentSourceTitle="";CommentsLoaded?.Invoke(Array.Empty<Comment>());
+                        await localApi.StartAsync(sources);if(closing)return;apiBase=localApi.ApiBase;UpdatePlayer();
+                    }
+                    finally{localSourcesChanging=false;}
+                }
+                result=localApi.View;
+            }
             else if (type is "get-startup" or "set-startup")
             {
                 bool write=type=="set-startup";
@@ -257,6 +312,7 @@ public sealed class DesktopWindow : Form
             }
             else if (type is "configure-api" or "save-api")
             {
+                if(localApi!=null)throw new InvalidOperationException("includeAPI 版本自动连接本机服务，无需设置 API 地址。");
                 if(payload.ValueKind!=JsonValueKind.Object || payload.EnumerateObject().Count()!=1 ||
                     !payload.TryGetProperty("apiBase",out var address) || address.ValueKind!=JsonValueKind.String)
                     throw new ArgumentException("弹幕服务设置格式无效。");
@@ -302,6 +358,7 @@ public sealed class DesktopWindow : Form
             else if (type is "search" or "episodes" or "comments")
             {
                 string requestedBase=ApiClient.NormalizeBase(payload.GetProperty("apiBase").GetString()??"");
+                if(localApi!=null && (localApi.View.State!="ready" || requestedBase!=localApi.ApiBase || requestedBase!=apiBase))throw new InvalidOperationException("本机弹幕服务尚未就绪或连接已更新，请稍后重试。");
                 string value=payload.GetProperty("value").GetString()??"";
                 string requestedSource="";
                 if(type=="comments" && payload.TryGetProperty("sourceTitle",out var label))

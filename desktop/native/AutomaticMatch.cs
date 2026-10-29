@@ -20,6 +20,8 @@ public sealed class AutomaticMatcher : IDisposable
     private readonly Action<AutomaticMatchResult> loaded;
     private readonly Action<AutomaticMatchStatus> changed;
     private readonly Action<string> notify;
+    private readonly int candidateLimit;
+    private readonly Func<int,int> randomIndex;
     private CancellationTokenSource pending;
     private long generation;
     private string key="";
@@ -28,8 +30,25 @@ public sealed class AutomaticMatcher : IDisposable
     public Task Completion { get; private set; }=Task.CompletedTask;
     public AutomaticMatchStatus Status { get; private set; }=new("waiting","等待爆米花播放视频，识别后自动匹配弹幕。");
     public AutomaticMatcher(Func<string,string,string,CancellationToken,Task<JsonObject>> fetch,
-        Action<AutomaticMatchResult> loaded,Action<AutomaticMatchStatus> changed,Action<string> notify)
-    {this.fetch=fetch;this.loaded=loaded;this.changed=changed;this.notify=notify;}
+        Action<AutomaticMatchResult> loaded,Action<AutomaticMatchStatus> changed,Action<string> notify,
+        int candidateLimit=0,Func<int,int> randomIndex=null)
+    {
+        if(candidateLimit is not (0 or 3))throw new ArgumentOutOfRangeException(nameof(candidateLimit));
+        this.fetch=fetch;this.loaded=loaded;this.changed=changed;this.notify=notify;
+        this.candidateLimit=candidateLimit;this.randomIndex=randomIndex??Random.Shared.Next;
+    }
+
+    private T[] Candidates<T>(T[] source,int remaining)
+    {
+        if(candidateLimit==0 || source.Length<=remaining)return source;
+        var shuffled=(T[])source.Clone();
+        for(int i=0;i<remaining;i++)
+        {
+            int j=i+randomIndex(shuffled.Length-i);
+            (shuffled[i],shuffled[j])=(shuffled[j],shuffled[i]);
+        }
+        return shuffled.Take(remaining).ToArray();
+    }
 
     public void Observe(string apiBase,string title,int episode,long revision)
     {
@@ -72,8 +91,10 @@ public sealed class AutomaticMatcher : IDisposable
             Set(new("matching","正在自动搜索并匹配当前视频的弹幕…"));
             Check(owner,stop);
             string unavailableSource="";
+            int remaining=candidateLimit==0 ? int.MaxValue : candidateLimit;
             if(binding!=null)
             {
+                remaining--;
                 var preferred=binding;
                 try
                 {
@@ -87,6 +108,7 @@ public sealed class AutomaticMatcher : IDisposable
                     }
                 }
                 catch(OperationCanceledException){throw;}
+                catch(ApiRateLimitException) when(candidateLimit>0){throw;}
                 catch {Check(owner,stop);}
                 unavailableSource=preferred.Id;binding=null;
             }
@@ -97,11 +119,12 @@ public sealed class AutomaticMatcher : IDisposable
                 .OrderBy(s=>Rank(title,s.Title)).DistinctBy(s=>s.Id).ToArray();
             if(sources.Length==0){Fail(owner,unavailableSource.Length>0 ? "同剧来源没有本集的可用弹幕，且没有找到其他匹配来源，请点击通知手动处理。" : "没有找到当前作品的弹幕来源，请点击通知手动搜索或换源。");return;}
             AutomaticMatchResult best=null;
+            var candidates=Candidates(sources,remaining);
             int compared=0;
-            foreach(var source in sources)
+            foreach(var source in candidates)
             {
                 Check(owner,stop);
-                Set(new("matching",$"正在比较当前分集的弹幕数量（{++compared}/{sources.Length}）…"));
+                Set(new("matching",$"正在比较当前分集的弹幕数量（{++compared}/{candidates.Length}）…"));
                 try
                 {
                     var body=await fetch(apiBase,"episodes",source.Id,stop);Check(owner,stop);
@@ -111,18 +134,21 @@ public sealed class AutomaticMatcher : IDisposable
                     if(candidate!=null && (best==null || candidate.Comments.Length>best.Comments.Length))best=candidate;
                 }
                 catch(OperationCanceledException){throw;}
+                catch(ApiRateLimitException) when(candidateLimit>0){throw;}
                 catch {Check(owner,stop);} // A broken source must not prevent trying other matching sources.
             }
             Check(owner,stop);
             if(best!=null)
             {
-                Apply(apiBase,best,owner,$"已自动匹配并载入 {best.Comments.Length:N0} 条弹幕，已比较 {sources.Length} 个来源；同剧后续集数沿用此来源。");
+                string sampling=candidateLimit>0 ? "随机候选" : "来源";
+                Apply(apiBase,best,owner,$"已自动匹配并载入 {best.Comments.Length:N0} 条弹幕，已比较 {candidates.Length} 个{sampling}；同剧后续集数沿用此来源。");
                 return;
             }
             Fail(owner,"匹配的来源没有当前分集的可用弹幕，或服务读取失败，请点击通知手动处理。");
         }
         catch(OperationCanceledException)
         {if(Current(owner))Fail(owner,"自动匹配超时，请点击通知检查弹幕服务或手动重试。");}
+        catch(ApiRateLimitException error){Fail(owner,error.Message);}
         catch
         {Fail(owner,"自动匹配失败，请点击通知检查弹幕服务并手动重试。");}
     }

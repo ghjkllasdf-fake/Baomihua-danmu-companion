@@ -23,6 +23,8 @@ internal static class DistributionTests
         try
         {
             if(args.Length>0 && args[0]=="--fixture")return NativeChildTests.Emit(args[^1]);
+            if(args.Length>0 && args[0]=="--api-fixture")return EmbeddedApiTests.Emit(args[^1]).GetAwaiter().GetResult();
+            if(args.Length>0 && args[0]=="--api-tests"){EmbeddedApiTests.Run().GetAwaiter().GetResult();return 0;}
             string root=Path.Combine(Path.GetTempPath(),"danmu-native-tests","\u793a\u4f8b portable");
             string data=Path.Combine(Path.GetTempPath(),"danmu-native-tests","isolated-data");
             var paths=new ApplicationPaths(root,"app",data);
@@ -54,6 +56,8 @@ internal static class DistributionTests
             NativeChildTests.Run().GetAwaiter().GetResult();
             ProbeSupervisorTests.Run(Environment.ProcessPath,"--fixture","unused").GetAwaiter().GetResult();
             AutomaticMatchTests.Run().GetAwaiter().GetResult();
+            SampledMatchTests.Run().GetAwaiter().GetResult();
+            EmbeddedApiTests.Run().GetAwaiter().GetResult();
             ApiTimeoutTests.Run().GetAwaiter().GetResult();
             Console.WriteLine($"PASS: {assertions} native distribution path assertions.");
             return 0;

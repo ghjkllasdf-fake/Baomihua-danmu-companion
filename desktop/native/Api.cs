@@ -11,9 +11,15 @@ using System.Threading.Tasks;
 
 namespace Popcorn;
 
+public sealed class ApiRateLimitException : InvalidOperationException
+{
+    public ApiRateLimitException() : base("弹幕服务已限流，请稍后重试；不会自动循环请求。") { }
+}
+
 public sealed class ApiClient : IDisposable
 {
-    private readonly HttpClient client = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(180) };
+    private readonly HttpClient client;
+    public ApiClient(bool useProxy=true)=>client=new(new HttpClientHandler{AllowAutoRedirect=false,UseProxy=useProxy}){Timeout=TimeSpan.FromSeconds(180)};
     public static string NormalizeBase(string value)
     {
         value=(value??"").Trim().TrimEnd('/');
@@ -40,6 +46,7 @@ public sealed class ApiClient : IDisposable
         try
         {
             using var response=await client.GetAsync(apiBase+"/api/v2"+path,HttpCompletionOption.ResponseHeadersRead,requestStop).ConfigureAwait(false);
+            if((int)response.StatusCode==429)throw new ApiRateLimitException();
             if (!response.IsSuccessStatusCode) throw new InvalidOperationException("弹幕服务返回 HTTP "+(int)response.StatusCode+"。");
             if (response.Content.Headers.ContentLength>64*1024*1024) throw new InvalidOperationException("弹幕响应超过大小限制。");
             using var stream=await response.Content.ReadAsStreamAsync(requestStop).ConfigureAwait(false);
@@ -64,6 +71,7 @@ public sealed class ApiClient : IDisposable
             throw new InvalidOperationException("弹幕服务请求超时，请重试。");
         }
         catch (OperationCanceledException) { throw; }
+        catch (ApiRateLimitException) { throw; }
         catch (Exception ex)
         {
             string message=ex is HttpRequestException ? "无法连接弹幕服务，请检查地址和网络。" : ex.Message;

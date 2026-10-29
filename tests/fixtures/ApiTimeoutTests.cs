@@ -21,6 +21,13 @@ public static class ApiTimeoutTests
     }
     public static async Task Run()
     {
+        using(var client=Client(new LimitedHandler(),TimeSpan.FromSeconds(2)))
+        {
+            bool typed=false;
+            try{await client.FetchAsync("http://fixture.invalid/token","comments","123",CancellationToken.None);}
+            catch(ApiRateLimitException error){typed=error.Message.Contains("限流") && !error.Message.Contains("fixture.invalid");}
+            Check(typed,"Actual HTTP 429 responses must preserve the terminal typed rate-limit signal.");
+        }
         using(var handler=new StalledBodyHandler())
         using(var client=Client(handler,TimeSpan.FromMilliseconds(250)))
         using(var watchdog=new CancellationTokenSource(TimeSpan.FromSeconds(2)))
@@ -62,6 +69,12 @@ public static class ApiTimeoutTests
         }
         Console.WriteLine("PASS: header deadline, explicit cancellation, infinite timeout and body-read cleanup.");
     }
+}
+
+internal sealed class LimitedHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken stop)
+        =>Task.FromResult(new HttpResponseMessage((HttpStatusCode)429){Content=new StringContent("{\"error\":\"private response\"}")});
 }
 
 internal sealed class StalledBodyHandler : HttpMessageHandler
