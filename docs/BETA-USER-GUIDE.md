@@ -1,0 +1,64 @@
+# 爆米花弹幕伴侣 0.1.0-beta.1
+
+本版提供 Windows x64 安装版和 Portable 版。主程序、后台播放器采样和开机启动均直接使用 EXE，不再调用 PowerShell，不需要调整执行策略。
+
+两版均包含 .NET 10.0.14 和专用 WebView2 156.0.4314.50 运行环境，不需要另装 Node、npm、.NET SDK、.NET Runtime 或 WebView2 Runtime。需要完整保留包内 DLL、资源和 `WebView2Runtime` 文件夹；“EXE 程序”不等于只复制一个 EXE 即可运行。
+
+## 安装版
+
+1. 运行 `DanmuCompanion-0.1.0-beta.1-win-x64-setup.exe`。
+2. 阅读原创程序 MIT 许可和包内 Microsoft WebView2 的独立许可条款。
+3. 在“选择目标位置”页面指定安装文件夹。可以选择其他本地磁盘及包含中文、空格的路径；请选择当前账户可写的专用子目录，不要选择磁盘根目录或网络共享。
+4. 完成后从开始菜单打开“爆米花弹幕伴侣”。桌面快捷方式可选，开机启动不会自动开启。
+
+默认安装到当前用户的本地程序目录，不需要提升管理员权限。不能写入选定位置时，应改选可写位置，不要因此关闭系统安全功能。
+
+## Portable 版
+
+完整解压 `DanmuCompanion-0.1.0-beta.1-win-x64-portable.zip` 到本地文件夹，然后双击 `DanmuCompanion.exe`。不要在压缩软件中直接运行，也不要只取出一个 EXE。
+
+Portable 不创建安装记录、不要求先安装运行库。移动整个文件夹后仍可使用；如果曾手动开启开机启动，移动前先关闭，移动后再开启。
+
+## 开始使用
+
+- 启动后先驻留系统托盘，点击图标打开工作台；关闭工作台只是隐藏，退出请使用托盘菜单。
+- 自行安装网易爆米花播放器，并准备兼容弹弹play API v2 的弹幕服务地址。本程序不提供影视资源、弹幕库、公共 API 或 Token。
+- 在工作台顶部填写地址并点击“保存地址”。搜索、分集和弹幕请求会发往你指定的服务，请只使用可信服务。
+- 自动匹配、同剧来源绑定、弹幕显示设置和暂停／跳转同步沿用 preview.15；未知播放器信息仍明确显示未知，不冒充自动同步。
+
+## 配置、升级和卸载
+
+两种版本使用同一份当前用户配置，因此切换版本前应先从托盘退出旧实例，不要同时运行。正常配置位置：
+
+```text
+%LOCALAPPDATA%\BaomihuaDanmuCompanion\api.dat
+%LOCALAPPDATA%\BaomihuaDanmuCompanion\app\preferences.json
+%LOCALAPPDATA%\BaomihuaDanmuCompanion\app\webview\
+```
+
+API 地址继续使用当前 Windows 用户的 DPAPI 加密，并兼容 preview.15 的固定保存位置。Portable 并不把 API 凭据导出到移动介质；换账户或换电脑后应重新输入，不要把加密文件当成通用明文备份。
+
+旧预览版解压目录里的 `.cache/app/preferences.json` 不会被自动搜索或删除。首次从旧预览版切换时，API 已保存则继续读取，显示偏好可在新版本重新设置；需要迁移旧偏好时，应先关闭两版、备份原文件，再复制到上述新位置。不要复制旧浏览器资料或把实际配置文件上传 GitHub。
+
+安装版升级应先退出程序，继续安装到原目录，当前用户配置不会作为程序文件覆盖。需要改到另一个目录时，建议先卸载原安装，再安装到新位置。Portable 升级请解压到新文件夹，不要混合覆盖不同版本的运行库。
+
+安装版可从 Windows“已安装的应用”卸载。卸载只移除该安装拥有的文件和快捷方式，默认保留上述当前用户配置。Portable 退出后可删除程序文件夹。若要彻底清除个人数据，先在工作台清空并保存 API 地址、关闭开机启动、退出所有实例，再自行删除上述数据目录；这会同时影响安装版和 Portable 的共同配置。
+
+## 安全与第三方说明
+
+本 Beta 的原创 EXE 和安装包未购买代码签名证书。Windows 可能提示未知发布者；请核对来源及 `SHA256SUMS.txt`，不要为运行本程序关闭杀毒软件。校验值只能检查文件一致性，不能代替发布者签名。
+
+包内 WebView2 包含 Microsoft Defender SmartScreen，并可能按微软条款收集和向微软发送终端用户相关安全及诊断信息。详见 `licenses/WebView2Runtime/LICENSE.html`、微软隐私声明和 Edge 隐私白皮书；原程序 MIT 许可不会替代第三方条款。程序本身没有接入向作者上传 API 地址的遥测服务。
+
+- 微软隐私声明：https://aka.ms/privacy
+- SmartScreen 说明：https://learn.microsoft.com/en-us/microsoft-edge/privacy-whitepaper#smartscreen
+- 完整组成及许可证见 `THIRD-PARTY-NOTICES.md` 和 `licenses/`。
+- 原样保留了浏览器上游的 `show_third_party_software_licenses.bat`，它只用于显示浏览器第三方声明，不是本程序启动入口，也不调用 PowerShell。
+
+## Beta 验证边界
+
+本版面向 Windows 10/11 x64；实际测试操作系统和结果以随交付提供的验证报告为准，不把单机结果外推到其他系统。ARM64、网络共享运行和不同安全策略环境未作兼容性承诺。
+
+从脚本改为 EXE 不代表之前尚未完成的多屏 DPI、长期真实播放、严格延迟及所有窗口焦点场景已经通过。本版仍是 Beta，不宣称 preview.15 尚未完成的性能目标已经达成。
+
+程序界面能离线启动，但搜索和下载真实弹幕仍需要你配置的服务可达。若提示文件缺失或浏览器环境损坏，请重新完整解压或重新安装同一版本，不要混入旧版脚本／依赖。

@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using System.Reflection;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace Popcorn;
@@ -39,5 +42,28 @@ public static class NativeRuntime
             "WEBVIEW2_WAIT_FOR_SCRIPT_DEBUGGER","WEBVIEW2_PIPE_FOR_SCRIPT_DEBUGGER"})Environment.SetEnvironmentVariable(name,null);
         Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",debugPort>0 ?
             "--remote-debugging-port="+debugPort+" --remote-debugging-address=127.0.0.1" : null);
+    }
+    public static void PrepareBrowserSandbox(ApplicationPaths paths)
+    {
+        // Fixed Version >=120 requires these private-folder ACLs on Windows 10.
+        // https://learn.microsoft.com/microsoft-edge/webview2/concepts/distribution
+        if(!OperatingSystem.IsWindowsVersionAtLeast(10,0,22000))GrantBrowserReadAccess(paths.FixedBrowser);
+    }
+    internal static void GrantBrowserReadAccess(string folder)
+    {
+        if((File.GetAttributes(folder)&FileAttributes.ReparsePoint)!=0)throw new IOException("Browser runtime directory must not be a reparse point.");
+        var directory=new DirectoryInfo(folder);var security=directory.GetAccessControl();bool changed=false;
+        var inheritance=InheritanceFlags.ContainerInherit|InheritanceFlags.ObjectInherit;
+        foreach(string value in new[]{"S-1-15-2-1","S-1-15-2-2"})
+        {
+            bool present=security.GetAccessRules(true,true,typeof(SecurityIdentifier)).OfType<FileSystemAccessRule>().Any(rule=>
+                rule.IdentityReference.Value==value && rule.AccessControlType==AccessControlType.Allow &&
+                (rule.FileSystemRights&FileSystemRights.ReadAndExecute)==FileSystemRights.ReadAndExecute &&
+                (rule.InheritanceFlags&inheritance)==inheritance && rule.PropagationFlags==PropagationFlags.None);
+            if(present)continue;
+            security.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(value),FileSystemRights.ReadAndExecute,
+                inheritance,PropagationFlags.None,AccessControlType.Allow));changed=true;
+        }
+        if(changed)directory.SetAccessControl(security);
     }
 }

@@ -5,3 +5,5 @@
 *.jpg binary
 *.woff2 binary
 *.ico binary
+# Preserve the exact upstream legal document bytes recorded in SOURCE.txt.
+licenses/WebView2Runtime/LICENSE.html binary

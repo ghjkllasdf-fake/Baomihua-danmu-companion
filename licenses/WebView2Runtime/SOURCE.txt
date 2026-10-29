@@ -1,0 +1,4 @@
+Official Microsoft fixed-version runtime license, retrieved 2026-10-29.
+https://developer.microsoft.com/microsoft-edge/api/eula/webview2?locale=en-us&fixed=true
+Original LICENSE.html SHA256: 13abe52770be9206cd86a6f4564c2923813d4fbaef8913d6a8704e4ec5c51b03
+LICENSE.txt contains the same text with HTML entities decoded and trailing whitespace normalized.

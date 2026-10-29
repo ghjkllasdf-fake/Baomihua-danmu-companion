@@ -42,6 +42,8 @@ internal static class DistributionTests
             Reject(()=>new ApplicationPaths("relative-path","app",data),"Relative executable roots must be rejected.");
             Reject(()=>new ApplicationPaths(root,"app","relative-data"),"Relative data roots must be rejected.");
             NativeRuntimeTests.Run();
+            NativeSandboxTests.Run();
+            NativeInstanceTests.Run();
             NativeStartupTests.Run();
             NativePreferenceTests.Run();
             PlaybackEventSignalTests.Run();
