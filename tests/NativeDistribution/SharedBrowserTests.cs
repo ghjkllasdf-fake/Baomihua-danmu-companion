@@ -19,6 +19,10 @@ internal static class SharedBrowserTests
         }
         try{SharedBrowserRuntime.RequireAvailable(()=>throw new WebView2RuntimeNotFoundException());throw new Exception("Missing Runtime exception was swallowed.");}
         catch(InvalidOperationException error){DistributionTests.Check(error.Message.Contains("MicrosoftEdgeWebview2Setup.exe"),"SDK runtime-not-found failure must be sanitized and actionable.");}
+        SharedBrowserRuntime.ConfigureLoader(AppContext.BaseDirectory);
+        string actual=SharedBrowserRuntime.RequireAvailable();
+        SharedBrowserRuntime.ConfigureLoader(AppContext.BaseDirectory);
+        DistributionTests.Check(actual==SharedBrowserRuntime.RequireAvailable(),"Loader configuration must be idempotent even after the first real SDK environment API call.");
         Console.WriteLine("PASS: stable-only shared browser policy, minimum version and missing-runtime instructions without side effects.");
     }
 }

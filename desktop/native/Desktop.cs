@@ -193,7 +193,7 @@ public sealed class DesktopWindow : Form
     {
         try
         {
-            CoreWebView2Environment.SetLoaderDllFolderPath(root);
+            SharedBrowserRuntime.ConfigureLoader(root);
             var env=await CoreWebView2Environment.CreateAsync(null,data,SharedBrowserRuntime.Options);
             if (closing) return;
             controller=await env.CreateCoreWebView2ControllerAsync(surface.Handle);

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using Microsoft.Web.WebView2.Core;
 
@@ -7,6 +8,18 @@ namespace Popcorn;
 internal static class SharedBrowserRuntime
 {
     internal const int MinimumMajor=124;
+    private static string loaderRoot;
+    internal static void ConfigureLoader(string root)
+    {
+        root=Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+        if(loaderRoot!=null)
+        {
+            if(string.Equals(loaderRoot,root,StringComparison.OrdinalIgnoreCase))return;
+            throw new InvalidOperationException("WebView2 loader cannot change application directories after initialization.");
+        }
+        CoreWebView2Environment.SetLoaderDllFolderPath(root);
+        loaderRoot=root;
+    }
     internal static CoreWebView2EnvironmentOptions Options=>new(){ReleaseChannels=CoreWebView2ReleaseChannels.Stable};
     internal static string RequireAvailable(Func<string> detect=null)
     {

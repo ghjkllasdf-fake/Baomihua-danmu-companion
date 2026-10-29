@@ -36,6 +36,7 @@ internal static class NativeHost
             NativeRuntime.LoadMediaProjection(paths.Root);
             if(check){Console.WriteLine("PASS: native executable payload and projection dependencies.");return 0;}
             NativeRuntime.ConfigureBrowserEnvironment(paths,debugPort);
+            SharedBrowserRuntime.ConfigureLoader(paths.Root);
             string browserVersion=SharedBrowserRuntime.RequireAvailable();
             using var instance=new ApplicationInstance(paths);
             if(!instance.Acquired)throw new InvalidOperationException("本用户的弹幕伴侣已在运行，请从托盘打开，或先退出旧实例。");
