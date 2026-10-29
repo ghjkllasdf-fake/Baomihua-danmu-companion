@@ -187,6 +187,11 @@ public sealed class SettingsLatencyObserver : IDisposable
         }));
     }
 
+    private void CloseHost()
+    {
+        var exit=host.GetType().GetMethod("RequestExit",Type.EmptyTypes);
+        if(exit!=null)exit.Invoke(host,null);else host.Close();
+    }
     private void Fail(Exception ex)
     {
         Console.Error.WriteLine(ex.ToString());
@@ -195,7 +200,7 @@ public sealed class SettingsLatencyObserver : IDisposable
             failure="Observer failed: "+ex.GetType().Name;
             try { SaveLocked(); } catch(Exception storage) { Console.Error.WriteLine(storage.ToString()); }
         }
-        if(host.IsHandleCreated && !host.IsDisposed) host.BeginInvoke(new Action(host.Close));
+        if(host.IsHandleCreated && !host.IsDisposed) host.BeginInvoke(new Action(CloseHost));
     }
 
     private void Navigating(object sender,CoreWebView2NavigationStartingEventArgs args)
@@ -233,9 +238,9 @@ public sealed class SettingsLatencyObserver : IDisposable
             lock(gate) heartbeat.Track(tick);
         }
         if(busy) return;
-        if(Now-started>90000) { lock(gate) { failure="Observer timed out."; SaveLocked(); } host.Close(); return; }
+        if(Now-started>90000) { lock(gate) { failure="Observer timed out."; SaveLocked(); } CloseHost(); return; }
         string instruction=File.Exists(control) ? File.ReadAllText(control) : "";
-        if(instruction=="close") { host.Close(); return; }
+        if(instruction=="close") { CloseHost(); return; }
         if(ready && (finished || instruction!="calibrate-after")) return;
         if(!(bool)host.GetType().GetProperty("Ready").GetValue(host)) return;
         busy=true;

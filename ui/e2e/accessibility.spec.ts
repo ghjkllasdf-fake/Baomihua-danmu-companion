@@ -46,7 +46,7 @@ test('display controls and disclosures are keyboard-operable with visible focus'
   await page.keyboard.press('Enter');
   await expect(region).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('25% 显示区域')).toBeVisible();
-  for (const [label, value, spokenValue] of [['弹幕字号', '29', '29 px'], ['滚动速度', '1.1', '1.1×'], ['不透明度', '0.9', '90%'], ['文字描边', '1.5', '1.5 px']]) {
+  for (const [label, value, spokenValue] of [['弹幕字号', '23', '23 px'], ['滚动速度', '0.9', '0.9×'], ['不透明度', '0.9', '90%'], ['文字描边', '0.5', '0.5 px']]) {
     const slider = page.getByRole('slider', { name: label, exact: true });
     await tabTo(page, slider);
     await page.keyboard.press('ArrowRight');
@@ -56,7 +56,7 @@ test('display controls and disclosures are keyboard-operable with visible focus'
   const scale = page.getByRole('switch', { name: /随视频窗口等比缩放/ });
   await tabTo(page, scale);
   await page.keyboard.press('Space');
-  await expect(scale).not.toBeChecked();
+  await expect(scale).toBeChecked();
   const density = page.getByRole('combobox', { name: '弹幕密度' });
   await tabTo(page, density);
   await page.keyboard.press('End');

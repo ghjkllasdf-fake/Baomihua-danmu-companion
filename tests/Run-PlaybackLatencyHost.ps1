@@ -20,6 +20,7 @@ $hashFiles=@(Get-ChildItem (Join-Path $root 'desktop') -Recurse -File)+@(Get-Chi
 $hashFiles+=@(Get-Item (Join-Path $PSScriptRoot 'fixtures/PlaybackLatencyObserver.cs'),$PSCommandPath,(Join-Path $root 'scripts/PlaybackLatency.mjs'),(Join-Path $root 'scripts/Check-PlaybackLatency.mjs'),(Join-Path $root 'scripts/PlaybackInputDriver.mjs'),(Join-Path $PSScriptRoot 'playback-latency.test.mjs'),(Join-Path $PSScriptRoot 'playback-input-driver.test.mjs'))
 $before=@($hashFiles | ForEach-Object { [pscustomobject]@{path=[IO.Path]::GetRelativePath($root,$_.FullName);sha256=(Get-FileHash -LiteralPath $_.FullName).Hash} })
 $observer=[PlaybackLatencyObserver]::new($window,$comments,$RunDirectory,$OwnerNonce)
+$window.OpenWorkbench()
 try { [System.Windows.Forms.Application]::Run($window) } finally { $observer.Dispose() }
 $after=@($hashFiles | ForEach-Object { [pscustomobject]@{path=[IO.Path]::GetRelativePath($root,$_.FullName);sha256=(Get-FileHash -LiteralPath $_.FullName).Hash} })
 $stable=($before|ConvertTo-Json -Compress) -ceq ($after|ConvertTo-Json -Compress)

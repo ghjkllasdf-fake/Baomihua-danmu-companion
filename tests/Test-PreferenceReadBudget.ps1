@@ -16,7 +16,7 @@ foreach($chunk in @([int]::MaxValue,7)){
     [Popcorn.PreferenceBudget.BudgetStream]::ReadCalls=0
     [Popcorn.PreferenceBudget.BudgetStream]::ChunkSize=$chunk
     $result=[Popcorn.PreferenceBudget.SettingsPreferences]::Load('synthetic-input')
-    if([Popcorn.PreferenceBudget.BudgetStream]::BytesRead -ne 65537 -or $result.Notice.Length -eq 0 -or $result.Settings.FontSize -ne 28){ throw 'The actual preference loader did not stop at the byte budget plus one sentinel.' }
+    if([Popcorn.PreferenceBudget.BudgetStream]::BytesRead -ne 65537 -or $result.Notice.Length -eq 0 -or $result.Settings.FontSize -ne 22){ throw 'The actual preference loader did not stop at the byte budget plus one sentinel.' }
     if($chunk -eq 7 -and [Popcorn.PreferenceBudget.BudgetStream]::ReadCalls -le 1){ throw 'The short-read fixture did not exercise the read loop.' }
 }
 'PASS: the actual preference loader consumes only 65537 bytes of a 262144-byte synthetic stream, including short reads; no giant file or window was created.'

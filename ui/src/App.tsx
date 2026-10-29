@@ -5,6 +5,7 @@ import { SettingsSession, settingsStatusText, type SettingsStatus } from './sett
 import { createNativeNoticeHandler } from './host-notices';
 import { initialPlayback, observePlayer } from './player-observation';
 import { DisplaySettings } from './components/DisplaySettings';
+import { StartupOptions } from './components/StartupOptions';
 import { Preview } from './components/Preview';
 import { SourcePanel } from './components/SourcePanel';
 import { validAutomaticMatch, type AutomaticMatchStatus } from './automatic-match';
@@ -16,6 +17,7 @@ export function App() {
   const connected = connectionStatus === 'ready';
   const [connectionError, setConnectionError] = useState('');
   const [automaticMatching, setAutomaticMatching] = useState(false), [automaticMatch, setAutomaticMatch] = useState<AutomaticMatchStatus>();
+  const [desktopLifecycle, setDesktopLifecycle] = useState(false);
   const [count, setCount] = useState(0), [error, setError] = useState(''), [manual, setManual] = useState('00:00:00');
   const [settingsStatus, setSettingsStatus] = useState<SettingsStatus>('preview'), [settingsError, setSettingsError] = useState('');
   const settingsSession = useRef<SettingsSession | null>(null);
@@ -37,10 +39,12 @@ export function App() {
           session.connect(connection.hello); session.retryRecovery(); trusted = true;
           setConnectionStatus('ready'); setApiBase(connection.hello.apiBase); setConnectionError('');
           setAutomaticMatching(connection.hello.capabilities.includes('automatic-match-v1'));
+          setDesktopLifecycle(connection.hello.capabilities.includes('desktop-lifecycle-v1'));
         } catch { revokeConnection('宿主显示设置不一致，请重新确认连接。'); }
       } else {
         setConnectionStatus(connection.status);
         setAutomaticMatching(false); setAutomaticMatch(undefined);
+        setDesktopLifecycle(false);
         latestPlayback.current = observePlayer(latestPlayback.current, emptyPlayer); setPlayback(latestPlayback.current); setCount(0);
         setConnectionError(connection.status === 'failed' ? connection.message : '');
       }
@@ -86,7 +90,7 @@ export function App() {
     {shownError && <div className="app-error" role="alert">{shownError}<button aria-label="关闭提示" onClick={() => { setConnectionError(''); setError(''); settingsSession.current?.dismissMessage(); }}>×</button></div>}
     <h1 className="sr-only">爆米花弹幕工作台</h1>
     <main id="main" className="workspace"><SourcePanel apiBase={apiBase} connected={connected} playback={playback} getPlayback={() => latestPlayback.current} onLoaded={setCount} automaticMatching={automaticMatching} automaticStatus={automaticMatch} />
-      <div className="main-controls"><Preview settings={settings} /><DisplaySettings settings={settings} update={update} />
+      <div className="main-controls"><Preview settings={settings} /><DisplaySettings settings={settings} update={update} /><StartupOptions available={connected && desktopLifecycle} />
         <details className="manual-sync"><summary>手动时间校准 <span>{auto ? '自动同步中，无需手动校准' : '播放器未公开时间时使用'}</span></summary><div className="manual-controls"><label htmlFor="manual-time">视频当前时间</label><input id="manual-time" value={manual} onChange={e => setManual(e.target.value)} disabled={auto} /><button className="secondary" disabled={!connected || auto} onClick={() => void manualClock(true)}>校时并播放</button><button className="text-button" disabled={!connected || auto} onClick={() => void manualClock(false)}>校时并暂停</button></div></details>
       </div>
     </main>

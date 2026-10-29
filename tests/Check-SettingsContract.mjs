@@ -17,5 +17,5 @@ for (const snapshot of normalized) {
   assert.deepEqual(Object.keys(snapshot.settings).sort(), Object.keys(defaultSettings).sort(), 'Native settings must contain only the expected style fields.');
 }
 assert.deepEqual(normalized.map(s => s.settingsRevision), [0, 1, 1]);
-assert.deepEqual(normalized.map(s => s.settings.fontSize), [28, 40, 40]);
+assert.deepEqual(normalized.map(s => s.settings.fontSize), [22, 40, 40]);
 console.log('PASS: actual hello/save/read settings snapshots satisfy the current TypeScript validator without a desktop window.');

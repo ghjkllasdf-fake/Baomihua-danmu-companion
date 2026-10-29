@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { defaultSettings, emptyPlayer, formatTime, parseTime, playbackStatus, validPlayer, validSettings } from './model';
 
 describe('display settings and time', () => {
+  it('starts with the requested fixed-size display defaults', () => {
+    expect(defaultSettings.fontSize).toBe(22);
+    expect(defaultSettings.outlineWidth).toBe(0);
+    expect(defaultSettings.speedMultiplier).toBe(.8);
+    expect(defaultSettings.scaleWithWindow).toBe(false);
+  });
   it('accepts all requested regions and rejects arbitrary values', () => {
     for (const areaFraction of [.25, .5, .75, 1]) expect(validSettings({ ...defaultSettings, areaFraction })).toBe(true);
     expect(validSettings({ ...defaultSettings, areaFraction: .3 })).toBe(false);

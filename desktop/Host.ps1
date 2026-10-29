@@ -38,7 +38,7 @@ if(-not $NoDefaultApi -and -not [string]::IsNullOrWhiteSpace($env:DANMU_API_BASE
 $window=[Popcorn.DesktopWindow]::new($root,$initialApi,$DataProfile)
 if($DebugPort -gt 0){ $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=$DebugPort --remote-debugging-address=127.0.0.1" }
 $smokeTimer=$null
-if($SmokeSeconds -gt 0){ $smokeTimer=[System.Windows.Forms.Timer]::new(); $smokeTimer.Interval=$SmokeSeconds*1000; $smokeTimer.add_Tick({ $smokeTimer.Stop(); $window.Close() }); $smokeTimer.Start() }
+if($SmokeSeconds -gt 0){ $smokeTimer=[System.Windows.Forms.Timer]::new(); $smokeTimer.Interval=$SmokeSeconds*1000; $smokeTimer.add_Tick({ $smokeTimer.Stop(); $window.RequestExit() }); $smokeTimer.Start() }
 try { [System.Windows.Forms.Application]::Run($window) } finally { if($smokeTimer){ $smokeTimer.Dispose() } }
 if($SmokeSeconds -gt 0){
     [pscustomobject]@{Ready=$window.Ready;Failure=$window.Failure} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root '.cache\desktop-smoke.json')

@@ -61,11 +61,16 @@ public sealed class PlaybackLatencyObserver : IDisposable
         try { host.BeginInvoke(new Action(()=>AfterDesktopUpdate(null,EventArgs.Empty))); }
         catch(InvalidOperationException) when(disposed || host.IsDisposed || !host.IsHandleCreated) { }
     }
+    private void CloseHost()
+    {
+        var exit=host.GetType().GetMethod("RequestExit",Type.EmptyTypes);
+        if(exit!=null)exit.Invoke(host,null);else host.Close();
+    }
     private void Fail(Exception error)
     {
         lock(gate) { if(disposed) return; WriteLocked(new { type="failure",nativeMs=Now,error=error.GetType().Name }); }
         Console.Error.WriteLine(error);
-        if(!host.IsDisposed) host.BeginInvoke(new Action(host.Close));
+        if(!host.IsDisposed) host.BeginInvoke(new Action(CloseHost));
     }
 
     private void AfterDesktopUpdate(object sender,EventArgs args)
@@ -129,7 +134,7 @@ public sealed class PlaybackLatencyObserver : IDisposable
                 var command=document.RootElement;
                 if(command.GetProperty("nonce").GetString()!=nonce) throw new InvalidDataException("Wrong observer owner.");
                 string kind=command.GetProperty("type").GetString();
-                if(kind=="close") { consumed.Add(path); requestedClose=true; host.Close(); return; }
+                if(kind=="close") { consumed.Add(path); requestedClose=true; CloseHost(); return; }
                 string id=command.GetProperty("id").GetString();
                 if(!System.Text.RegularExpressions.Regex.IsMatch(id??"",@"^[a-z0-9]{1,24}$")) throw new InvalidDataException("Invalid action id.");
                 lock(gate)

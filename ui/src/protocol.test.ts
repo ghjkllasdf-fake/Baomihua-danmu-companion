@@ -6,6 +6,16 @@ const api = { apiBase: 'http://fixture.invalid/token', value: '10' };
 const snapshot = { settings: defaultSettings, settingsRevision: 0 };
 const hello = { ...snapshot, apiBase: '', stateSequence: 4, protocolVersion: 1, capabilities: ['future-addition', 'media-context-v1'] };
 describe('command contract boundary', () => {
+  it('only accepts a boolean startup choice and a confirmed boolean result', () => {
+    expect(validPayload('get-startup', {})).toBe(true);
+    expect(validPayload('set-startup', { enabled: false })).toBe(true);
+    expect(validPayload('set-startup', { enabled: true })).toBe(true);
+    expect(validPayload('set-startup', { enabled: 'true' })).toBe(false);
+    expect(validPayload('set-startup', { enabled: true, path: 'untrusted' })).toBe(false);
+    expect(validResult('get-startup', { enabled: false })).toBe(true);
+    expect(validResult('set-startup', { enabled: true })).toBe(true);
+    expect(validResult('set-startup', { enabled: 'true' })).toBe(false);
+  });
   it.each<[CommandType, unknown, unknown]>([
     ['hello', {}, hello], ['get-settings', {}, snapshot], ['update-settings', { settings: defaultSettings }, snapshot],
     ['configure-api', { apiBase: api.apiBase }, { configured: true }],

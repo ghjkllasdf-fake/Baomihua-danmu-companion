@@ -103,7 +103,7 @@ try {
     await expect(page.locator('footer')).toContainText('显示偏好已保存');
   }
   const font = page.getByRole('slider', { name: '弹幕字号' });
-  expect(Number(await font.inputValue())).toBe(28);
+  expect(Number(await font.inputValue())).toBe(22);
   for (let i = 1; i <= 20; i++) {
     settings = { ...settings, fontSize: 28 + i };
     await proveOwnership();

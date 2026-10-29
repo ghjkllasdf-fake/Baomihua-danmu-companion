@@ -29,7 +29,7 @@ public static class PackageArchive
     private sealed record Manifest(int SchemaVersion,string Version,bool Preview,FileRecord[] Files);
     private static readonly DateTimeOffset Stamp=new(2000,1,1,0,0,0,TimeSpan.Zero);
     private static readonly string[] NativeNames={
-        "Api","AutomaticMatch","Core","Desktop","MatchFailureNotification","MediaSession","Overlay","OverlayPresentation",
+        "Api","AutomaticMatch","Core","Desktop","DesktopTray","StartupRegistration","MediaSession","Overlay","OverlayPresentation",
         "Playback","PlaybackEventSignal","PlaybackModels","PlayerControlCache","PlayerSampler","Preferences",
         "ProbeAttempt","ProbeCadence","ProbeFrameReader","ProbeGate","ProbeJob","ProbeOperation","ProbeProcess","ProbeSupervisor",
         "ProbeTransport","ProbeWorkerRuntime","SpriteStore","UiaPlayerControls","Windows"

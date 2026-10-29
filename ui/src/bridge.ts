@@ -78,7 +78,7 @@ export function request<C extends HostRequest>(...command: C): Promise<Result<C[
       if (type === 'hello' && epoch === handshakeEpoch) connectionChanged({ status: 'failed', message: error.message });
       reject(error);
     };
-    const timeoutMs = type === 'update-settings' || type === 'get-settings' ? 10000 : 190000;
+    const timeoutMs = ['update-settings', 'get-settings', 'get-startup', 'set-startup'].includes(type) ? 10000 : 190000;
     const timer = setTimeout(() => { pending.delete(id); fail(new HostTimeoutError()); }, timeoutMs);
     pending.set(id, { type, resolve: value => {
       if (validResult(type, value)) resolve(value);

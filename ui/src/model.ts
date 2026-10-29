@@ -4,8 +4,8 @@ export interface Settings {
   bottom: boolean; dedupe: boolean; keywords: string; offsetMs: number; enabled: boolean;
 }
 export const defaultSettings: Settings = {
-  areaFraction: .5, fontSize: 28, scaleWithWindow: true, speedMultiplier: 1,
-  opacity: .85, outlineWidth: 1, density: 60, rolling: true, top: true, bottom: true,
+  areaFraction: .5, fontSize: 22, scaleWithWindow: false, speedMultiplier: .8,
+  opacity: .85, outlineWidth: 0, density: 60, rolling: true, top: true, bottom: true,
   dedupe: true, keywords: '', offsetMs: 0, enabled: true,
 };
 export function validSettings(value: unknown): value is Settings {

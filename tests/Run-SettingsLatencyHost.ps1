@@ -15,6 +15,7 @@ if($PlaybackLoad){
     for($i=0;$i -lt $comments.Length;$i++){ $comments[$i]=[Popcorn.Comment]::new($i*100,1,16777215,('设置负载测试 '+$i)) }
 }
 $observer=[SettingsLatencyObserver]::new($window,(Join-Path $RunDirectory 'native.json'),(Join-Path $RunDirectory 'control.txt'),$OwnerNonce,$comments)
+$window.OpenWorkbench()
 try { [System.Windows.Forms.Application]::Run($window) } finally { $observer.Dispose() }
 $latest=Get-ChildItem -LiteralPath $RunDirectory -Filter 'native-*.json' | Sort-Object Name | Select-Object -Last 1
 $evidence=Get-Content -LiteralPath $latest.FullName -Raw | ConvertFrom-Json

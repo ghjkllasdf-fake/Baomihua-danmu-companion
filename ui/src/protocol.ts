@@ -10,9 +10,11 @@ export interface Commands {
   'get-settings': Command<never, SettingsSnapshot>;
   'update-settings': Command<{ settings: Settings }, SettingsSnapshot>;
   'configure-api': Command<{ apiBase: string }, { configured: true }>;
+  'get-startup': Command<never, { enabled: boolean }>;
+  'set-startup': Command<{ enabled: boolean }, { enabled: boolean }>;
   search: Command<ApiPayload, { animes: Anime[] }>;
   episodes: Command<ApiPayload, { bangumi: { episodes: Episode[] } }>;
-  comments: Command<ApiPayload & { expectedMediaRevision: number }, { count: number }>;
+  comments: Command<ApiPayload & { expectedMediaRevision: number; sourceTitle?: string }, { count: number }>;
   'manual-clock': Command<Clock, Clock>;
   cancel: Command<never, { cancelled: true }>;
   close: Command<never, { closing: true }>;
@@ -30,12 +32,15 @@ const keys = (value: object, expected: string[]) => Object.keys(value).length ==
 export function validPayload(type: CommandType, value: unknown): boolean {
   if (!record(value)) return false;
   switch (type) {
-    case 'hello': case 'get-settings': case 'cancel': case 'close': return keys(value, []);
+    case 'hello': case 'get-settings': case 'get-startup': case 'cancel': case 'close': return keys(value, []);
+    case 'set-startup': return keys(value, ['enabled']) && typeof value.enabled === 'boolean';
     case 'update-settings': return keys(value, ['settings']) && validSettings(value.settings) && keys(value.settings, Object.keys(defaultSettings));
     case 'manual-clock': return keys(value, ['positionMs', 'playing']) && clock(value);
     case 'configure-api': return keys(value, ['apiBase']) && validPayload('search', { apiBase: value.apiBase, value: 'configuration' });
     case 'search': case 'episodes': case 'comments': {
-      if (!keys(value, type === 'comments' ? ['apiBase', 'value', 'expectedMediaRevision'] : ['apiBase', 'value']) || !text(value.value, 500) || !text(value.apiBase, 2048)) return false;
+      const expected = type === 'comments' ? ['apiBase', 'value', 'expectedMediaRevision', ...(Object.hasOwn(value, 'sourceTitle') ? ['sourceTitle'] : [])] : ['apiBase', 'value'];
+      if (!keys(value, expected) || !text(value.value, 500) || !text(value.apiBase, 2048)) return false;
+      if (type === 'comments' && Object.hasOwn(value, 'sourceTitle') && (typeof value.sourceTitle !== 'string' || value.sourceTitle.length > 500)) return false;
       try {
         const url = new URL(String(value.apiBase));
         if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.href.includes('?') || url.href.includes('#')) return false;
@@ -50,6 +55,7 @@ export function validResult<K extends CommandType>(type: K, value: unknown): val
   switch (type) {
     case 'hello': return validHello(value);
     case 'get-settings': case 'update-settings': return validSettingsSnapshot(value);
+    case 'get-startup': case 'set-startup': return keys(value, ['enabled']) && typeof value.enabled === 'boolean';
     case 'configure-api': return value.configured === true;
     case 'search': return Array.isArray(value.animes) && value.animes.length <= 10000 && value.animes.every(item => record(item) && scalar(item.animeId) && text(item.animeTitle, 500));
     case 'episodes': return record(value.bangumi) && Array.isArray(value.bangumi.episodes) && value.bangumi.episodes.length <= 10000 && value.bangumi.episodes.every(item =>

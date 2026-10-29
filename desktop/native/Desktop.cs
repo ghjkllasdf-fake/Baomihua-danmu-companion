@@ -20,7 +20,8 @@ public sealed class DesktopWindow : Form
     private CoreWebView2 core;
     private readonly ApiClient api = new();
     private readonly AutomaticMatcher automaticMatcher;
-    private readonly MatchFailureNotification matchNotification;
+    private readonly DesktopTray tray;
+    private readonly StartupRegistration startup;
     private readonly System.Windows.Forms.Timer timer = new() { Interval=200 };
     private readonly string root, preferences;
     private CancellationTokenSource pending = new();
@@ -34,6 +35,9 @@ public sealed class DesktopWindow : Form
     private readonly SyncClock sync=new();
     private PlayerSample sample;
     private string lastMedia="";
+    private string commentSourceTitle="";
+    private readonly string browserData;
+    private bool initialized,openRequested,exitRequested;
     public bool Ready { get; private set; }
     public string Failure { get; private set; } = "";
     public DanmakuSettings Settings { get; private set; } = new();
@@ -48,7 +52,7 @@ public sealed class DesktopWindow : Form
         root=projectRoot; apiBase=initialApi;
         Text="爆米花 · 弹幕工作台"; ClientSize=new Size(1120,790); MinimumSize=new Size(760,620);
         StartPosition=FormStartPosition.CenterScreen; BackColor=Color.FromArgb(245,243,235);
-        string data=Path.Combine(root,".cache",dataProfile); Directory.CreateDirectory(data);
+        string data=Path.Combine(root,".cache",dataProfile); Directory.CreateDirectory(data);browserData=data;
         preferences=Path.Combine(data,"preferences.json");
         var savedPreferences=SettingsPreferences.Load(preferences);
         Settings=savedPreferences.Settings; Failure=savedPreferences.Notice;
@@ -56,14 +60,54 @@ public sealed class DesktopWindow : Form
         surface.Resize+=(_,_)=>{ if (controller!=null) controller.Bounds=surface.ClientRectangle; };
         overlay=new OverlayHost(); overlay.SetSettings(Settings);
         probe=new PlayerProbe(root); probe.SampleUpdated+=QueuePlayerUpdate; sample=probe.Latest;
-        matchNotification=new MatchFailureNotification(this);
-        automaticMatcher=new AutomaticMatcher(api.FetchAsync,ApplyAutomaticMatch,_=>PushState(),message=>matchNotification.Show(message));
+        startup=new StartupRegistration(root);
+        tray=new DesktopTray(OpenWorkbench,RequestExit);
+        automaticMatcher=new AutomaticMatcher(api.FetchAsync,ApplyAutomaticMatch,_=>PushState(),message=>tray.ShowFailure(message));
         CommentsLoaded+=overlay.SetComments;
         SettingsUpdated+=overlay.SetSettings;
         ManualClockUpdated+=(position,playing)=>sync.Manual(position,playing,Monotonic.Now);
-        Shown+=async (_,_)=>await InitializeAsync(data);
         timer.Tick+=(_,_)=>{ UpdatePlayer(); PushState(); };
-        FormClosed+=(_,_)=>{ closing=true; timer.Stop(); timer.Dispose(); automaticMatcher.Dispose(); matchNotification.Dispose(); pending.Cancel(); pending.Dispose(); api.Dispose(); probe.SampleUpdated-=QueuePlayerUpdate; probe.Dispose(); overlay.Dispose(); controller?.Close(); };
+        FormClosed+=(_,_)=>Cleanup();
+    }
+    private void Cleanup()
+    {
+        if(closing)return;
+        closing=true;timer.Stop();timer.Dispose();automaticMatcher?.Dispose();tray?.Dispose();
+        pending.Cancel();pending.Dispose();api.Dispose();
+        if(probe!=null){probe.SampleUpdated-=QueuePlayerUpdate;probe.Dispose();}
+        overlay?.Dispose();controller?.Close();
+    }
+    protected override void Dispose(bool disposing)
+    {
+        if(disposing)Cleanup();
+        base.Dispose(disposing);
+    }
+    protected override void SetVisibleCore(bool value)
+    {
+        if(value && !initialized)
+        {
+            initialized=true;
+            if(!IsHandleCreated)CreateHandle();
+            BeginInvoke(new Action(async ()=>await InitializeAsync(browserData)));
+        }
+        base.SetVisibleCore(value && openRequested);
+    }
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        if(!exitRequested && e.CloseReason==CloseReason.UserClosing){e.Cancel=true;Hide();}
+        base.OnFormClosing(e);
+    }
+    public void OpenWorkbench()
+    {
+        if(closing || IsDisposed)return;
+        openRequested=true;Show();
+        if(WindowState==FormWindowState.Minimized)WindowState=FormWindowState.Normal;
+        Activate();
+    }
+    public void RequestExit()
+    {
+        if(closing || IsDisposed)return;
+        exitRequested=true;Close();
     }
     private static void ConfigureBrowserSettings(CoreWebView2Settings settings)
     {
@@ -82,7 +126,7 @@ public sealed class DesktopWindow : Form
         if(closing)return;
         UpdatePlayer();
         if(closing || result.MediaRevision!=mediaRevision || result.Title!=sample.Title || result.EpisodeNumber!=sample.EpisodeNumber)return;
-        CommentCount=result.Comments.Length;CommentsLoaded?.Invoke(result.Comments);
+        CommentCount=result.Comments.Length;commentSourceTitle=result.SourceTitle;CommentsLoaded?.Invoke(result.Comments);
     }
     private void QueuePlayerUpdate()
     {
@@ -104,7 +148,7 @@ public sealed class DesktopWindow : Form
         {
             mediaRevision++;
             sync.BeginMediaEpoch(now);
-            pending.Cancel(); revision++; CommentCount=0; overlay.SetComments(Array.Empty<Comment>());
+            pending.Cancel(); revision++; CommentCount=0; commentSourceTitle=""; overlay.SetComments(Array.Empty<Comment>());
         }
         if (sample.Title.Length>0) lastMedia=media;
         bool identified=sample.Window!=null && !string.IsNullOrWhiteSpace(sample.Title);
@@ -142,7 +186,7 @@ public sealed class DesktopWindow : Form
             core.Navigate("https://danmu.local/index.html");
             timer.Start();
         }
-        catch (Exception ex) { Failure=DescribeInitializationFailure(ex); MessageBox.Show(Failure,"爆米花弹幕助手",MessageBoxButtons.OK,MessageBoxIcon.Error); Close(); }
+        catch (Exception ex) { Failure=DescribeInitializationFailure(ex); MessageBox.Show(Failure,"爆米花弹幕助手",MessageBoxButtons.OK,MessageBoxIcon.Error); RequestExit(); }
     }
     public static bool IsAppSource(string source) => Uri.TryCreate(source,UriKind.Absolute,out var uri) && uri.Scheme=="https" && uri.Host=="danmu.local" && uri.IsDefaultPort && string.IsNullOrEmpty(uri.UserInfo);
     private void Send(object message)
@@ -151,6 +195,7 @@ public sealed class DesktopWindow : Form
     }
     private void PushState()
     {
+        tray?.Update(sample.Title,sample.EpisodeNumber,commentSourceTitle,CommentCount);
         if (!Ready || closing) return;
         long sequence=++stateSequence;
         double now=Monotonic.Now; sync.Tick(now);
@@ -175,8 +220,16 @@ public sealed class DesktopWindow : Form
             type=msg.GetProperty("type").GetString()??"";
             var payload=msg.GetProperty("payload");
             object result;
-            if (type=="hello") { Ready=true; result=new { apiBase, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=new[] { "media-context-v1","automatic-match-v1" } }; }
+            if (type=="hello") { Ready=true; result=new { apiBase, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1" } }; }
             else if (type=="get-settings") result=new { settings=Settings,settingsRevision };
+            else if (type is "get-startup" or "set-startup")
+            {
+                bool write=type=="set-startup";
+                if(payload.ValueKind!=JsonValueKind.Object || payload.EnumerateObject().Count()!=(write ? 1 : 0) ||
+                    (write && (!payload.TryGetProperty("enabled",out var flag) || flag.ValueKind is not (JsonValueKind.True or JsonValueKind.False))))
+                    throw new ArgumentException("开机启动设置格式无效。");
+                result=new {enabled=write ? startup.SetEnabled(payload.GetProperty("enabled").GetBoolean()) : startup.Enabled};
+            }
             else if (type=="configure-api")
             {
                 if(payload.ValueKind!=JsonValueKind.Object || payload.EnumerateObject().Count()!=1 ||
@@ -185,7 +238,7 @@ public sealed class DesktopWindow : Form
                 string requestedBase=ApiClient.NormalizeBase(address.GetString()??"");
                 if(requestedBase!=apiBase)
                 {
-                    pending.Cancel();revision++;apiBase=requestedBase;CommentCount=0;CommentsLoaded?.Invoke(Array.Empty<Comment>());
+                    pending.Cancel();revision++;apiBase=requestedBase;CommentCount=0;commentSourceTitle="";CommentsLoaded?.Invoke(Array.Empty<Comment>());
                 }
                 UpdatePlayer();result=new {configured=true};
             }
@@ -211,11 +264,17 @@ public sealed class DesktopWindow : Form
                 ManualClockUpdated?.Invoke(position,playing); result=new { positionMs=position, playing };
             }
             else if (type=="cancel") { automaticMatcher?.Suspend();pending.Cancel(); revision++; result=new { cancelled=true }; }
-            else if (type=="close") { BeginInvoke(new Action(Close)); result=new { closing=true }; }
+            else if (type=="close") { BeginInvoke(new Action(RequestExit)); result=new { closing=true }; }
             else if (type is "search" or "episodes" or "comments")
             {
                 string requestedBase=ApiClient.NormalizeBase(payload.GetProperty("apiBase").GetString()??"");
                 string value=payload.GetProperty("value").GetString()??"";
+                string requestedSource="";
+                if(type=="comments" && payload.TryGetProperty("sourceTitle",out var label))
+                {
+                    if(label.ValueKind!=JsonValueKind.String || (label.GetString()??"").Length>500)throw new ArgumentException("来源名称无效。");
+                    requestedSource=label.GetString()??"";
+                }
                 if (string.IsNullOrWhiteSpace(value) || value.Length>500) throw new ArgumentException("请求内容为空或过长。");
                 long expectedMediaRevision=0;
                 if (type=="comments" && (!payload.TryGetProperty("expectedMediaRevision",out var expected) || expected.ValueKind!=JsonValueKind.Number || !expected.TryGetInt64(out expectedMediaRevision) || expectedMediaRevision<0 || expectedMediaRevision>9007199254740991L))
@@ -242,7 +301,7 @@ public sealed class DesktopWindow : Form
                     if (closing || current!=revision) throw new OperationCanceledException();
                     UpdatePlayer();
                     if (closing || current!=revision) throw new OperationCanceledException();
-                    CommentCount=comments.Length; CommentsLoaded?.Invoke(comments);
+                    CommentCount=comments.Length;commentSourceTitle=string.IsNullOrWhiteSpace(requestedSource) ? "手动选择的来源" : requestedSource; CommentsLoaded?.Invoke(comments);
                     result=new { count=CommentCount, duration=body["videoDuration"]?.DeepClone() };
                 }
                 else result=body;

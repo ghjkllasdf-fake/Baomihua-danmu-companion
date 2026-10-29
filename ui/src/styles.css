@@ -82,9 +82,9 @@ summary span { color: var(--muted); float: right; font-size: 10px; }
 .preview-mountain::after { content: ''; position: absolute; inset: 0; background: #a0afa1; border-radius: 60% 50% 0 0; transform: translate(-27%, -30%) rotate(30deg); }
 .preview-caption { position: absolute; left: 24px; bottom: 43px; font-size: 12px; color: #f4f4e9; letter-spacing: .08em; z-index: 1; background: #304c40; padding: 6px 10px; border-radius: 3px; }
 .preview-caption strong { font-size: 22px; font-weight: 500; }
-.preview-area { position: absolute; width: 100%; top: 0; height: var(--area); border-bottom: 1px dashed #fff9; z-index: 2; overflow: hidden; background: #173a2f0b; }
+.preview-area { position: absolute; width: 100%; top: 0; height: var(--area); border-bottom: 1px dashed #fff9; z-index: 2; overflow: hidden; background: #173a2fb3; }
 .area-label { position: absolute; right: 8px; bottom: 3px; color: #fff; font: 9px var(--display-font); background: #263d3270; padding: 1px 5px; border-radius: 2px; }
-.preview-bullet, .preview-fixed { font-size: var(--bullet-size); color: white; white-space: nowrap; text-shadow: -1px 0 #314034, 0 1px #314034, 1px 0 #314034, 0 -1px #314034; opacity: var(--bullet-opacity); }
+.preview-bullet, .preview-fixed { font-size: var(--bullet-size); color: white; white-space: nowrap; text-shadow: var(--bullet-shadow); opacity: var(--bullet-opacity); }
 .preview-bullet { position: absolute; top: 18px; animation: fly var(--duration) linear infinite; animation-play-state: var(--play-state); }
 .bullet-one { animation-delay: -2s; }
 .bullet-two { top: 48px; animation-delay: -5s; color: #fff6b4; }
@@ -120,6 +120,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); height: 20px; cursor:
 .keywords { display: grid; gap: 7px; margin: 10px 0 14px; }
 textarea { resize: vertical; width: 100%; font-size: 12px; }
 .manual-sync { margin-top: 22px; }
+.startup-options { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
 .manual-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 12px; }
 .manual-controls input { width: 105px; font-family: var(--display-font); }
 .app-footer { border-top: 1px solid var(--line); padding: 13px 32px; display: flex; justify-content: space-between; gap: 16px; color: var(--muted); font-size: 10px; background: var(--surface); }

@@ -29,6 +29,10 @@ if($Module -in @('all','player-sync')){
     if($LASTEXITCODE -ne 0){ throw 'Playback snapshot contract regression failed.' }
 }
 if($Module -eq 'all'){
+    & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-StartupRegistration.ps1')
+    if($LASTEXITCODE -ne 0){ throw 'Isolated startup shortcut regression failed.' }
+    & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-TrayLifecycle.ps1')
+    if($LASTEXITCODE -ne 0){ throw 'Tray and hidden desktop lifecycle regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-OverlayFocusRuntime.ps1')
     if($LASTEXITCODE -ne 0){ throw 'Actual background video overlay runtime regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -File (Join-Path $root 'tests\Test-AutomaticMatch.ps1')

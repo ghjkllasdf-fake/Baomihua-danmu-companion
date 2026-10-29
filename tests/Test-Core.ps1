@@ -12,6 +12,7 @@ Assert ($clock.At(11600) -eq 500) 'Seek while paused must stay paused at the new
 $clock.Set(500, $true, 11600)
 Assert ($clock.At(12100) -eq 1000) 'Resume must advance from the seek position.'
 $settings = [Popcorn.DanmakuSettings]::new()
+Assert ($settings.FontSize -eq 22 -and $settings.OutlineWidth -eq 0 -and $settings.SpeedMultiplier -eq 0.8 -and -not $settings.ScaleWithWindow) 'Fresh native settings must use 22px, no outline, 0.8 speed and fixed sizing.'
 Assert ($settings.AreaFraction -eq 0.5) 'Default region must be upper half.'
 $settings.AreaFraction = 0.3
 $rejected=$false

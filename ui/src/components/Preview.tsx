@@ -17,8 +17,10 @@ export function Preview({ settings: s }: { settings: Settings }) {
   const rows = Math.max(1, Math.floor(212 * s.areaFraction / rowHeight));
   const rolling = s.rolling || s.top || s.bottom ? Math.min(3, rows) : 0;
   const samples = ['这一幕值得再看一遍', '和大家一起看，才够热闹', '前方高能！'];
+  const outline = s.outlineWidth * .65;
+  const shadow = outline ? `${-outline}px 0 #314034, 0 ${outline}px #314034, ${outline}px 0 #314034, 0 ${-outline}px #314034` : 'none';
   const style = { '--area': `${s.areaFraction * 100}%`, '--duration': `${8 / s.speedMultiplier}s`, '--bullet-size': `${s.fontSize * .65}px`, '--bullet-opacity': s.opacity,
-    '--play-state': playing && s.enabled && !reducedMotion ? 'running' : 'paused' } as CSSProperties;
+    '--bullet-shadow': shadow, '--play-state': playing && s.enabled && !reducedMotion ? 'running' : 'paused' } as CSSProperties;
   return <section className="preview-section" aria-label="弹幕演示预览">
     <div className="section-heading"><h2>先看看效果</h2><span className="demo-label">DEMO · 非播放器画面</span></div>
     <div className={`preview ${s.enabled ? '' : 'preview-off'}`} style={style}>

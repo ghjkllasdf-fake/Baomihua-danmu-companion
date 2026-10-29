@@ -110,11 +110,11 @@ public static class MediaIdentity
 public sealed class DanmakuSettings
 {
     public double AreaFraction { get; set; } = 0.5;
-    public double FontSize { get; set; } = 28;
-    public bool ScaleWithWindow { get; set; } = true;
-    public double SpeedMultiplier { get; set; } = 1;
+    public double FontSize { get; set; } = 22;
+    public bool ScaleWithWindow { get; set; } = false;
+    public double SpeedMultiplier { get; set; } = .8;
     public double Opacity { get; set; } = 0.85;
-    public double OutlineWidth { get; set; } = 1;
+    public double OutlineWidth { get; set; } = 0;
     public int Density { get; set; } = 60;
     public bool Rolling { get; set; } = true;
     public bool Top { get; set; } = true;

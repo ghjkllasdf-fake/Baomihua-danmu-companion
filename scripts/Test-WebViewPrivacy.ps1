@@ -71,7 +71,7 @@ $window=[Popcorn.DesktopWindow]::new($root,'',$Profile)
             throw 'The actual WebView2 profile permits form/password saving.'
         }
     } finally {
-        $window.Close()
+        $window.RequestExit()
         $window.Dispose()
         [System.Windows.Forms.Application]::DoEvents()
     }

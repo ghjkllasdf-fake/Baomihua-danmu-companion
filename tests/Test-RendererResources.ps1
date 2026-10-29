@@ -120,7 +120,7 @@ public static class SpritePixelProof {
         $surface.UpdateClock(12000,$false,[Popcorn.Monotonic]::Now,1,$false,0)
         $created=$null
         foreach($opacity in @(.25,.75)){
-            $settings=[Popcorn.DanmakuSettings]::new();$settings.Opacity=$opacity;$surface.Configure($settings);$surface.Frame()
+            $settings=[Popcorn.DanmakuSettings]::new();$settings.OutlineWidth=1;$settings.Opacity=$opacity;$surface.Configure($settings);$surface.Frame()
             $visual=[System.Windows.Media.DrawingVisual]::new()
             $drawing=$visual.RenderOpen()
             try {$surface.GetType().GetMethod('OnRender',[Reflection.BindingFlags]'Instance,NonPublic').Invoke($surface,[object[]]@($drawing))|Out-Null}
@@ -168,7 +168,9 @@ if($Group -in @('Surface','All')){
         $settings=[Popcorn.DanmakuSettings]::new(); $settings.Dedupe=$false; $surface.Configure($settings); $surface.Frame()
         Assert ($surface.Snapshot($false).ActiveCount -gt 0) 'The natural-expiry fixture must contain pinned active sprites before time advances.'
         $surface.UpdateClock(19000,$false,[Popcorn.Monotonic]::Now,1,$false,0); $surface.Frame()
-        Assert ($surface.Snapshot($false).ActiveCount -eq 0) 'Natural expiry without a seek/rebuild must remove sprites after the unified eight-second rolling duration.'
+        Assert ($surface.Snapshot($false).ActiveCount -gt 0) 'Default 0.8 speed must keep rolling comments alive beyond the previous eight-second duration.'
+        $surface.UpdateClock(21000,$false,[Popcorn.Monotonic]::Now,1,$false,0); $surface.Frame()
+        Assert ($surface.Snapshot($false).ActiveCount -eq 0) 'Natural expiry without a seek/rebuild must remove sprites after the default ten-second rolling duration.'
     }finally{ $surface.Detach() }
     Assert ($surface.Snapshot($false).SpriteBytes -eq 0) 'Detaching the actual surface must release active and cached pixel accounting.'
     $surface=[Activator]::CreateInstance($type,$true)
@@ -241,7 +243,7 @@ if($Group -in @('Incremental','All')){
     try {
         Assert ($null -ne $type.GetMethod('StepFrame')) 'The actual renderer needs a bounded incremental production frame path.'
         $surface.Measure([System.Windows.Size]::new(1280,720));$surface.Arrange([System.Windows.Rect]::new(0,0,1280,720))
-        $settings=[Popcorn.DanmakuSettings]::new();$settings.AreaFraction=1;$settings.Density=100;$settings.Dedupe=$false;$surface.Configure($settings)
+        $settings=[Popcorn.DanmakuSettings]::new();$initialFontSize=$settings.FontSize;$settings.AreaFraction=1;$settings.Density=100;$settings.Dedupe=$false;$surface.Configure($settings)
         $comments=[Popcorn.Comment[]]::new(60)
         for($i=0;$i -lt $comments.Length;$i++){$comments[$i]=[Popcorn.Comment]::new(10000,5,0xffffff,('分步测试 '+$i))}
         $surface.Load($comments);$surface.UpdateClock(10000,$false,[Popcorn.Monotonic]::Now,1,$false,0)
@@ -260,7 +262,7 @@ if($Group -in @('Incremental','All')){
             Assert ($after.SpriteBytes -le [Popcorn.SpriteLimits]::MaxResidentBytes) 'Pending layout work must remain inside the original pixel budget.'
             Assert ($steps -le 500) 'A finite paused batch must finish without an unbounded pending queue.'
         } while($surface.HasPendingFrame)
-        Assert ($after.ActiveCount -gt 0 -and [Math]::Abs($after.FontPx-$initialFontPx*40/28) -lt .001) 'The final requested layout must actually create active sprites.'
+        Assert ($after.ActiveCount -gt 0 -and [Math]::Abs($after.FontPx-$initialFontPx*40/$initialFontSize) -lt .001) 'The final requested layout must actually create active sprites.'
         Assert (-not $after.LayoutPending) 'The completed paused batch must report settled layout.'
         $visibleBefore=$after
         $settings=[Popcorn.DanmakuSettings]::new();$settings.FontSize=48;$settings.AreaFraction=1;$settings.Density=100;$settings.Dedupe=$false;$surface.Configure($settings)
@@ -270,15 +272,15 @@ if($Group -in @('Incremental','All')){
             $surface.StepFrame();$current=$surface.Snapshot($false)
             Assert ($current.ActiveCount -gt 0 -and $current.SpriteBytes -le [Popcorn.SpriteLimits]::MaxResidentBytes) 'Visual replacement must not blank the active load or escape pixel accounting.'
         } while($surface.HasPendingFrame)
-        Assert ([Math]::Abs($current.FontPx-$initialFontPx*48/28) -lt .001) 'Prepared visual resources must eventually commit the requested font as a complete layout.'
+        Assert ([Math]::Abs($current.FontPx-$initialFontPx*48/$initialFontSize) -lt .001) 'Prepared visual resources must eventually commit the requested font as a complete layout.'
         $surface.Load([Popcorn.Comment[]]@([Popcorn.Comment]::new(10000,5,0xffffff,'late prepared geometry')))
         $surface.StepFrame();$createdBeforeExpiry=$surface.Snapshot($false).SpritesCreated
-        $surface.UpdateClock(20000,$false,[Popcorn.Monotonic]::Now,1,$false,0)
+        $surface.UpdateClock(21000,$false,[Popcorn.Monotonic]::Now,1,$false,0)
         do {$surface.StepFrame()}while($surface.HasPendingFrame)
         Assert ($surface.Snapshot($false).ActiveCount -eq 0 -and $surface.Snapshot($false).SpritesCreated -eq $createdBeforeExpiry) 'A prepared geometry that expires before bitmap admission must not allocate late pixels.'
         $surface.UpdateClock(10000,$false,[Popcorn.Monotonic]::Now,1,$false,0);$surface.Load($comments);$surface.StepFrame()
         Assert $surface.HasPendingFrame 'The seek-cancellation fixture must have unfinished layout work.'
-        $surface.UpdateClock(20000,$false,[Popcorn.Monotonic]::Now,2,$false,0)
+        $surface.UpdateClock(21000,$false,[Popcorn.Monotonic]::Now,2,$false,0)
         Assert (-not $surface.HasPendingFrame) 'A confirmed seek must cancel unfinished items from the old timeline.'
         do {$surface.StepFrame()}while($surface.HasPendingFrame)
         Assert ($surface.Snapshot($false).ActiveCount -eq 0) 'Old expired comments must not appear after an incremental seek.'
@@ -313,7 +315,7 @@ if($Group -in @('Incremental','All')){
             Assert ($bounded.Snapshot($false).SpriteBytes -le $limit -and $attempts -le 100) 'A retained-layout reservation failure must fall back without exceeding the exact bitmap budget or looping.'
         } while($bounded.HasPendingFrame)
         $final=$bounded.Snapshot($false)
-        Assert ($final.ActiveCount -eq 1 -and [Math]::Abs($final.FontPx-$oldFont*40/28) -lt .001 -and $final.RejectedSprites -gt 0) 'A budget that fits only one layout must still finish the latest font after rejecting the temporary double layout.'
+        Assert ($final.ActiveCount -eq 1 -and [Math]::Abs($final.FontPx-$oldFont*40/$initialFontSize) -lt .001 -and $final.RejectedSprites -gt 0) 'A budget that fits only one layout must still finish the latest font after rejecting the temporary double layout.'
         Assert ([Math]::Abs($final.Progress[0]-$oldProgress) -lt .001) 'A pixel-budget fallback must preserve an already-entered comment without replaying or dropping it.'
     } finally {$bounded.Detach()}
     'PASS: actual incremental frame work bounds, final layout, generation/seek cancellation, expiry and detach.'

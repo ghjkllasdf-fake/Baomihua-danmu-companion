@@ -18,6 +18,9 @@ public sealed class DesktopHarness : IDisposable
     public readonly FakeApi api=new();
     public readonly FakeProbe probe=new();
     public readonly FakeOverlay overlay=new();
+    public FakeTray tray=new();
+    public FakeStartup startup=new();
+    public string commentSourceTitle="";
     public AutomaticMatcher automaticMatcher;
     public readonly SyncClock sync=new();
     public CancellationTokenSource pending=new();
@@ -45,6 +48,7 @@ public sealed class DesktopHarness : IDisposable
     public JsonElement LastState()=>JsonSerializer.Deserialize<JsonElement>(States.Last());
     public void BeginInvoke(Action action)=>action();
     public void Close()=>closing=true;
+    public void RequestExit()=>closing=true;
     public void Message(string id,string type,object payload)
     {
         var prior=SynchronizationContext.Current; var context=new TrackingContext(); Contexts.Add(id,context);
@@ -92,6 +96,8 @@ public sealed class FakeOverlay
     public void SetComments(Comment[] comments)=>Comments=comments;
     public void Update(object window,double position,bool running,int revision,bool automatic,double proof) { }
 }
+public sealed class FakeTray { public void Update(string title,int episode,string source,int count) { } }
+public sealed class FakeStartup { public bool Enabled;public bool SetEnabled(bool value)=>Enabled=value; }
 public sealed record CoreWebView2WebMessageReceivedEventArgs(string WebMessageAsJson) { public string Source=>"https://danmu.local/index.html"; }
 public sealed class CoreWebView2NavigationStartingEventArgs(string uri) { public string Uri=>uri; public bool Cancel { get; set; } }
 public sealed class FakeApi
@@ -122,6 +128,28 @@ public static class DesktopStateTests
         void Test(string name,Action body) { try { body(); Console.WriteLine("PASS: "+name); } catch (Exception ex) { errors.Add(name+": "+ex.Message); } }
         if (group is "Requests" or "All")
         {
+            Test("startup defaults are read-only and writes require an exact boolean payload",()=>{
+                using var host=new DesktopHarness();
+                host.Message("read-startup","get-startup",new {});
+                Check(!host.Reply("read-startup").GetProperty("data").GetProperty("enabled").GetBoolean() && !host.startup.Enabled,"Reading startup enabled it.");
+                host.Message("bad-startup","set-startup",new {enabled=true,path="untrusted"});
+                Check(!host.Reply("bad-startup").GetProperty("ok").GetBoolean() && !host.startup.Enabled,"Untrusted fields changed startup.");
+                host.Message("string-startup","set-startup",new {enabled="true"});
+                Check(!host.Reply("string-startup").GetProperty("ok").GetBoolean() && !host.startup.Enabled,"Non-boolean enabled startup.");
+                host.Message("enable-startup","set-startup",new {enabled=true});
+                Check(host.Reply("enable-startup").GetProperty("data").GetProperty("enabled").GetBoolean() && host.startup.Enabled,"Explicit opt-in failed.");
+                host.Message("disable-startup","set-startup",new {enabled=false});
+                Check(!host.Reply("disable-startup").GetProperty("data").GetProperty("enabled").GetBoolean() && !host.startup.Enabled,"Explicit opt-out failed.");
+                Check(host.SettingsEvents==0,"Startup changes must not rewrite display settings.");
+            });
+            Test("manual source labels commit with comments and clear with the media epoch",()=>{
+                using var host=new DesktopHarness();host.Observe("A",1);
+                host.Message("labeled-comments","comments",new {apiBase=host.apiBase,value="episode",sourceTitle="来源甲",expectedMediaRevision=host.mediaRevision});
+                host.api.Complete(0);host.Reply("labeled-comments");
+                Check(host.CommentCount==1 && host.commentSourceTitle=="来源甲","Manual source metadata did not match committed comments.");
+                host.Observe("B",2);
+                Check(host.CommentCount==0 && host.commentSourceTitle=="","Old source/count survived a media change.");
+            });
             Test("configure API is validated before replacing an active request",()=>{
                 using var host=new DesktopHarness();string original=host.apiBase;
                 host.Message("pending-search","search",new {apiBase=original,value="A"});
@@ -245,7 +273,7 @@ public static class DesktopStateTests
                 {
                     var settings=new DanmakuSettings {FontSize=40}; host.Message("settings","update-settings",new {settings});
                     Check(!host.Reply("settings").GetProperty("ok").GetBoolean(),"Storage failure was reported as success.");
-                    Check(host.Settings.FontSize==28 && host.SettingsEvents==0,"Rejected settings were already applied.");
+                    Check(host.Settings.FontSize==22 && host.SettingsEvents==0,"Rejected settings were already applied.");
                 }
                 finally { File.FailWrite=false; File.FailMove=false; }
             });

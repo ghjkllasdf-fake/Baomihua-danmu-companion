@@ -43,7 +43,7 @@ describe('settings save authority and recovery', () => {
   it('rolls a confirmed rejection back without pretending it was an uncertain timeout', async () => {
     const { session, calls } = fixture(); session.edit({ fontSize: 40 }); await vi.advanceTimersByTimeAsync(40);
     calls[0].reject(new HostCommandError('storage failure', 'settings-not-applied')); await flush();
-    expect(session.view()).toMatchObject({ status: 'error', settings: { fontSize: 28 }, message: 'storage failure' });
+    expect(session.view()).toMatchObject({ status: 'error', settings: { fontSize: defaultSettings.fontSize }, message: 'storage failure' });
     expect(calls).toHaveLength(1);
   });
   it('preserves a newer pending edit while retaining a late success as its rollback baseline', async () => {
@@ -69,7 +69,7 @@ describe('settings save authority and recovery', () => {
     expect(calls.map(c => c.type)).toEqual(['update-settings', 'get-settings']);
     expect(session.view()).toMatchObject({ status: 'recovering', settings: { fontSize: 40 } });
     calls[1].resolve(applied ? saved(1, { fontSize: 40 }) : saved(0)); await flush();
-    expect(session.view()).toMatchObject({ status: 'saved', settings: { fontSize: applied ? 40 : 28 }, message: '' });
+    expect(session.view()).toMatchObject({ status: 'saved', settings: { fontSize: applied ? 40 : defaultSettings.fontSize }, message: '' });
   });
   it('keeps failed recovery visibly unknown and retries only a read when asked', async () => {
     const { session, calls } = fixture(); session.edit({ fontSize: 40 }); await vi.advanceTimersByTimeAsync(40);

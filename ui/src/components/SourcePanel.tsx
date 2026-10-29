@@ -49,7 +49,7 @@ export function SourcePanel({ apiBase, connected, playback, getPlayback, onLoade
     if (identityEpoch !== getPlayback().identityEpoch) return;
     const current = ++version.current, media = identityEpoch; setBusy('正在下载弹幕…'); setError('');
     try {
-      const result = await request('comments', { apiBase: base, value: id, expectedMediaRevision: player.mediaRevision });
+      const result = await request('comments', { apiBase: base, value: id, expectedMediaRevision: player.mediaRevision, sourceTitle: results.find(anime => String(anime.animeId) === animeId)?.animeTitle || '手动选择的来源' });
       if (!isCurrent(current, media)) return;
       boundTitle.current = searchedTitle.current === player.title.trim() && episodes.some(e => String(e.episodeId) === id && Number(e.episodeNumber) === player.episodeNumber) ? player.title.trim() : '';
       onLoaded(result.count); setNotice(result.count ? player.title ? `已载入 ${result.count.toLocaleString()} 条弹幕，请留意播放器同步状态。` : `已下载 ${result.count.toLocaleString()} 条弹幕。打开视频后，请核对分集并重新载入。` : '这个来源没有弹幕，可切换其他版本。');

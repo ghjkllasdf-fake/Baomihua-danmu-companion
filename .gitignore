@@ -25,6 +25,7 @@ obj/
 *.key
 *.pfx
 *.p12
+*.lnk
 # Local legacy configuration and private development records are not public source.
 DanmuCompanion.ps1
 Start-DanmuCompanion.ps1

@@ -50,7 +50,7 @@ public static class PackageArchiveTests
         Check(Hash(original)==Hash(second),"Equivalent input must produce byte-identical ZIPs.");
         Reject(()=>PackageArchive.Create(source,original,"0.1.0-preview.1",fixture.ToArray(),Array.Empty<string>()),"already exists");
         Reject(()=>Build(fixture.Where(p=>p.Path!="desktop/native/Core.cs")),"required");
-        foreach(string native in new[]{"AutomaticMatch","MatchFailureNotification","OverlayPresentation","PlaybackEventSignal"})
+        foreach(string native in new[]{"AutomaticMatch","DesktopTray","StartupRegistration","OverlayPresentation","PlaybackEventSignal"})
             Reject(()=>Build(fixture.Where(p=>p.Path!="desktop/native/"+native+".cs")),"required");
         Reject(()=>Build(fixture.Where(p=>p.Path!=".deps/webview2/runtimes/win-x64/native/WebView2Loader.dll")),"required");
         Console.WriteLine("PASS: synthetic manifest/hash roundtrip, deterministic ZIP bytes, no overwrite and required native/loader paths.");
