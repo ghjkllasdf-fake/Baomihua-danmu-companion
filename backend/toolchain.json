@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "upstream": {
+    "repository": "https://github.com/huangxd-/danmu_api",
+    "commit": "4d325e096bbbf0c1ff261a9bfa638f7c58784f60",
+    "archiveUrl": "https://codeload.github.com/huangxd-/danmu_api/zip/4d325e096bbbf0c1ff261a9bfa638f7c58784f60",
+    "archiveSha256": "65a2c90ad0b81b4c79c617f21e3f45fce285eeedd7e6f7f353bce4458175c9dc"
+  },
+  "node": {
+    "version": "22.23.4",
+    "platform": "win32-x64",
+    "url": "https://nodejs.org/dist/v22.23.4/win-x64/node.exe",
+    "sha256": "dccc52de28d8df2ee22d2062424f8c563070d95d8ad70c54c4bf01d590dec14f",
+    "checksumUrl": "https://nodejs.org/dist/v22.23.4/SHASUMS256.txt",
+    "licenseUrl": "https://raw.githubusercontent.com/nodejs/node/v22.23.4/LICENSE",
+    "licenseSha256": "c738ae413cf561f174e34f6961f8ca458aae2369a73640dda6234c629b98bcc4"
+  },
+  "productionLock": {
+    "path": "backend/package-lock.json",
+    "sha256": "c3990570d531d9a32c83877ed51c7209d66ec20d5777bf5250ec0c6fd777593f"
+  },
+  "packageManifestSha256": "6deda10bc2f2c1c5c75879ec394011709f5bacbaa6e31013839a6cfae6c1dd4d"
+}
