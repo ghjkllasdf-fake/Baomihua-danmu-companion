@@ -14,6 +14,8 @@
 
 原始构建归档、依赖版本和校验值固定在源码 `native-toolchain.json` 中，发行清单记录实际文件哈希和源码身份。这些完整性记录不是数字签名，也不改变上游许可条款。生成安装包使用 Inno Setup 7.1.1；编译器和开发 SDK 不作为应用文件分发。
 
+额外的 **includeAPI 变体** 还包含私有 Node.js、固定上游 danmu_api 提交 `4d325e096bbbf0c1ff261a9bfa638f7c58784f60`、本机适配器源码及锁定的生产依赖，均位于 `api/`。普通版不包含这些文件。对应运行时身份、完整文件清单、依赖锁文件、源码与声明随 API payload 保留。上游根 LICENSE 为 AGPL-3.0，而其 package.json 写 ISC；这里明确保留该差异，不把上游整体当作 MIT 或仅按 package 元数据重新授权。Node 和 npm 生产依赖各自的原始许可证仍然适用；具体路径以随包的 API notices/provenance 为准。
+
 WebView2 包含 Microsoft Defender SmartScreen，可能按其许可向微软发送终端用户相关安全及诊断信息。微软隐私声明：https://aka.ms/privacy ；Edge 隐私白皮书：https://learn.microsoft.com/en-us/microsoft-edge/privacy-whitepaper#smartscreen 。本项目的 MIT 许可证仅覆盖原创部分，不能替代包内微软运行环境和其他组件的许可。
 
 发行包不包含网易爆米花播放器、浏览器资料、用户 API 地址、个人偏好文件或旧版程序脚本；启动、采样、开机启动、前置环境安装及卸载均不调用 PowerShell。精简版不包含私有浏览器及其可选 BAT 声明工具；历史 beta.1 完整离线包的组成以其随包声明为准。

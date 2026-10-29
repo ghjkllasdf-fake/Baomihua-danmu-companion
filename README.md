@@ -14,6 +14,8 @@
 
 Beta 安装包为 `DanmuCompanion-0.1.0-beta.2-win-x64-setup.exe`，免安装包为 `DanmuCompanion-0.1.0-beta.2-win-x64-portable.zip`。普通用户不应下载 GitHub 自动生成的 **Source code** 压缩包；源码包不包含运行依赖。
 
+本开发分支新增 `0.1.0-beta.3 includeAPI` 本地候选：内置仅回环监听的后台 API，自动连接，只开放来源设置；每轮最多抽样 3 个候选来源。它是体积更大的独立变体，尚不表示已发布或替换 beta.2。说明见 [includeAPI 使用指南](docs/INCLUDEAPI-USER-GUIDE.md)；下文的外部 API 填写和全来源比较描述仍针对已发布的普通版。
+
 ## 界面与效果预览
 
 以下三张图供了解操作和外观。设置界面使用示例地址与演示数据，API 默认隐藏；不包含真实服务、账号或观看记录。
