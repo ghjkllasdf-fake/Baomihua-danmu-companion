@@ -37,6 +37,7 @@ async function openFixture(page: Page, preload = false) {
   }, { settings: defaultSettings, initialPlayer: emptyPlayer, preload });
   await page.goto('/');
   await expect(page.getByText('桌面宿主已连接')).toBeVisible();
+  await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
 }
 
 async function chooseEpisode(page: Page, preload = false) {
@@ -56,7 +57,7 @@ for (const preload of [false, true]) {
     await page.getByRole('button', { name: '加载这一集的弹幕' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-expected-media-revision', preload ? '0' : '41');
     await expect(page.locator('html')).toHaveAttribute('data-accepted-downloads', '1');
-    await expect(page.locator('.app-footer')).toContainText('17 条弹幕已准备');
+    await expect(page.locator('.mini-footer')).toContainText('17 条弹幕已准备');
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
 }
@@ -68,7 +69,8 @@ test('a native admission conflict publishes the new player and permits explicit 
   await page.getByRole('button', { name: '加载这一集的弹幕' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-expected-media-revision', '41');
   await expect(page.locator('.playback-title')).toContainText('测试作品 B');
-  await expect(page.locator('.app-footer')).toContainText('尚未载入弹幕');
+  await expect(page.locator('.match-status')).toBeEmpty();
+  await expect(page.locator('.mini-footer')).not.toContainText('条弹幕已准备');
   await expect(page.getByRole('button', { name: '取消当前请求' })).toHaveCount(0);
   expect(await page.locator('html').getAttribute('data-accepted-downloads')).toBeNull();
   await expect(page.locator('.source-notice')).not.toContainText('已载入');
@@ -77,6 +79,6 @@ test('a native admission conflict publishes the new player and permits explicit 
   await page.getByRole('button', { name: '加载这一集的弹幕' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-expected-media-revision', '42');
   await expect(page.locator('html')).toHaveAttribute('data-accepted-downloads', '1');
-  await expect(page.locator('.app-footer')).toContainText('17 条弹幕已准备');
+  await expect(page.locator('.mini-footer')).toContainText('17 条弹幕已准备');
   await expect(page.getByRole('alert')).toHaveCount(0);
 });

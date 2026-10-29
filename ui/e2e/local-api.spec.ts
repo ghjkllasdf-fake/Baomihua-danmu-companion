@@ -49,6 +49,7 @@ type Fixture = { writes(): string[][]; helloCount(): number; failNext(): void; r
 
 test('embedded mode edits ordered sources only on apply, restores defaults, and refreshes the handshake', async ({ page }) => {
   await desktop(page);
+  await page.getByRole('button', { name: '更多设置', exact: true }).click();
   await expect(page.getByText('本地服务已就绪。')).toBeVisible();
   await expect(page.getByLabel('API 地址', { exact: true })).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText('FAKE_TOKEN_SHOULD_NOT_RENDER');
@@ -77,6 +78,7 @@ test('embedded mode edits ordered sources only on apply, restores defaults, and 
 
 test('failure permits explicit same-list retry, preserves failed edits, validates broadcasts and never retries automatically', async ({ page }) => {
   await desktop(page, { failed: true });
+  await page.getByRole('button', { name: '更多设置', exact: true }).click();
   await expect(page.getByText('本地服务启动失败。')).toBeVisible();
   await page.getByText('选择弹幕来源', { exact: false }).click();
   await page.waitForTimeout(500);
@@ -107,6 +109,7 @@ test('an invalid embedded hello fails closed', async ({ page }) => {
 
 test('refreshes the hello once on ready without restarting and avoids racing a source write', async ({ page }) => {
   await desktop(page, { starting: true, transitionDuringSave: true });
+  await page.getByRole('button', { name: '更多设置', exact: true }).click();
   await expect(page.getByText('正在启动。')).toBeVisible();
   await page.evaluate(() => (window as unknown as { localFixture: Fixture }).localFixture.ready());
   await expect.poll(() => page.evaluate(() => (window as unknown as { localFixture: Fixture }).localFixture.helloCount())).toBe(2);
@@ -123,6 +126,7 @@ test('refreshes the hello once on ready without restarting and avoids racing a s
 test('the local source picker is keyboard accessible and fits a narrow screen', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 900 });
   await desktop(page);
+  await page.getByRole('button', { name: '更多设置', exact: true }).click();
   await expect(page.getByText('本地服务已就绪。')).toBeVisible();
   const disclosure = page.locator('.local-sources > summary');
   await disclosure.focus(); await page.keyboard.press('Enter');

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/preview-test';
 import { defaultSettings, emptyPlayer } from '../src/model';
 
 test('saved API entry starts automatic matching without source-selection clicks', async ({ page }) => {
@@ -26,18 +26,22 @@ test('saved API entry starts automatic matching without source-selection clicks'
     } } });
   }, { settings: defaultSettings, player: emptyPlayer });
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: '自动匹配弹幕' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '爆米花弹幕面板' })).toHaveCount(1);
+  await expect(page.locator('.source-view')).toBeHidden();
   await page.getByLabel('API 地址', { exact: true }).fill('http://fixture.invalid/token');
   await page.getByRole('button', { name: '保存地址', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-last-command', 'save-api');
-  await expect(page.locator('.app-footer')).toContainText('23 条弹幕已准备');
+  await expect(page.locator('.mini-footer')).toContainText('23 条弹幕已准备');
+  await expect(page.locator('.match-status')).toContainText('已自动匹配');
+  await expect(page.locator('.match-status')).toContainText('来源：当前作品(2025)源A');
+  await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
   await expect(page.locator('.source-notice')).toContainText('已自动匹配');
   await expect(page.locator('.source-notice')).toContainText('源A');
   await expect(page.locator('.playback-strip')).not.toContainText('已自动同步');
 });
 
-test('all preview source types use rolling entry without fixed rows', async ({ page }) => {
-  await page.goto('/');
+test('all isolated preview source types use rolling entry without fixed rows', async ({ page, previewUrl }) => {
+  await page.goto(previewUrl);
   await page.getByRole('checkbox', { name: '滚动', exact: true }).uncheck();
   await expect(page.locator('.preview-bullet')).toHaveCount(3);
   await expect(page.locator('.preview-fixed')).toHaveCount(0);

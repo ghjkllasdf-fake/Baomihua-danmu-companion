@@ -4,7 +4,7 @@ import type { PlayerObservation } from '../player-observation';
 import type { Anime, Episode } from '../protocol';
 import type { AutomaticMatchStatus } from '../automatic-match';
 
-export function SourcePanel({ apiBase, connected, playback, getPlayback, onLoaded, automaticMatching = false, automaticStatus }: { apiBase: string; connected: boolean; playback: PlayerObservation; getPlayback(): PlayerObservation; onLoaded(count: number): void; automaticMatching?: boolean; automaticStatus?: AutomaticMatchStatus }) {
+export function SourcePanel({ apiBase, connected, playback, getPlayback, onLoaded, automaticMatching = false, automaticStatus, active = true }: { apiBase: string; connected: boolean; playback: PlayerObservation; getPlayback(): PlayerObservation; onLoaded(count: number): void; automaticMatching?: boolean; automaticStatus?: AutomaticMatchStatus; active?: boolean }) {
   const { player, identityEpoch } = playback;
   const base = apiBase;
   const [keyword, setKeyword] = useState(''), [results, setResults] = useState<Anime[]>([]), [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -13,20 +13,26 @@ export function SourcePanel({ apiBase, connected, playback, getPlayback, onLoade
   const [followPlayer, setFollowPlayer] = useState(true);
   const version = useRef(0);
   const searchedTitle = useRef('');
+  useEffect(() => { if (active && !keyword && player.title) setKeyword(player.title); }, [active, player.title]);
   const boundTitle = useRef(''), observedMedia = useRef(playback);
   const isCurrent = (current: number, epoch: number) => current === version.current && epoch === getPlayback().identityEpoch;
   useEffect(() => {
-    version.current++; boundTitle.current = ''; setResults([]); setEpisodes([]); setEpisodeId(''); setBusy(''); setError('');
+    version.current++; boundTitle.current = ''; searchedTitle.current = ''; setAnimeId(''); setResults([]); setEpisodes([]); setEpisodeId(''); setBusy(''); setError('');
   }, [apiBase]);
   useEffect(() => {
     if (identityEpoch === observedMedia.current.identityEpoch) return;
     const hadMedia = Boolean(observedMedia.current.player.title.trim());
-    const lostBinding = Boolean(boundTitle.current) && playback.bindingEpoch !== observedMedia.current.bindingEpoch;
+    const previousTitle = observedMedia.current.player.title.trim();
+    const changedContext = playback.bindingEpoch !== observedMedia.current.bindingEpoch || previousTitle !== player.title.trim();
     observedMedia.current = playback;
     version.current++; setBusy(''); setError('');
-    if (lostBinding) { boundTitle.current = ''; setEpisodes([]); setEpisodeId(''); }
+    if (changedContext) {
+      boundTitle.current = ''; searchedTitle.current = ''; setResults([]); setAnimeId(''); setEpisodes([]); setEpisodeId('');
+      setKeyword(current => !current || current === previousTitle ? player.title : current);
+      setNotice(player.title ? '播放器已切换作品或重新识别，请重新匹配弹幕来源。' : '播放器信息暂不可用，请在恢复后重新选择来源。');
+      return;
+    }
     if (!player.title) { setNotice('播放器信息暂不可用，请在恢复后核对分集；也可手动选择来源。'); return; }
-    if (lostBinding) { setNotice('播放器已切换作品或重新识别，请重新匹配弹幕来源。'); return; }
     if (!boundTitle.current) { setNotice(hadMedia ? '播放器已切换，原弹幕已清除，请重新选择并加载。' : '已识别播放器，请核对当前分集并加载弹幕；先前下载不会自动沿用。'); return; }
     if (boundTitle.current !== player.title.trim()) {
       boundTitle.current = ''; setEpisodes([]); setEpisodeId('');
@@ -80,8 +86,8 @@ export function SourcePanel({ apiBase, connected, playback, getPlayback, onLoade
     finally { if (isCurrent(current, media)) setBusy(''); }
   }
   return <aside className="source-panel" aria-labelledby="source-heading">
-    <div className="section-heading"><h2 id="source-heading">{automaticMatching ? '自动匹配弹幕' : '找到你的弹幕'}</h2><span className="eyebrow">SOURCE</span></div>
-    {automaticMatching && <p className="muted">识别视频后自动搜索、选择分集并加载。匹配失败时会通过 Windows 通知提醒你。</p>}
+    <h2 id="source-heading" className="sr-only">手动搜索弹幕</h2>
+    {automaticMatching && <p className="muted">自动匹配最多尝试三轮；需要时在这里选源。</p>}
     <form onSubmit={e => { e.preventDefault(); void search(); }}>
       <label className="field-label" htmlFor="keyword">正在看什么？</label>
       <div className="search-box"><input id="keyword" value={keyword} placeholder="输入片名或剧集名称" onChange={e => setKeyword(e.target.value)} /><button disabled={!connected || Boolean(busy)} aria-label="搜索弹幕来源" type="submit">↗</button></div>
@@ -89,7 +95,7 @@ export function SourcePanel({ apiBase, connected, playback, getPlayback, onLoade
     </form>
     <div className="source-results" aria-busy={Boolean(busy)}>
       <div className="list-heading"><span>匹配作品</span><span>{results.length ? `${results.length} 个来源` : '等待搜索'}</span></div>
-      {!results.length && <div className="empty-source"><span className="empty-mark">✳</span><p>下一场好戏<br /><strong>从这里开始。</strong></p></div>}
+      {!results.length && <div className="empty-source"><p>输入片名，搜索可用的弹幕来源。</p></div>}
       <div className="result-list">{results.map(anime => <button key={anime.animeId} className={`result-item ${animeId === String(anime.animeId) ? 'selected' : ''}`} disabled={Boolean(busy)} onClick={() => { boundTitle.current = ''; setAnimeId(String(anime.animeId)); setEpisodes([]); setEpisodeId(''); }}>
         <span className="selection-dot" /><span>{anime.animeTitle}</span>
       </button>)}</div>

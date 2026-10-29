@@ -8,19 +8,28 @@ test('honest browser preview, display controls, responsive layout and accessibil
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('/');
   await expect(page.getByText('浏览器预览模式：', { exact: false })).toBeVisible();
-  await expect(page.locator('.brand-mark img')).toBeVisible();
-  await expect(page.locator('.brand-mark img')).toHaveJSProperty('complete', true);
-  expect(await page.locator('.brand-mark img').evaluate(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)).toBe(true);
+  await expect(page.getByRole('heading', { name: '爆米花弹幕面板' })).toHaveCount(1);
+  await expect(page.locator('.preview')).toHaveCount(0);
+  const icon = await page.request.get('/favicon.svg');
+  expect(icon.ok()).toBe(true);
+  expect(icon.headers()['content-type']).toContain('image/svg+xml');
+  expect(await icon.text()).toContain('<svg');
+  await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
   await expect(page.getByRole('button', { name: '搜索弹幕来源' })).toBeDisabled();
+  await page.getByRole('button', { name: '返回设置', exact: true }).click();
   await page.getByRole('button', { name: '1/4', exact: true }).click();
   await expect(page.getByRole('button', { name: '1/4', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText('25% 显示区域')).toBeVisible();
+  await expect(page.getByRole('button', { name: '1/2', exact: true })).toHaveAttribute('aria-pressed', 'false');
   const violations = (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations.filter(v => v.impact === 'critical' || v.impact === 'serious');
   expect(violations.map(v => ({ id: v.id, nodes: v.nodes.map(n => ({ target: n.target, detail: n.failureSummary })) }))).toEqual([]);
-  for (const width of [320, 768, 1120, 1440]) {
-    await page.setViewportSize({ width, height: 900 });
+  for (const width of [320, 380, 768, 1120, 1440]) {
+    await page.setViewportSize({ width, height: width <= 380 ? 560 : 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    if (width === 320 || width === 1120) await page.screenshot({ path: `../artifacts/ui-${width}.png`, fullPage: true });
+    if (width === 320 || width === 380) {
+      const narrowViolations = (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations;
+      expect(narrowViolations.filter(v => v.impact === 'critical' || v.impact === 'serious').map(v => v.id)).toEqual([]);
+      await page.screenshot({ path: `../artifacts/ui-compact-${width}-20261029.png`, fullPage: true });
+    }
   }
   expect(errors).toEqual([]);
 });
@@ -42,6 +51,7 @@ test('UI bridge fixture: real controls complete the source-selection flow', asyn
   });
   await page.goto('/');
   await expect(page.getByText('桌面宿主已连接')).toBeVisible();
+  await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
   await page.getByLabel('正在看什么？').fill('测试作品');
   await page.getByRole('button', { name: '搜索弹幕来源' }).click();
   await page.getByRole('button', { name: '测试作品 · 原版' }).click();
@@ -79,6 +89,7 @@ test('detected title chooses its own episode, not an unrelated manual search', a
     } } });
   }, { initialPlayer: emptyPlayer, initialSettings: defaultSettings });
   await page.goto('/');
+  await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
   await page.getByRole('button', { name: '使用播放器片名', exact: false }).click();
   await expect(page.getByLabel('当前分集')).toHaveValue('170');
   await page.getByRole('button', { name: '加载这一集的弹幕' }).click();

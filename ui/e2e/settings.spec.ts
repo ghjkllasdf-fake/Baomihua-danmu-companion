@@ -67,7 +67,7 @@ test('a lost save reply reads back the host value instead of silently assuming r
   await page.clock.fastForward(10001);
   await expect(page.locator('html')).toHaveAttribute('data-reads', '1');
   await expect(page.getByRole('button', { name: '1/2', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('.app-footer')).toContainText('显示偏好已保存');
+  await expect(page.locator('.mini-footer')).toContainText('显示偏好已保存');
   await expect(page.locator('html')).toHaveAttribute('data-updates', '1');
 });
 
@@ -79,11 +79,11 @@ test('an uncertain outcome offers a read-only retry without duplicating the writ
   await page.clock.fastForward(10001);
   await expect(page.locator('html')).toHaveAttribute('data-reads', '1');
   await page.clock.fastForward(10001);
-  await expect(page.locator('.app-footer')).toContainText('显示设置待确认');
+  await expect(page.locator('.mini-footer')).toContainText('显示设置待确认');
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('fixture-hold-reads', { detail: false })));
   await page.getByRole('button', { name: '重新同步设置', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-reads', '2');
-  await expect(page.locator('.app-footer')).toContainText('显示偏好已保存');
+  await expect(page.locator('.mini-footer')).toContainText('显示偏好已保存');
   await expect(page.getByRole('button', { name: '1/4', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('html')).toHaveAttribute('data-updates', '1');
 });

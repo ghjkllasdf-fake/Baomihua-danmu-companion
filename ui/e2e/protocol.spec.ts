@@ -22,14 +22,16 @@ for (const mode of ['old-host', 'missing-capability', 'invalid-settings']) {
     }, { settings: defaultSettings, initialPlayer: emptyPlayer, mode });
     await page.goto('/');
     await expect(page.getByRole('alert')).toContainText('宿主版本或握手数据不兼容');
+    await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
     await expect(page.getByRole('button', { name: '搜索弹幕来源' })).toBeDisabled();
     await expect(page.getByText('桌面宿主已连接')).toHaveCount(0);
     await expect(page.locator('.playback-title')).not.toContainText('不可信');
+    await page.getByRole('button', { name: '返回设置', exact: true }).click();
     await page.getByRole('button', { name: '1/4', exact: true }).click();
     await page.getByRole('switch', { name: '显示弹幕', exact: true }).uncheck();
     await page.waitForTimeout(100);
     await expect(page.locator('html')).toHaveAttribute('data-commands', 'hello;');
-    await expect(page.locator('.app-footer')).toContainText('仅预览，未保存');
+    await expect(page.locator('.mini-footer')).toContainText('仅预览，未保存');
   });
 }
 
@@ -50,6 +52,7 @@ test('malformed search success is rejected without breaking the source panel and
   }, defaultSettings);
   await page.goto('/');
   await expect(page.getByText('桌面宿主已连接')).toBeVisible();
+  await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
   await page.getByLabel('正在看什么？').fill('测试作品');
   await page.getByRole('button', { name: '搜索弹幕来源' }).click();
   await expect(page.getByRole('alert')).toContainText('宿主响应数据无效');
@@ -57,6 +60,6 @@ test('malformed search success is rejected without breaking the source panel and
   await page.getByRole('button', { name: '搜索弹幕来源' }).click();
   await expect(page.getByLabel('当前分集')).toHaveValue('10');
   await page.getByRole('button', { name: '加载这一集的弹幕' }).click();
-  await expect(page.locator('.app-footer')).toContainText('17 条弹幕已准备');
+  await expect(page.locator('.mini-footer')).toContainText('17 条弹幕已准备');
   await expect(page.getByRole('alert')).toHaveCount(0);
 });

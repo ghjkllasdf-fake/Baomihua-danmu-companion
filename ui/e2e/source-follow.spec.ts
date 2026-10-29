@@ -36,6 +36,7 @@ test.beforeEach(async ({ page }) => {
   }, emptyPlayer);
   await page.goto('/');
   await expect(page.getByText('桌面宿主已连接')).toBeVisible();
+  await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
 });
 
 async function selectAndLoad(page: Page) {
@@ -47,6 +48,52 @@ async function media(page: Page, episodeNumber: number, title = '测试作品') 
   await page.evaluate(({ episodeNumber, title }) => window.dispatchEvent(new CustomEvent('fixture-media', { detail: { title, episodeNumber, syncMode: 'automatic', state: 'paused', positionMs: 10000 } })), { episodeNumber, title });
 }
 
+test('unbound source results cannot outlive a different media identity, but a new manual correction remains possible', async ({ page }) => {
+  await page.getByRole('button', { name: '使用播放器片名', exact: false }).click();
+  await expect(page.getByRole('button', { name: '匹配来源', exact: true })).toBeVisible();
+  await expect(page.getByLabel('当前分集')).toHaveValue('10');
+  await media(page, 1, '另一部作品');
+  await expect(page.locator('.playback-title')).toContainText('另一部作品');
+  await expect(page.getByRole('button', { name: '匹配来源', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '载入分集', exact: false })).toHaveCount(0);
+  await expect(page.getByLabel('当前分集')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '加载这一集的弹幕' })).toHaveCount(0);
+
+  // A fresh user-directed search may intentionally use a title different from
+  // the current player title; only results inherited from the old media are unsafe.
+  await page.getByLabel('正在看什么？').fill('用户手动指定的其他名称');
+  await page.getByRole('button', { name: '搜索弹幕来源' }).click();
+  await expect(page.getByLabel('当前分集')).toHaveValue('10');
+  await page.getByRole('button', { name: '加载这一集的弹幕' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-comments', '1');
+  await expect(page.locator('html')).toHaveAttribute('data-comment-revision', '2');
+});
+
+test('bound source results cannot outlive a different media identity', async ({ page }) => {
+  await selectAndLoad(page);
+  await expect(page.getByRole('button', { name: '匹配来源', exact: true })).toBeVisible();
+  await media(page, 1, '另一部作品');
+  await expect(page.locator('.playback-title')).toContainText('另一部作品');
+  await expect(page.getByRole('button', { name: '匹配来源', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '载入分集', exact: false })).toHaveCount(0);
+  await expect(page.getByLabel('当前分集')).toHaveCount(0);
+  await expect(page.locator('html')).toHaveAttribute('data-comments', '1');
+});
+
+test('source results cannot outlive a temporary loss and return of the media identity', async ({ page }) => {
+  await selectAndLoad(page);
+  await expect(page.getByRole('button', { name: '匹配来源', exact: true })).toBeVisible();
+  await media(page, 0, '');
+  await expect(page.locator('.playback-title')).toContainText('等待爆米花开始播放');
+  await expect(page.getByRole('button', { name: '匹配来源', exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('当前分集')).toHaveCount(0);
+  await media(page, 1);
+  await expect(page.locator('.playback-title')).toContainText('测试作品');
+  await expect(page.getByRole('button', { name: '匹配来源', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '载入分集', exact: false })).toHaveCount(0);
+  await expect(page.locator('html')).toHaveAttribute('data-comments', '1');
+});
+
 test('a same-work episode change automatically loads the matching bound episode', async ({ page }) => {
   await selectAndLoad(page);
   await media(page, 2);
@@ -54,7 +101,7 @@ test('a same-work episode change automatically loads the matching bound episode'
   await expect(page.locator('html')).toHaveAttribute('data-comments', '2');
   await expect(page.locator('html')).toHaveAttribute('data-comment-episode', '20');
   await expect(page.locator('html')).toHaveAttribute('data-comment-revision', '2');
-  await expect(page.locator('.app-footer')).toContainText('17 条弹幕已准备');
+  await expect(page.locator('.mini-footer')).toContainText('17 条弹幕已准备');
 });
 
 test('disabling follow preserves manual control and explains that a reload is needed', async ({ page }) => {
@@ -83,7 +130,8 @@ test('a late download from a previous media cannot restore the cleared count', a
   await expect(page.locator('html')).toHaveAttribute('data-comments', '1');
   await media(page, 1, '另一部作品');
   await page.evaluate(() => window.dispatchEvent(new Event('fixture-finish')));
-  await expect(page.locator('.app-footer')).toContainText('尚未载入弹幕');
+  await expect(page.locator('.match-status')).toBeEmpty();
+  await expect(page.locator('.mini-footer')).not.toContainText('条弹幕已准备');
   await expect(page.locator('.source-notice')).toContainText('播放器');
 });
 
@@ -95,11 +143,13 @@ test('manual other-work searches and saved API changes never auto-reuse the old 
   await expect(page.locator('html')).toHaveAttribute('data-comments', '2');
   await media(page, 2);
   await expect(page.locator('html')).toHaveAttribute('data-comments', '2');
+  await page.getByRole('button', { name: '返回设置', exact: true }).click();
   await page.getByLabel('API 地址', { exact: true }).fill('http://other-fixture.invalid/token');
   await page.getByRole('button', { name: '保存地址', exact: true }).click();
   await expect(page.getByRole('button', { name: '已保存', exact: true })).toBeDisabled();
   await media(page, 1);
   await expect(page.locator('html')).toHaveAttribute('data-comments', '2');
+  await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
   await expect(page.getByRole('button', { name: '加载这一集的弹幕' })).toHaveCount(0);
 });
 
@@ -110,9 +160,10 @@ test('a same-turn A-to-B-to-A switch cannot carry a bound source forward', async
     window.dispatchEvent(new CustomEvent('fixture-media', { detail: { title: '另一部作品', episodeNumber: 1, syncMode: 'automatic', state: 'paused', positionMs: 10000 } }));
     window.dispatchEvent(new CustomEvent('fixture-media', { detail: { title: '测试作品', episodeNumber: 1, syncMode: 'automatic', state: 'paused', positionMs: 10000 } }));
   });
-  await expect(page.locator('.app-footer')).toContainText('尚未载入弹幕');
+  await expect(page.locator('.match-status')).toBeEmpty();
+  await expect(page.locator('.mini-footer')).not.toContainText('条弹幕已准备');
   await media(page, 2);
-  await expect(page.getByText('第 2 集', { exact: true })).toBeVisible();
+  await expect(page.locator('.playback-strip')).toContainText('第 2 集');
   await page.waitForTimeout(300);
   await expect(page.locator('html')).toHaveAttribute('data-comments', '1');
 });
@@ -121,7 +172,8 @@ test('a native-cleared raw-title whitespace transition is not presented as loade
   await selectAndLoad(page);
   await expect(page.locator('.source-notice')).toContainText('已载入');
   await media(page, 1, '测试作品 ');
-  await expect(page.locator('.app-footer')).toContainText('尚未载入弹幕');
+  await expect(page.locator('.match-status')).toBeEmpty();
+  await expect(page.locator('.mini-footer')).not.toContainText('条弹幕已准备');
   await expect(page.locator('.source-notice')).not.toContainText('已载入');
   await expect(page.getByRole('button', { name: '加载这一集的弹幕' })).toHaveCount(0);
 });
@@ -130,7 +182,8 @@ for (const episode of [1, 2]) {
   test(`unobserved native media changes ending on episode ${episode} invalidate a bound source`, async ({ page }) => {
     await selectAndLoad(page);
     await page.evaluate(episode => window.dispatchEvent(new CustomEvent('fixture-hidden-switch', { detail: episode })), episode);
-    await expect(page.locator('.app-footer')).toContainText('尚未载入弹幕');
+    await expect(page.locator('.match-status')).toBeEmpty();
+    await expect(page.locator('.mini-footer')).not.toContainText('条弹幕已准备');
     await expect(page.locator('.source-notice')).not.toContainText('已载入');
     await expect(page.getByRole('button', { name: '加载这一集的弹幕' })).toHaveCount(0);
     await expect(page.locator('html')).toHaveAttribute('data-comments', '1');

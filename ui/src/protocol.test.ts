@@ -24,7 +24,7 @@ describe('command contract boundary', () => {
     ['episodes', api, { bangumi: { episodes: [{ episodeId: '10', episodeNumber: '1', episodeTitle: '' }] } }],
     ['comments', { ...api, expectedMediaRevision: 0 }, { count: 300000 }],
     ['manual-clock', { positionMs: 0, playing: false }, { positionMs: 0, playing: false }],
-    ['cancel', {}, { cancelled: true }], ['close', {}, { closing: true }],
+    ['cancel', {}, { cancelled: true }], ['close', {}, { closing: true }], ['hide', {}, { hidden: true }],
   ])('accepts the complete %s command and response', (type, payload, response) => {
     expect(validPayload(type, payload)).toBe(true); expect(validResult(type, response)).toBe(true);
   });
@@ -39,6 +39,7 @@ describe('command contract boundary', () => {
     ['update-settings', {}], ['update-settings', { settings: { ...defaultSettings, fontSize: 999 } }],
     ['update-settings', { settings: { ...defaultSettings, apiToken: 'must-not-follow-style' } }],
     ['manual-clock', { positionMs: Infinity, playing: false }], ['manual-clock', { positionMs: 1, playing: 'true' }], ['cancel', null],
+    ['hide', { path: 'arbitrary' }], ['hide', null],
   ])('rejects invalid %s payload: %j', (type, payload) => expect(validPayload(type, payload)).toBe(false));
   it.each<[CommandType, unknown]>([
     ['hello', { ...hello, capabilities: [] }], ['hello', { ...hello, settings: null }],
@@ -48,5 +49,6 @@ describe('command contract boundary', () => {
     ['comments', { count: -1 }], ['comments', { count: 300001 }], ['comments', { count: NaN }],
     ['get-settings', defaultSettings], ['update-settings', { ...snapshot, settingsRevision: .5 }],
     ['manual-clock', { positionMs: -1, playing: true }], ['cancel', { cancelled: false }], ['close', []],
+    ['hide', { hidden: false }], ['hide', { hidden: true, closing: true }],
   ])('rejects malformed %s success: %j', (type, response) => expect(validResult(type, response)).toBe(false));
 });

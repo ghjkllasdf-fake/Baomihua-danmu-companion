@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from '@playwright/test';
+import { test, expect, type Locator, type Page } from './fixtures/preview-test';
 import AxeBuilder from '@axe-core/playwright';
 
 async function tabTo(page: Page, target: Locator) {
@@ -24,28 +24,20 @@ test('display controls and disclosures are keyboard-operable with visible focus'
   page.on('console', message => { if (['error', 'warning'].includes(message.type())) errors.push(message.text()); });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/');
-  await tabTo(page, page.getByRole('link', { name: '爆米花弹幕工作台' }));
+  await expect(page.getByRole('heading', { name: '爆米花弹幕面板' })).toHaveCount(1);
   const master = page.getByRole('switch', { name: '显示弹幕', exact: true });
   await tabTo(page, master);
   await page.keyboard.press('Space');
   await expect(master).not.toBeChecked();
-  await expect(page.locator('.preview-area')).toBeHidden();
+  await expect(page.locator('.preview')).toHaveCount(0);
   await page.keyboard.press('Space');
   await expect(master).toBeChecked();
-  const demo = page.getByRole('region', { name: '弹幕演示预览' }).getByRole('button');
-  await expect(demo).toHaveAccessibleName('暂停演示预览');
-  await tabTo(page, demo);
-  const firstBullet = page.locator('.preview-bullet').first();
-  await expectMoving(firstBullet);
-  await page.keyboard.press('Space');
-  await expect(demo).toHaveAccessibleName('播放演示预览');
-  await expect(firstBullet).toHaveCSS('animation-play-state', 'paused');
 
   const region = page.getByRole('button', { name: '1/4', exact: true });
   await tabTo(page, region);
   await page.keyboard.press('Enter');
   await expect(region).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText('25% 显示区域')).toBeVisible();
+  await expect(page.getByRole('button', { name: '1/2', exact: true })).toHaveAttribute('aria-pressed', 'false');
   for (const [label, value, spokenValue] of [['弹幕字号', '23', '23 px'], ['滚动速度', '0.9', '0.9×'], ['不透明度', '0.9', '90%'], ['文字描边', '0.5', '0.5 px']]) {
     const slider = page.getByRole('slider', { name: label, exact: true });
     await tabTo(page, slider);
@@ -62,6 +54,9 @@ test('display controls and disclosures are keyboard-operable with visible focus'
   await page.keyboard.press('End');
   await page.keyboard.press('Enter');
   await expect(density).toHaveValue('100');
+  await tabTo(page, page.getByRole('button', { name: '更多设置', exact: true }));
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: '返回设置', exact: true })).toBeVisible();
   const bottom = page.getByRole('checkbox', { name: '底部', exact: true });
   await tabTo(page, bottom);
   await page.keyboard.press('Space');
@@ -89,9 +84,29 @@ test('display controls and disclosures are keyboard-operable with visible focus'
   expect(errors).toEqual([]);
 });
 
-test('reduced motion is honest, static and reacts to preference changes without losing a manual pause', async ({ page }) => {
+test('isolated legacy preview remains keyboard-operable and responds to the master switch', async ({ page, previewUrl }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(previewUrl);
+  const master = page.getByRole('switch', { name: '显示弹幕', exact: true });
+  await tabTo(page, master);
+  await page.keyboard.press('Space');
+  await expect(master).not.toBeChecked();
+  await expect(page.locator('.preview-area')).toBeHidden();
+  await page.keyboard.press('Space');
+  await expect(master).toBeChecked();
+  const demo = page.getByRole('region', { name: '弹幕演示预览' }).getByRole('button');
+  await expect(demo).toHaveAccessibleName('暂停演示预览');
+  await tabTo(page, demo);
+  const firstBullet = page.locator('.preview-bullet').first();
+  await expectMoving(firstBullet);
+  await page.keyboard.press('Space');
+  await expect(demo).toHaveAccessibleName('播放演示预览');
+  await expect(firstBullet).toHaveCSS('animation-play-state', 'paused');
+});
+
+test('isolated preview reduced motion is static and reacts to preference changes without losing a manual pause', async ({ page, previewUrl }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/');
+  await page.goto(previewUrl);
   const preview = page.locator('.preview');
   const button = preview.getByRole('button');
   const bullet = preview.locator('.preview-bullet').first();

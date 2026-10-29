@@ -66,6 +66,8 @@ export function request<C extends HostRequest>(...command: C): Promise<Result<C[
   const payload: unknown = command[1] ?? {};
   if (!validPayload(type, payload)) return Promise.reject(new HostCommandError('请求参数无效，未发送给宿主。', 'invalid-payload'));
   if (type !== 'hello' && !stateReady) return Promise.reject(new HostCommandError('尚未完成安全握手，请重新打开新版工作台。', 'host-not-ready'));
+  if (type === 'hide' && (connection.status !== 'ready' || !connection.hello.capabilities.includes('tray-flyout-v1')))
+    return Promise.reject(new HostCommandError('宿主不支持托盘面板。', 'unsupported-capability'));
   if ((type === 'get-local-api' || type === 'set-local-sources') &&
     (connection.status !== 'ready' || !connection.hello.capabilities.includes('embedded-api-v1')))
     return Promise.reject(new HostCommandError('宿主不支持本地弹幕服务设置。', 'unsupported-capability'));

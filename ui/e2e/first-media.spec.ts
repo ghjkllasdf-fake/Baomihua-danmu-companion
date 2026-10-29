@@ -37,6 +37,7 @@ test.beforeEach(async ({ page }) => {
   }, { settings: defaultSettings, initialPlayer: emptyPlayer });
   await page.goto('/');
   await expect(page.getByText('桌面宿主已连接')).toBeVisible();
+  await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
 });
 
 async function manualSearch(page: Page) {
@@ -63,7 +64,7 @@ for (const phase of ['search', 'episodes', 'comments']) {
     await page.getByRole('button', { name: '使用播放器片名', exact: false }).click();
     await expect(page.getByLabel('当前分集')).toHaveValue('10');
     await page.getByRole('button', { name: '加载这一集的弹幕' }).click();
-    await expect(page.locator('.app-footer')).toContainText('17 条弹幕已准备');
+    await expect(page.locator('.mini-footer')).toContainText('17 条弹幕已准备');
     await expect(page.getByRole('alert')).toHaveCount(0);
   });
 }
@@ -72,13 +73,20 @@ test('preloaded comments cleared at first media are not still described as ready
   await manualSearch(page);
   await expect(page.getByLabel('当前分集')).toHaveValue('10');
   await page.getByRole('button', { name: '加载这一集的弹幕' }).click();
-  await expect(page.locator('.app-footer')).toContainText('17 条弹幕已准备');
+  await expect(page.locator('.mini-footer')).toContainText('17 条弹幕已准备');
   await expect(page.locator('.source-notice')).toContainText('核对');
   await page.evaluate(() => window.dispatchEvent(new Event('fixture-first-media')));
-  await expect(page.locator('.app-footer')).toContainText('尚未载入弹幕');
+  await expect(page.getByRole('region', { name: '播放器连接状态' })).toContainText('测试作品');
+  await expect(page.locator('.match-status')).toBeEmpty();
+  await expect(page.locator('.mini-footer')).not.toContainText('条弹幕已准备');
   await expect(page.locator('.source-notice')).toContainText('播放器');
   await expect(page.locator('.source-notice')).not.toContainText('已载入');
-  await expect(page.getByRole('button', { name: '加载这一集的弹幕' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: '加载这一集的弹幕' })).toHaveCount(0);
+  await page.getByRole('button', { name: '使用播放器片名', exact: false }).click();
+  await expect(page.getByLabel('当前分集')).toHaveValue('10');
+  await page.getByRole('button', { name: '加载这一集的弹幕' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-comments', '2');
+  await expect(page.locator('.mini-footer')).toContainText('17 条弹幕已准备');
 });
 
 test('temporary identity loss cannot strand a request when the same media returns', async ({ page }) => {
@@ -96,7 +104,7 @@ test('temporary identity loss cannot strand a request when the same media return
   await page.getByRole('button', { name: '使用播放器片名', exact: false }).click();
   await expect(page.getByLabel('当前分集')).toHaveValue('10');
   await page.getByRole('button', { name: '加载这一集的弹幕' }).click();
-  await expect(page.locator('.app-footer')).toContainText('17 条弹幕已准备');
+  await expect(page.locator('.mini-footer')).toContainText('17 条弹幕已准备');
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 

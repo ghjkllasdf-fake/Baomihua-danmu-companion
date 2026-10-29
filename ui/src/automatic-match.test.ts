@@ -3,7 +3,7 @@ import { validAutomaticMatch } from './automatic-match';
 
 describe('automatic match status boundary', () => {
   it('accepts native progress, success and actionable failure without a fabricated playback proof', () => {
-    for (const state of ['waiting', 'matching', 'loaded', 'failed', 'manual']) {
+    for (const state of ['waiting', 'matching', 'loading', 'loaded', 'failed', 'manual']) {
       expect(validAutomaticMatch({ state, message: '当前状态', sourceTitle: '' })).toBe(true);
     }
   });

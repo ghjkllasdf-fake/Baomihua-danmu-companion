@@ -49,6 +49,7 @@ test(`real App revokes playback and writes on ${conflict ? 'conflicting settings
     await expect(page.getByText('桌面宿主已连接')).toHaveCount(0);
     await expect(page.getByText('已自动同步 · 播放中')).toHaveCount(0);
     await expect(page.locator('.playback-title')).not.toContainText('旧播放器 A');
+    await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
     await expect(page.getByRole('button', { name: '搜索弹幕来源' })).toBeDisabled();
     await page.evaluate(() => window.dispatchEvent(new Event('fixture-fail-handshake')));
     await expect(page.locator('#rehello-result')).toHaveText('host-incompatible');
@@ -56,7 +57,8 @@ test(`real App revokes playback and writes on ${conflict ? 'conflicting settings
     await expect(page.getByText('已自动同步 · 播放中')).toHaveCount(0);
     await expect(page.locator('.playback-title')).not.toContainText('旧播放器 A');
     await expect(page.getByRole('button', { name: '搜索弹幕来源' })).toBeDisabled();
-    await expect(page.locator('.app-footer')).toContainText('显示设置待确认');
+    await expect(page.locator('.mini-footer')).toContainText('显示设置待确认');
+    await page.getByRole('button', { name: '返回设置', exact: true }).click();
     await page.getByRole('button', { name: '3/4', exact: true }).click();
     await page.waitForTimeout(100);
     await expect(page.locator('html')).toHaveAttribute('data-updates', '1');
@@ -64,7 +66,7 @@ test(`real App revokes playback and writes on ${conflict ? 'conflicting settings
     await expect(page.locator('#rehello-result')).toHaveText('ready');
     await expect(page.getByText('桌面宿主已连接')).toBeVisible();
     await expect(page.locator('.playback-title')).toContainText('恢复后的播放器 B');
-    await expect(page.locator('.app-footer')).toContainText('显示偏好已保存');
+    await expect(page.locator('.mini-footer')).toContainText('显示偏好已保存');
     await expect(page.getByRole('button', { name: '1/4', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('html')).toHaveAttribute('data-updates', '1');
   } finally { await server.close(); }

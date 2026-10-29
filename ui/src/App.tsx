@@ -6,13 +6,14 @@ import { createNativeNoticeHandler } from './host-notices';
 import { initialPlayback, observePlayer } from './player-observation';
 import { DisplaySettings } from './components/DisplaySettings';
 import { StartupOptions } from './components/StartupOptions';
-import { Preview } from './components/Preview';
 import { SourcePanel } from './components/SourcePanel';
 import { ApiConnection } from './components/ApiConnection';
 import { LocalApiConnection } from './components/LocalApiConnection';
 import { validAutomaticMatch, type AutomaticMatchStatus } from './automatic-match';
 
 export function App() {
+  const [view, setView] = useState<'display' | 'sources' | 'more'>('display'), [canHide, setCanHide] = useState(false);
+  const mainHeading = useRef<HTMLHeadingElement>(null), viewHeading = useRef<HTMLHeadingElement>(null);
   const [settings, setSettings] = useState(defaultSettings), [playback, setPlayback] = useState(initialPlayback);
   const player = playback.player;
   const [connectionStatus, setConnectionStatus] = useState<Connection['status']>('checking'), [apiBase, setApiBase] = useState('');
@@ -45,6 +46,7 @@ export function App() {
           setConnectionStatus('ready'); setApiBase(connection.hello.apiBase); setConnectionError('');
           setAutomaticMatching(connection.hello.capabilities.includes('automatic-match-v1'));
           setDesktopLifecycle(connection.hello.capabilities.includes('desktop-lifecycle-v1'));
+          setCanHide(connection.hello.capabilities.includes('tray-flyout-v1'));
           setApiPersistence(connection.hello.capabilities.includes('api-persistence-v1'));
           setApiSaved(connection.hello.apiSaved === true); setApiNotice(connection.hello.apiNotice || '');
           embeddedApi = connection.hello.capabilities.includes('embedded-api-v1');
@@ -55,6 +57,7 @@ export function App() {
         setConnectionStatus(connection.status);
         setAutomaticMatching(false); setAutomaticMatch(undefined);
         setDesktopLifecycle(false);
+        setCanHide(false);
         setApiPersistence(false);
         latestPlayback.current = observePlayer(latestPlayback.current, emptyPlayer); setPlayback(latestPlayback.current); setCount(0);
         setConnectionError(connection.status === 'failed' ? connection.message : '');
@@ -116,23 +119,46 @@ export function App() {
   }
   const auto = player.syncMode === 'automatic';
   const shownError = connectionError || settingsError || error;
-  return <div className="app-shell">
-    <header className="app-header"><a className="brand" href="#main" aria-label="爆米花弹幕工作台"><span className="brand-mark"><img src="./favicon.svg" alt="" aria-hidden="true" /></span><span><strong>爆米花</strong><small>POPCORN / DANMU</small></span></a>
-      <span className="edition">给好故事，加一点共鸣。 <span>01 / DESKTOP</span></span>
-      <label className="master-switch"><span>显示弹幕</span><input type="checkbox" role="switch" checked={settings.enabled} onChange={e => update({ enabled: e.target.checked })} /></label>
+  const matchNotice = automaticMatch?.state === 'loaded' ? `已自动匹配${automaticMatch.sourceTitle ? ` · 来源：${automaticMatch.sourceTitle}` : ''}` :
+    automaticMatch && !['waiting', 'manual'].includes(automaticMatch.state) ? automaticMatch.message : '';
+  async function hide() {
+    if (!canHide) return;
+    try { await request('hide'); } catch { setError('面板收起失败，请重试。'); }
+  }
+  function navigate(next: typeof view) {
+    setView(next);
+    requestAnimationFrame(() => (next === 'display' ? mainHeading.current : viewHeading.current)?.focus());
+  }
+  return <div className="app-shell mini-app" onKeyDown={event => {
+    if (event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) { event.preventDefault(); void hide(); }
+  }}>
+    <header className="mini-toolbar">
+      <div className="master-switch"><h1 className="mini-heading" ref={mainHeading} tabIndex={-1} aria-label="爆米花弹幕面板"><label htmlFor="master-enabled">弹幕</label></h1><input id="master-enabled" aria-label="显示弹幕" type="checkbox" role="switch" checked={settings.enabled} onChange={e => update({ enabled: e.target.checked })} /></div>
+      <StartupOptions available={connected && desktopLifecycle} />
+      <button className="hide-panel text-button" aria-label="收起面板" disabled={!canHide} onClick={() => void hide()}>收起</button>
     </header>
-    {localApi ? <LocalApiConnection localApi={localApi} available={connected} onApply={applyLocalSources} /> : <ApiConnection apiBase={apiBase} saved={apiSaved} available={connected && apiPersistence} notice={apiNotice} onSaved={(base, saved) => { setApiBase(base); setApiSaved(saved); setApiNotice(''); }} />}
-    <section className="playback-strip" aria-label="播放器连接状态"><span className={`connection-light ${auto ? 'online' : ''}`} /><div className="playback-title"><span className="eyebrow">NOW WATCHING</span><strong>{player.title || '等待爆米花开始播放'}</strong><small>{player.detail || (player.title ? (player.episodeNumber ? `第 ${player.episodeNumber} 集` : '已识别播放窗口') : '打开爆米花视频窗口，弹幕会跟随它。')}</small></div>
-      <div className="sync-status"><span>{playbackStatus(player)}</span><strong className="timecode">{player.positionMs === null ? '--:--:--' : formatTime(player.positionMs)}</strong></div>
-    </section>
-    {!inDesktop && <div className="preview-banner" role="status">浏览器预览模式：可调整演示外观，尚未连接桌面宿主或播放器。</div>}
+    {!inDesktop && <div className="preview-banner" role="status">浏览器预览模式：未连接桌面宿主或播放器。</div>}
     {shownError && <div className="app-error" role="alert">{shownError}<button aria-label="关闭提示" onClick={() => { setConnectionError(''); setError(''); settingsSession.current?.dismissMessage(); }}>×</button></div>}
-    <h1 className="sr-only">爆米花弹幕工作台</h1>
-    <main id="main" className="workspace"><SourcePanel apiBase={localApi && localApi.state !== 'ready' ? '' : apiBase} connected={connected && (!localApi || localApi.state === 'ready')} playback={playback} getPlayback={() => latestPlayback.current} onLoaded={setCount} automaticMatching={automaticMatching} automaticStatus={automaticMatch} />
-      <div className="main-controls"><Preview settings={settings} /><DisplaySettings settings={settings} update={update} /><StartupOptions available={connected && desktopLifecycle} />
+    <main id="main" className="panel-main">
+      {view !== 'display' && <nav className="panel-navigation" aria-label="面板导航"><button className="text-button" onClick={() => navigate('display')} aria-label="返回设置">← 返回设置</button><h2 ref={viewHeading} tabIndex={-1}>{view === 'sources' ? '手动搜索' : '更多设置'}</h2></nav>}
+      <div hidden={view !== 'display'} className="display-view">
+        {!localApi && (!inDesktop || connected) && <ApiConnection apiBase={apiBase} saved={apiSaved} available={connected && apiPersistence} notice={apiNotice} onSaved={(base, saved) => { setApiBase(base); setApiSaved(saved); setApiNotice(''); }} />}
+        {localApi && localApi.state !== 'ready' && <p className="local-api-summary" role="status">{localApi.state === 'starting' ? '本地弹幕服务正在启动…' : '本地服务未就绪，请在更多设置中重试。'}</p>}
+        <DisplaySettings settings={settings} update={update} view="basic" />
+      </div>
+      <div hidden={view !== 'sources'} className="source-view"><SourcePanel apiBase={localApi && localApi.state !== 'ready' ? '' : apiBase} connected={connected && (!localApi || localApi.state === 'ready')} playback={playback} getPlayback={() => latestPlayback.current} onLoaded={setCount} automaticMatching={automaticMatching} automaticStatus={automaticMatch} active={view === 'sources'} /></div>
+      <div hidden={view !== 'more'} className="more-view">
+        <DisplaySettings settings={settings} update={update} view="advanced" />
+        {localApi && <LocalApiConnection localApi={localApi} available={connected} onApply={applyLocalSources} />}
         <details className="manual-sync"><summary>手动时间校准 <span>{auto ? '自动同步中，无需手动校准' : '播放器未公开时间时使用'}</span></summary><div className="manual-controls"><label htmlFor="manual-time">视频当前时间</label><input id="manual-time" value={manual} onChange={e => setManual(e.target.value)} disabled={auto} /><button className="secondary" disabled={!connected || auto} onClick={() => void manualClock(true)}>校时并播放</button><button className="text-button" disabled={!connected || auto} onClick={() => void manualClock(false)}>校时并暂停</button></div></details>
       </div>
     </main>
-    <footer className="app-footer"><span className="footer-status"><i className={connected ? 'connected' : ''} />{connected ? '桌面宿主已连接' : inDesktop ? connectionStatus === 'failed' ? '宿主连接不可用' : '正在连接桌面宿主…' : '仅界面预览'}</span><span>{count ? `${count.toLocaleString()} 条弹幕已准备` : '尚未载入弹幕'}</span><span>原生渲染 <span className="footer-divider">/</span> {settingsStatusText[settingsStatus]} {settingsStatus === 'unknown' && <button className="text-button" onClick={() => settingsSession.current?.retryRecovery()}>重新同步设置</button>}</span></footer>
+    <footer className="mini-footer">
+      <section className="playback-strip" aria-label="播放器连接状态"><div className="playback-title"><strong>{player.title || '等待爆米花开始播放'}</strong>{player.title && <small>{playbackStatus(player)}{player.episodeNumber ? ` · 第 ${player.episodeNumber} 集` : ''}</small>}</div>{player.positionMs !== null && <span className="timecode">{formatTime(player.positionMs)}</span>}</section>
+      <p className="match-status" role="status">{matchNotice}</p>
+      <div className="footer-actions"><button className="more-link" onClick={() => navigate('more')}>更多设置 <span aria-hidden="true">›</span></button><button className="manual-source-link" onClick={() => navigate(view === 'sources' ? 'display' : 'sources')}>手动搜索 / 换源</button></div>
+      <div className="footer-meta"><span className="footer-status">{connected ? '桌面宿主已连接' : inDesktop ? connectionStatus === 'failed' ? '宿主连接不可用' : '正在连接桌面宿主…' : '仅界面预览'}</span><span>{count ? `${count.toLocaleString()} 条弹幕已准备` : settingsStatusText[settingsStatus]}</span></div>
+      {settingsStatus === 'unknown' && <button className="text-button" onClick={() => settingsSession.current?.retryRecovery()}>重新同步设置</button>}
+    </footer>
   </div>;
 }
