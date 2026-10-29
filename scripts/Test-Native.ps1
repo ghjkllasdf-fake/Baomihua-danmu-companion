@@ -29,6 +29,8 @@ if($Module -in @('all','player-sync')){
     if($LASTEXITCODE -ne 0){ throw 'Playback snapshot contract regression failed.' }
 }
 if($Module -eq 'all'){
+    & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-AppIcons.ps1')
+    if($LASTEXITCODE -ne 0){ throw 'Windows application/tray icon decoding regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-StartupRegistration.ps1')
     if($LASTEXITCODE -ne 0){ throw 'Isolated startup shortcut regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-TrayLifecycle.ps1')

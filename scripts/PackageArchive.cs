@@ -29,7 +29,7 @@ public static class PackageArchive
     private sealed record Manifest(int SchemaVersion,string Version,bool Preview,FileRecord[] Files);
     private static readonly DateTimeOffset Stamp=new(2000,1,1,0,0,0,TimeSpan.Zero);
     private static readonly string[] NativeNames={
-        "Api","AutomaticMatch","Core","Desktop","DesktopTray","StartupRegistration","MediaSession","Overlay","OverlayPresentation",
+        "Api","AppIcons","AutomaticMatch","Core","Desktop","DesktopTray","StartupRegistration","MediaSession","Overlay","OverlayPresentation",
         "Playback","PlaybackEventSignal","PlaybackModels","PlayerControlCache","PlayerSampler","Preferences",
         "ProbeAttempt","ProbeCadence","ProbeFrameReader","ProbeGate","ProbeJob","ProbeOperation","ProbeProcess","ProbeSupervisor",
         "ProbeTransport","ProbeWorkerRuntime","SpriteStore","UiaPlayerControls","Windows"
@@ -37,6 +37,7 @@ public static class PackageArchive
     public static string[] RequiredPaths=>new[] {
         "启动弹幕助手新版.bat","检查文件.bat","Verify-Package.ps1","README.md","THIRD-PARTY-NOTICES.md",
         "desktop/Host.ps1","desktop/Start.ps1","desktop/ProbeWorker.ps1","ui/dist/index.html","ui/dist/favicon.svg",
+        "assets/app.ico","assets/tray.ico",
         ".deps/pwsh/pwsh.exe",".deps/pwsh/pwsh.dll",".deps/pwsh/System.Management.Automation.dll",".deps/pwsh/System.Private.CoreLib.dll",
         ".deps/pwsh/ref/System.Runtime.dll",".deps/pwsh/LICENSE.txt",".deps/pwsh/ThirdPartyNotices.txt",".deps/pwsh/danmu-runtime.json",
         ".deps/webview2/lib_manual/netcoreapp3.0/Microsoft.Web.WebView2.Core.dll",

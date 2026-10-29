@@ -8,6 +8,8 @@ $app=Join-Path $folder '示例应用 (portable)'
 $startup=Join-Path $folder 'isolated-startup'
 [void][IO.Directory]::CreateDirectory((Join-Path $app '.deps/pwsh'))
 [void][IO.Directory]::CreateDirectory((Join-Path $app 'desktop'))
+[void][IO.Directory]::CreateDirectory((Join-Path $app 'assets'))
+Copy-Item -LiteralPath (Join-Path $root 'assets/app.ico') -Destination (Join-Path $app 'assets/app.ico')
 [IO.File]::WriteAllText((Join-Path $app '.deps/pwsh/pwsh.exe'),'controlled placeholder; never executed')
 [IO.File]::WriteAllText((Join-Path $app 'desktop/Start.ps1'),'# controlled placeholder; never executed')
 $registration=[Popcorn.StartupRegistration]::new($app,$startup)
@@ -21,6 +23,7 @@ try {
     Assert ($shortcut.TargetPath -eq (Join-Path $app '.deps/pwsh/pwsh.exe')) 'Startup must target the bundled runtime, including paths with spaces and Chinese text.'
     Assert ($shortcut.Arguments -eq ('-NoLogo -NoProfile -ExecutionPolicy Bypass -STA -WindowStyle Hidden -File "'+(Join-Path $app 'desktop/Start.ps1')+'"')) 'Startup arguments must quote the fixed entry script and hide the console.'
     Assert ($shortcut.WorkingDirectory -eq $app -and $shortcut.WindowStyle -eq 7) 'Startup must use the portable app directory and avoid opening a console window.'
+    Assert ($shortcut.IconLocation -eq ((Join-Path $app 'assets/app.ico')+',0')) 'Startup must use the application icon instead of the PowerShell icon.'
 } finally {
     if($shortcut){[void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($shortcut)}
     [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($shell)

@@ -1,6 +1,6 @@
 #requires -Version 7.6
 param(
-    [ValidatePattern('^\d+\.\d+\.\d+-preview\.[1-9]\d*$')][string]$Version='0.1.0-preview.12',
+    [ValidatePattern('^\d+\.\d+\.\d+-preview\.[1-9]\d*$')][string]$Version='0.1.0-preview.13',
     [string]$OutputDirectory
 )
 $ErrorActionPreference='Stop'
@@ -30,6 +30,7 @@ foreach($file in Get-ChildItem -LiteralPath (Join-Path $root 'ui\dist') -Recurse
 Add-ProjectFile '启动弹幕助手新版.bat' '启动弹幕助手新版.bat'
 Add-ProjectFile 'desktop/Verify-Package.bat' '检查文件.bat'
 Add-ProjectFile 'scripts/Verify-Package.ps1' 'Verify-Package.ps1'
+foreach($icon in @('app.ico','tray.ico')){Add-ProjectFile ('assets/'+$icon) ('assets/'+$icon)}
 Add-ProjectFile 'docs/THIRD-PARTY-NOTICES.md' 'THIRD-PARTY-NOTICES.md'
 Add-ProjectFile 'licenses/Windows-SDK.rtf' 'licenses/WindowsSDK/Windows-SDK.rtf'
 $guide=[IO.File]::ReadAllText((Join-Path $root 'docs/PREVIEW-USER-GUIDE.md')).Replace('{{VERSION}}',$Version)

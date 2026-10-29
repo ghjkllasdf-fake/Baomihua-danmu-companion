@@ -79,7 +79,7 @@ export function App() {
   const auto = player.syncMode === 'automatic';
   const shownError = connectionError || settingsError || error;
   return <div className="app-shell">
-    <header className="app-header"><a className="brand" href="#main" aria-label="爆米花弹幕工作台"><span className="brand-mark">✳</span><span><strong>爆米花</strong><small>POPCORN / DANMU</small></span></a>
+    <header className="app-header"><a className="brand" href="#main" aria-label="爆米花弹幕工作台"><span className="brand-mark"><img src="./favicon.svg" alt="" aria-hidden="true" /></span><span><strong>爆米花</strong><small>POPCORN / DANMU</small></span></a>
       <span className="edition">给好故事，加一点共鸣。 <span>01 / DESKTOP</span></span>
       <label className="master-switch"><span>显示弹幕</span><input type="checkbox" role="switch" checked={settings.enabled} onChange={e => update({ enabled: e.target.checked })} /></label>
     </header>

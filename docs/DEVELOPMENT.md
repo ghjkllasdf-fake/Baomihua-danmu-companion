@@ -50,7 +50,7 @@ npm.cmd --prefix ui run test:e2e
 ## 组包
 
 ```powershell
-.\.deps\pwsh\pwsh.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\New-PreviewPackage.ps1 -Version 0.1.0-preview.12
+.\.deps\pwsh\pwsh.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\New-PreviewPackage.ps1 -Version 0.1.0-preview.13
 ```
 
 脚本从固定校验值的原始归档取得便携运行时和 SDK，按白名单组包；附带文件清单、依赖许可、中文说明及 ZIP 的 SHA256。会在独立解压目录里运行包内校验和原生编译。同名产物已存在时拒绝覆盖。

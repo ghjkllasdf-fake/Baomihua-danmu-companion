@@ -8,14 +8,16 @@ internal sealed class DesktopTray : IDisposable
 {
     private readonly NotifyIcon icon;
     private readonly ContextMenuStrip menu;
+    private readonly Icon artwork;
     private bool disposed;
-    public DesktopTray(Action open,Action exit)
+    public DesktopTray(string root,Action open,Action exit)
     {
         menu=new ContextMenuStrip();
         menu.Items.Add("打开工作台",null,(_,_)=>open());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("退出弹幕伴侣",null,(_,_)=>exit());
-        icon=new NotifyIcon {Icon=SystemIcons.Information,Text=Tooltip("",0,"",0),ContextMenuStrip=menu,Visible=true};
+        artwork=AppIcons.Load(root,true);
+        icon=new NotifyIcon {Icon=artwork,Text=Tooltip("",0,"",0),ContextMenuStrip=menu,Visible=true};
         icon.BalloonTipClicked+=(_,_)=>open();
         icon.MouseClick+=(_,e)=>{if(e.Button==MouseButtons.Left)open();};
     }
@@ -47,5 +49,5 @@ internal sealed class DesktopTray : IDisposable
         // https://learn.microsoft.com/dotnet/api/system.windows.forms.notifyicon.showballoontip
         icon.ShowBalloonTip(10000,"弹幕自动匹配需要处理",message,ToolTipIcon.Warning);
     }
-    public void Dispose() {if(disposed)return;disposed=true;icon.Visible=false;icon.Dispose();menu.Dispose();}
+    public void Dispose() {if(disposed)return;disposed=true;icon.Visible=false;icon.Dispose();menu.Dispose();artwork.Dispose();}
 }

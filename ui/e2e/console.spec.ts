@@ -8,6 +8,9 @@ test('honest browser preview, display controls, responsive layout and accessibil
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('/');
   await expect(page.getByText('浏览器预览模式：', { exact: false })).toBeVisible();
+  await expect(page.locator('.brand-mark img')).toBeVisible();
+  await expect(page.locator('.brand-mark img')).toHaveJSProperty('complete', true);
+  expect(await page.locator('.brand-mark img').evaluate(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)).toBe(true);
   await expect(page.getByRole('button', { name: '搜索弹幕来源' })).toBeDisabled();
   await page.getByRole('button', { name: '1/4', exact: true }).click();
   await expect(page.getByRole('button', { name: '1/4', exact: true })).toHaveAttribute('aria-pressed', 'true');

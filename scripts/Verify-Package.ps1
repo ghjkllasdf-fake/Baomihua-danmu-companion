@@ -9,6 +9,7 @@ function Test-AllowedPackagePath([string]$path){
         '^(启动弹幕助手新版\.bat|检查文件\.bat|Verify-Package\.ps1|README\.md|THIRD-PARTY-NOTICES\.md)$',
         '^desktop/(Host|Start|ProbeWorker)\.ps1$',
         '^desktop/native/[A-Za-z0-9]+\.cs$',
+        '^assets/(app|tray)\.ico$',
         '^ui/dist/(index\.html|favicon\.svg|assets/[A-Za-z0-9_-]+\.(js|css|svg|png|jpg|webp|woff2))$',
         '^\.deps/pwsh/.+$',
         '^\.deps/webview2/(lib_manual/netcoreapp3\.0/Microsoft\.Web\.WebView2\.Core\.dll|runtimes/win-x64/native/WebView2Loader\.dll)$',

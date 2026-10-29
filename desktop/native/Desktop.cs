@@ -22,6 +22,7 @@ public sealed class DesktopWindow : Form
     private readonly AutomaticMatcher automaticMatcher;
     private readonly DesktopTray tray;
     private readonly StartupRegistration startup;
+    private readonly Icon applicationIcon;
     private readonly System.Windows.Forms.Timer timer = new() { Interval=200 };
     private readonly string root, preferences;
     private CancellationTokenSource pending = new();
@@ -50,6 +51,7 @@ public sealed class DesktopWindow : Form
     {
         if (!System.Text.RegularExpressions.Regex.IsMatch(dataProfile,@"^[a-z0-9][a-z0-9-]{0,47}$")) throw new ArgumentException("Invalid data profile.");
         root=projectRoot; apiBase=initialApi;
+        applicationIcon=AppIcons.Load(root);Icon=applicationIcon;
         Text="爆米花 · 弹幕工作台"; ClientSize=new Size(1120,790); MinimumSize=new Size(760,620);
         StartPosition=FormStartPosition.CenterScreen; BackColor=Color.FromArgb(245,243,235);
         string data=Path.Combine(root,".cache",dataProfile); Directory.CreateDirectory(data);browserData=data;
@@ -57,11 +59,14 @@ public sealed class DesktopWindow : Form
         var savedPreferences=SettingsPreferences.Load(preferences);
         Settings=savedPreferences.Settings; Failure=savedPreferences.Notice;
         Controls.Add(surface);
-        surface.Resize+=(_,_)=>{ if (controller!=null) controller.Bounds=surface.ClientRectangle; };
+        surface.Resize+=(_,_)=>UpdateBrowserPresentation();
+        VisibleChanged+=(_,_)=>UpdateBrowserPresentation();
+        Resize+=(_,_)=>UpdateBrowserPresentation();
+        LocationChanged+=(_,_)=>UpdateBrowserPresentation();
         overlay=new OverlayHost(); overlay.SetSettings(Settings);
         probe=new PlayerProbe(root); probe.SampleUpdated+=QueuePlayerUpdate; sample=probe.Latest;
         startup=new StartupRegistration(root);
-        tray=new DesktopTray(OpenWorkbench,RequestExit);
+        tray=new DesktopTray(root,OpenWorkbench,RequestExit);
         automaticMatcher=new AutomaticMatcher(api.FetchAsync,ApplyAutomaticMatch,_=>PushState(),message=>tray.ShowFailure(message));
         CommentsLoaded+=overlay.SetComments;
         SettingsUpdated+=overlay.SetSettings;
@@ -81,6 +86,7 @@ public sealed class DesktopWindow : Form
     {
         if(disposing)Cleanup();
         base.Dispose(disposing);
+        if(disposing)applicationIcon?.Dispose();
     }
     protected override void SetVisibleCore(bool value)
     {
@@ -102,7 +108,18 @@ public sealed class DesktopWindow : Form
         if(closing || IsDisposed)return;
         openRequested=true;Show();
         if(WindowState==FormWindowState.Minimized)WindowState=FormWindowState.Normal;
+        UpdateBrowserPresentation();
         Activate();
+    }
+    private void UpdateBrowserPresentation()
+    {
+        if(closing || controller==null)return;
+        controller.Bounds=surface.ClientRectangle;
+        // A controller created under a hidden parent remains hidden until the
+        // host explicitly changes IsVisible. The loaded DOM alone is not proof of paint.
+        // https://learn.microsoft.com/dotnet/api/microsoft.web.webview2.core.corewebview2controller.isvisible
+        controller.IsVisible=Visible && WindowState!=FormWindowState.Minimized;
+        if(controller.IsVisible)controller.NotifyParentWindowPositionChanged();
     }
     public void RequestExit()
     {
@@ -173,7 +190,7 @@ public sealed class DesktopWindow : Form
             if (closing) return;
             controller=await env.CreateCoreWebView2ControllerAsync(surface.Handle);
             if (closing) { controller.Close(); return; }
-            controller.Bounds=surface.ClientRectangle;
+            UpdateBrowserPresentation();
             core=controller.CoreWebView2;
             ConfigureBrowserSettings(core.Settings);
             core.SetVirtualHostNameToFolderMapping("danmu.local",Path.Combine(root,"ui","dist"),CoreWebView2HostResourceAccessKind.DenyCors);
