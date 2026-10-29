@@ -8,6 +8,7 @@ import { DisplaySettings } from './components/DisplaySettings';
 import { StartupOptions } from './components/StartupOptions';
 import { Preview } from './components/Preview';
 import { SourcePanel } from './components/SourcePanel';
+import { ApiConnection } from './components/ApiConnection';
 import { validAutomaticMatch, type AutomaticMatchStatus } from './automatic-match';
 
 export function App() {
@@ -18,6 +19,7 @@ export function App() {
   const [connectionError, setConnectionError] = useState('');
   const [automaticMatching, setAutomaticMatching] = useState(false), [automaticMatch, setAutomaticMatch] = useState<AutomaticMatchStatus>();
   const [desktopLifecycle, setDesktopLifecycle] = useState(false);
+  const [apiPersistence, setApiPersistence] = useState(false), [apiSaved, setApiSaved] = useState(false), [apiNotice, setApiNotice] = useState('');
   const [count, setCount] = useState(0), [error, setError] = useState(''), [manual, setManual] = useState('00:00:00');
   const [settingsStatus, setSettingsStatus] = useState<SettingsStatus>('preview'), [settingsError, setSettingsError] = useState('');
   const settingsSession = useRef<SettingsSession | null>(null);
@@ -40,11 +42,14 @@ export function App() {
           setConnectionStatus('ready'); setApiBase(connection.hello.apiBase); setConnectionError('');
           setAutomaticMatching(connection.hello.capabilities.includes('automatic-match-v1'));
           setDesktopLifecycle(connection.hello.capabilities.includes('desktop-lifecycle-v1'));
+          setApiPersistence(connection.hello.capabilities.includes('api-persistence-v1'));
+          setApiSaved(connection.hello.apiSaved === true); setApiNotice(connection.hello.apiNotice || '');
         } catch { revokeConnection('宿主显示设置不一致，请重新确认连接。'); }
       } else {
         setConnectionStatus(connection.status);
         setAutomaticMatching(false); setAutomaticMatch(undefined);
         setDesktopLifecycle(false);
+        setApiPersistence(false);
         latestPlayback.current = observePlayer(latestPlayback.current, emptyPlayer); setPlayback(latestPlayback.current); setCount(0);
         setConnectionError(connection.status === 'failed' ? connection.message : '');
       }
@@ -83,6 +88,7 @@ export function App() {
       <span className="edition">给好故事，加一点共鸣。 <span>01 / DESKTOP</span></span>
       <label className="master-switch"><span>显示弹幕</span><input type="checkbox" role="switch" checked={settings.enabled} onChange={e => update({ enabled: e.target.checked })} /></label>
     </header>
+    <ApiConnection apiBase={apiBase} saved={apiSaved} available={connected && apiPersistence} notice={apiNotice} onSaved={(base, saved) => { setApiBase(base); setApiSaved(saved); setApiNotice(''); }} />
     <section className="playback-strip" aria-label="播放器连接状态"><span className={`connection-light ${auto ? 'online' : ''}`} /><div className="playback-title"><span className="eyebrow">NOW WATCHING</span><strong>{player.title || '等待爆米花开始播放'}</strong><small>{player.detail || (player.title ? (player.episodeNumber ? `第 ${player.episodeNumber} 集` : '已识别播放窗口') : '打开爆米花视频窗口，弹幕会跟随它。')}</small></div>
       <div className="sync-status"><span>{playbackStatus(player)}</span><strong className="timecode">{player.positionMs === null ? '--:--:--' : formatTime(player.positionMs)}</strong></div>
     </section>

@@ -28,6 +28,7 @@ public sealed class DesktopHarness : IDisposable
     public long documentEpoch,stateSequence,mediaRevision,settingsRevision;
     public bool closing,Ready;
     public string apiBase="http://fixture.invalid/token",lastMedia="",preferences="fixture-preferences",Failure="";
+    public string apiPreferences="",savedApiBase="",apiNotice="";
     public PlayerSample sample;
     public DanmakuSettings Settings=new();
     public Action<Comment[]> CommentsLoaded;
@@ -128,6 +129,25 @@ public static class DesktopStateTests
         void Test(string name,Action body) { try { body(); Console.WriteLine("PASS: "+name); } catch (Exception ex) { errors.Add(name+": "+ex.Message); } }
         if (group is "Requests" or "All")
         {
+            Test("API save commits storage before applying, rejects extra fields and preserves state on failure",()=>{
+                using var host=new DesktopHarness();
+                string folder=Path.Combine(Path.GetTempPath(),"danmu-api-handler-"+Guid.NewGuid().ToString("N"));
+                host.apiPreferences=Path.Combine(folder,"api.dat");
+                string original=host.apiBase;
+                host.Message("bad-save","save-api",new {apiBase="https://danmu.example.com/EXAMPLE",path="arbitrary"});
+                Check(!host.Reply("bad-save").GetProperty("ok").GetBoolean() && host.apiBase==original && !System.IO.File.Exists(host.apiPreferences),"Extra fields reached storage.");
+                host.Message("save","save-api",new {apiBase="https://danmu.example.com/EXAMPLE/api/v2/"});
+                Check(host.Reply("save").GetProperty("ok").GetBoolean() && host.apiBase=="https://danmu.example.com/EXAMPLE" &&
+                    ApiPreferences.Load(host.apiPreferences).ApiBase==host.apiBase,"Saved API did not apply normalized storage.");
+                string saved=host.apiBase;
+                host.apiPreferences=folder;
+                host.Message("blocked-save","save-api",new {apiBase="https://danmu.example.com/REPLACEMENT"});
+                Check(!host.Reply("blocked-save").GetProperty("ok").GetBoolean() && host.apiBase==saved && host.savedApiBase==saved,"A failed write changed the active or saved address.");
+                host.apiPreferences=Path.Combine(folder,"api.dat");
+                host.Message("clear-save","save-api",new {apiBase=""});
+                Check(host.Reply("clear-save").GetProperty("ok").GetBoolean() && host.apiBase=="" && !System.IO.File.Exists(host.apiPreferences),"Clearing the API did not remove persistent and active state.");
+                Check(host.SettingsEvents==0,"API persistence rewrote display preferences.");
+            });
             Test("startup defaults are read-only and writes require an exact boolean payload",()=>{
                 using var host=new DesktopHarness();
                 host.Message("read-startup","get-startup",new {});

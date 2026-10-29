@@ -5,6 +5,7 @@ $folder=Join-Path $root ('.cache\privacy-review-'+[Guid]::NewGuid().ToString('N'
 [void][IO.Directory]::CreateDirectory((Join-Path $folder 'scripts'))
 [void][IO.Directory]::CreateDirectory((Join-Path $folder 'ui'))
 Copy-Item -LiteralPath (Join-Path $root 'desktop') -Destination $folder -Recurse
+Copy-Item -LiteralPath (Join-Path $root 'assets') -Destination $folder -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'ui\dist') -Destination (Join-Path $folder 'ui') -Recurse
 Copy-Item -LiteralPath (Join-Path $root 'scripts\Test-WebViewPrivacy.ps1') -Destination (Join-Path $folder 'scripts')
 $null=New-Item -ItemType Junction -Path (Join-Path $folder '.deps') -Target (Join-Path $root '.deps')

@@ -19,17 +19,17 @@ test.beforeEach(async ({ page }) => {
     window.addEventListener('fixture-finish', () => { emit({ type: 'response', id: pending, ok: true, data: { count: 999 } }); });
     Object.defineProperty(window, 'chrome', { configurable: true, value: { webview: {
       addEventListener: (_: string, callback: (event: { data: unknown }) => void) => callbacks.push(callback),
-      postMessage: (msg: { id: string; type: string; payload?: { value?: string; expectedMediaRevision?: number } }) => {
+      postMessage: (msg: { id: string; type: string; payload?: { value?: string; apiBase?: string; expectedMediaRevision?: number } }) => {
         if (msg.type === 'comments') {
           document.documentElement.dataset.comments = String(++count);
           document.documentElement.dataset.commentEpisode = msg.payload?.value;
           document.documentElement.dataset.commentRevision = String(msg.payload?.expectedMediaRevision);
           if (hold) { pending = msg.id; return; }
         }
-        const data = msg.type === 'hello' ? { protocolVersion: 1, capabilities: ['media-context-v1'], apiBase: 'http://fixture.invalid/token', settings: initial, settingsRevision: 0, stateSequence: sequence }
+        const data = msg.type === 'hello' ? { protocolVersion: 1, capabilities: ['media-context-v1', 'api-persistence-v1'], apiBase: 'http://fixture.invalid/token', apiSaved: true, apiNotice: '', settings: initial, settingsRevision: 0, stateSequence: sequence }
           : msg.type === 'search' ? { animes: [{ animeId: 1, animeTitle: '匹配来源' }] }
           : msg.type === 'episodes' ? { bangumi: { episodes: [{ episodeId: 10, episodeNumber: 1 }, { episodeId: 20, episodeNumber: 2 }] } }
-          : msg.type === 'comments' ? { count: 17 } : initial;
+          : msg.type === 'comments' ? { count: 17 } : msg.type === 'save-api' ? { apiBase: msg.payload?.apiBase, saved: true } : initial;
         setTimeout(() => { emit({ type: 'response', id: msg.id, ok: true, data }); if (msg.type === 'hello') emitState(); }, 10);
       },
     } } });
@@ -87,7 +87,7 @@ test('a late download from a previous media cannot restore the cleared count', a
   await expect(page.locator('.source-notice')).toContainText('播放器');
 });
 
-test('manual other-work searches and API edits never auto-reuse the old source', async ({ page }) => {
+test('manual other-work searches and saved API changes never auto-reuse the old source', async ({ page }) => {
   await selectAndLoad(page);
   await page.getByLabel('正在看什么？').fill('手动选择的另一作品');
   await page.getByRole('button', { name: '搜索弹幕来源' }).click();
@@ -95,8 +95,9 @@ test('manual other-work searches and API edits never auto-reuse the old source',
   await expect(page.locator('html')).toHaveAttribute('data-comments', '2');
   await media(page, 2);
   await expect(page.locator('html')).toHaveAttribute('data-comments', '2');
-  await page.locator('.api-details summary').click();
   await page.getByLabel('API 地址', { exact: true }).fill('http://other-fixture.invalid/token');
+  await page.getByRole('button', { name: '保存地址', exact: true }).click();
+  await expect(page.getByRole('button', { name: '已保存', exact: true })).toBeDisabled();
   await media(page, 1);
   await expect(page.locator('html')).toHaveAttribute('data-comments', '2');
   await expect(page.getByRole('button', { name: '加载这一集的弹幕' })).toHaveCount(0);

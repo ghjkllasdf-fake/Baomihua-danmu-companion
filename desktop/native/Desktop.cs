@@ -24,7 +24,8 @@ public sealed class DesktopWindow : Form
     private readonly StartupRegistration startup;
     private readonly Icon applicationIcon;
     private readonly System.Windows.Forms.Timer timer = new() { Interval=200 };
-    private readonly string root, preferences;
+    private readonly string root, preferences, apiPreferences;
+    private string savedApiBase="",apiNotice="";
     private CancellationTokenSource pending = new();
     private int revision;
     private long documentEpoch,stateSequence,mediaRevision,settingsRevision;
@@ -58,6 +59,10 @@ public sealed class DesktopWindow : Form
         preferences=Path.Combine(data,"preferences.json");
         var savedPreferences=SettingsPreferences.Load(preferences);
         Settings=savedPreferences.Settings; Failure=savedPreferences.Notice;
+        apiPreferences=dataProfile=="app" ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"BaomihuaDanmuCompanion","api.dat") : Path.Combine(data,"api.dat");
+        var savedApi=ApiPreferences.Load(apiPreferences);
+        savedApiBase=savedApi.ApiBase;apiNotice=savedApi.Notice;
+        if(string.IsNullOrEmpty(apiBase))apiBase=savedApiBase;
         Controls.Add(surface);
         surface.Resize+=(_,_)=>UpdateBrowserPresentation();
         VisibleChanged+=(_,_)=>UpdateBrowserPresentation();
@@ -237,7 +242,7 @@ public sealed class DesktopWindow : Form
             type=msg.GetProperty("type").GetString()??"";
             var payload=msg.GetProperty("payload");
             object result;
-            if (type=="hello") { Ready=true; result=new { apiBase, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1" } }; }
+            if (type=="hello") { Ready=true; result=new { apiBase, apiSaved=apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","api-persistence-v1" } }; }
             else if (type=="get-settings") result=new { settings=Settings,settingsRevision };
             else if (type is "get-startup" or "set-startup")
             {
@@ -247,17 +252,26 @@ public sealed class DesktopWindow : Form
                     throw new ArgumentException("开机启动设置格式无效。");
                 result=new {enabled=write ? startup.SetEnabled(payload.GetProperty("enabled").GetBoolean()) : startup.Enabled};
             }
-            else if (type=="configure-api")
+            else if (type is "configure-api" or "save-api")
             {
                 if(payload.ValueKind!=JsonValueKind.Object || payload.EnumerateObject().Count()!=1 ||
                     !payload.TryGetProperty("apiBase",out var address) || address.ValueKind!=JsonValueKind.String)
                     throw new ArgumentException("弹幕服务设置格式无效。");
-                string requestedBase=ApiClient.NormalizeBase(address.GetString()??"");
+                bool save=type=="save-api";
+                string text=address.GetString()??"";
+                string requestedBase=save && string.IsNullOrWhiteSpace(text) ? "" : ApiClient.NormalizeBase(text);
+                if(save)
+                {
+                    try{ApiPreferences.Save(apiPreferences,requestedBase);}
+                    catch(Exception storageError) when(storageError is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException)
+                    {throw new InvalidOperationException("API 地址保存失败，原设置未更改，请重试。");}
+                    savedApiBase=requestedBase;apiNotice="";
+                }
                 if(requestedBase!=apiBase)
                 {
                     pending.Cancel();revision++;apiBase=requestedBase;CommentCount=0;commentSourceTitle="";CommentsLoaded?.Invoke(Array.Empty<Comment>());
                 }
-                UpdatePlayer();result=new {configured=true};
+                UpdatePlayer();result=save ? (object)new {apiBase,saved=apiBase.Length>0} : new {configured=true};
             }
             else if (type=="update-settings")
             {

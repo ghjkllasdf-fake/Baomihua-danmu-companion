@@ -6,7 +6,7 @@ function Test-AllowedPackagePath([string]$path){
         if(-not $part -or $part -match '^(CON|CONIN\$|CONOUT\$|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])(\.|$)'){ return $false }
     }
     $rules=@(
-        '^(启动弹幕助手新版\.bat|检查文件\.bat|Verify-Package\.ps1|README\.md|THIRD-PARTY-NOTICES\.md)$',
+        '^(启动弹幕助手新版\.bat|检查文件\.bat|Verify-Package\.ps1|README\.md|LICENSE|THIRD-PARTY-NOTICES\.md)$',
         '^desktop/(Host|Start|ProbeWorker)\.ps1$',
         '^desktop/native/[A-Za-z0-9]+\.cs$',
         '^assets/(app|tray)\.ico$',

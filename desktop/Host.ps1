@@ -21,12 +21,14 @@ if(-not (Test-Path -LiteralPath (Join-Path $sdk 'Microsoft.Web.WebView2.Core.dll
 $mediaSdk=Join-Path $root '.deps\windows-sdk\lib\net8.0'
 if(-not (Test-Path -LiteralPath (Join-Path $mediaSdk 'WinRT.Runtime.dll')) -or -not (Test-Path -LiteralPath (Join-Path $mediaSdk 'Microsoft.Windows.SDK.NET.dll'))){ throw 'Windows media SDK missing. Run scripts/Setup-Desktop.ps1.' }
 foreach($name in @('System.Windows.Forms','PresentationFramework','PresentationCore','WindowsBase','UIAutomationClient','UIAutomationTypes')){ Add-Type -AssemblyName $name }
+Add-Type -AssemblyName System.Security.Cryptography.ProtectedData
 Add-Type -Path (Join-Path $sdk 'Microsoft.Web.WebView2.Core.dll')
 Add-Type -Path (Join-Path $mediaSdk 'WinRT.Runtime.dll')
 Add-Type -Path (Join-Path $mediaSdk 'Microsoft.Windows.SDK.NET.dll')
 $references=@(Get-ChildItem -LiteralPath (Join-Path $PSHOME 'ref') -Filter '*.dll' | ForEach-Object FullName)
 $references+=@(Get-ChildItem -LiteralPath $PSHOME -Filter '*.dll' | Where-Object { $_.Name -match '^(Presentation(Core|Framework)|WindowsBase|UIAutomation|System\.Windows|System\.Drawing|Microsoft\.Win32\.SystemEvents)' } | ForEach-Object FullName)
 $references+=@(Join-Path $sdk 'Microsoft.Web.WebView2.Core.dll')
+$references+=@(Join-Path $PSHOME 'System.Security.Cryptography.ProtectedData.dll')
 Add-Type -Path @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'native') -Filter '*.cs' | ForEach-Object FullName) -ReferencedAssemblies ($references | Select-Object -Unique)
 if($Check){ 'PASS: PS7 native desktop assemblies compiled'; return }
 $initialApi=''

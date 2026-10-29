@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { defaultSettings, emptyPlayer } from '../src/model';
 
-test('session API entry starts automatic matching without source-selection clicks', async ({ page }) => {
+test('saved API entry starts automatic matching without source-selection clicks', async ({ page }) => {
   await page.addInitScript(({ settings, player }) => {
     const callbacks: ((event: { data: unknown }) => void)[] = [];
     let sequence = 0;
@@ -11,13 +11,13 @@ test('session API entry starts automatic matching without source-selection click
       postMessage: (message: { id: string; type: string }) => {
         if (['search', 'episodes', 'comments'].includes(message.type)) throw new Error('Automatic UI must not require a manual source command.');
         document.documentElement.dataset.lastCommand = message.type;
-        const data = message.type === 'hello' ? { protocolVersion: 1, capabilities: ['media-context-v1', 'automatic-match-v1'],
-          apiBase: '', settings, settingsRevision: 0, stateSequence: 0 } : { configured: true };
+        const data = message.type === 'hello' ? { protocolVersion: 1, capabilities: ['media-context-v1', 'automatic-match-v1', 'api-persistence-v1'],
+          apiBase: '', apiSaved: false, apiNotice: '', settings, settingsRevision: 0, stateSequence: 0 } : { apiBase: 'http://fixture.invalid/token', saved: true };
         setTimeout(() => {
           emit({ type: 'response', id: message.id, ok: true, data });
-          emit({ type: 'state', sequence: ++sequence, data: { commentCount: message.type === 'configure-api' ? 23 : 0,
+          emit({ type: 'state', sequence: ++sequence, data: { commentCount: message.type === 'save-api' ? 23 : 0,
             player: { ...player, sequence, mediaRevision: 1, title: '当前作品', episodeNumber: 2 },
-            automaticMatch: message.type === 'configure-api' ?
+            automaticMatch: message.type === 'save-api' ?
               { state: 'loaded', message: '已自动匹配并载入 23 条弹幕。', sourceTitle: '当前作品(2025)源A' } :
               { state: 'failed', message: '请填写 API 地址。', sourceTitle: '' },
           } });
@@ -27,9 +27,9 @@ test('session API entry starts automatic matching without source-selection click
   }, { settings: defaultSettings, player: emptyPlayer });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '自动匹配弹幕' })).toBeVisible();
-  await page.locator('.api-details summary').click();
   await page.getByLabel('API 地址', { exact: true }).fill('http://fixture.invalid/token');
-  await expect(page.locator('html')).toHaveAttribute('data-last-command', 'configure-api');
+  await page.getByRole('button', { name: '保存地址', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-last-command', 'save-api');
   await expect(page.locator('.app-footer')).toContainText('23 条弹幕已准备');
   await expect(page.locator('.source-notice')).toContainText('已自动匹配');
   await expect(page.locator('.source-notice')).toContainText('源A');

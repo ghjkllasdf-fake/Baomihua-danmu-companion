@@ -2,6 +2,8 @@
 
 发行包保留以下组件的上游许可和声明原文。本说明只列出组成，不改变上游许可；不把原作者或版权信息当作用户隐私删除。
 
+项目原创部分采用根目录 `LICENSE` 中的 MIT 许可证；第三方组件的许可分别保留，不因本项目采用 MIT 而改变。README 使用的日落动画与示例弹幕由本项目自行制作，没有额外影视素材许可依赖。
+
 本预览包包含：
 
 - PowerShell 7.6.6 Windows x64 便携发行版及其自带 .NET：许可与声明位于 `.deps/pwsh/LICENSE.txt`、`.deps/pwsh/ThirdPartyNotices.txt` 及 Modules 目录。

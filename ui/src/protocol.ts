@@ -10,6 +10,7 @@ export interface Commands {
   'get-settings': Command<never, SettingsSnapshot>;
   'update-settings': Command<{ settings: Settings }, SettingsSnapshot>;
   'configure-api': Command<{ apiBase: string }, { configured: true }>;
+  'save-api': Command<{ apiBase: string }, { apiBase: string; saved: boolean }>;
   'get-startup': Command<never, { enabled: boolean }>;
   'set-startup': Command<{ enabled: boolean }, { enabled: boolean }>;
   search: Command<ApiPayload, { animes: Anime[] }>;
@@ -37,6 +38,7 @@ export function validPayload(type: CommandType, value: unknown): boolean {
     case 'update-settings': return keys(value, ['settings']) && validSettings(value.settings) && keys(value.settings, Object.keys(defaultSettings));
     case 'manual-clock': return keys(value, ['positionMs', 'playing']) && clock(value);
     case 'configure-api': return keys(value, ['apiBase']) && validPayload('search', { apiBase: value.apiBase, value: 'configuration' });
+    case 'save-api': return keys(value, ['apiBase']) && (value.apiBase === '' || validPayload('configure-api', value));
     case 'search': case 'episodes': case 'comments': {
       const expected = type === 'comments' ? ['apiBase', 'value', 'expectedMediaRevision', ...(Object.hasOwn(value, 'sourceTitle') ? ['sourceTitle'] : [])] : ['apiBase', 'value'];
       if (!keys(value, expected) || !text(value.value, 500) || !text(value.apiBase, 2048)) return false;
@@ -57,6 +59,8 @@ export function validResult<K extends CommandType>(type: K, value: unknown): val
     case 'get-settings': case 'update-settings': return validSettingsSnapshot(value);
     case 'get-startup': case 'set-startup': return keys(value, ['enabled']) && typeof value.enabled === 'boolean';
     case 'configure-api': return value.configured === true;
+    case 'save-api': return keys(value, ['apiBase', 'saved']) && typeof value.saved === 'boolean' &&
+      typeof value.apiBase === 'string' && value.saved === Boolean(value.apiBase) && validPayload('save-api', { apiBase: value.apiBase });
     case 'search': return Array.isArray(value.animes) && value.animes.length <= 10000 && value.animes.every(item => record(item) && scalar(item.animeId) && text(item.animeTitle, 500));
     case 'episodes': return record(value.bangumi) && Array.isArray(value.bangumi.episodes) && value.bangumi.episodes.length <= 10000 && value.bangumi.episodes.every(item =>
       record(item) && scalar(item.episodeId) && (item.episodeNumber === undefined || scalar(item.episodeNumber)) &&

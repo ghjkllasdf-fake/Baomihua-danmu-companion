@@ -2,6 +2,7 @@
   "name": "popcorn-danmu-console",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "packageManager": "npm@11.19.0",
   "engines": {

@@ -26,6 +26,7 @@ export function validSettingsSnapshot(value: unknown): value is SettingsSnapshot
 }
 export interface Hello extends SettingsSnapshot {
   apiBase: string; stateSequence: number; protocolVersion: 1; capabilities: string[];
+  apiSaved?: boolean; apiNotice?: string;
 }
 export function validHello(value: unknown): value is Hello {
   if (!validSettingsSnapshot(value)) return false;
@@ -34,7 +35,9 @@ export function validHello(value: unknown): value is Hello {
     typeof hello.stateSequence === 'number' && Number.isSafeInteger(hello.stateSequence) && hello.stateSequence >= 0 &&
     hello.protocolVersion === 1 && Array.isArray(hello.capabilities) && hello.capabilities.length <= 32 &&
     hello.capabilities.every(capability => typeof capability === 'string' && capability.length <= 64) &&
-    hello.capabilities.includes('media-context-v1');
+    hello.capabilities.includes('media-context-v1') &&
+    (!hello.capabilities.includes('api-persistence-v1') || typeof hello.apiSaved === 'boolean' &&
+      typeof hello.apiNotice === 'string' && hello.apiNotice.length <= 500);
 }
 export function formatTime(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));

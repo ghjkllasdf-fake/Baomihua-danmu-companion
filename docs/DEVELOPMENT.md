@@ -45,17 +45,21 @@ npm.cmd --prefix ui run test:e2e
 
 原生全套检查会短暂打开自有测试窗口，用于核对焦点和覆盖层行为；不会控制爆米花播放器。`Test-PlaybackIntegration.ps1` 是另外的真实播放器观察工具，不属于自动播放输入。
 
-真实 API 检查默认不运行、不附带账号。需要时在本机为测试进程配置 `DANMU_API_BASE` 环境变量；不要把真实值写入源码、命令示例或提交历史。桌面入口也可读取这个由用户显式提供的环境变量，`-NoDefaultApi` 可禁用读取。普通使用直接在界面填写即可。
+真实 API 检查默认不运行、不附带账号。需要时在本机为测试进程配置 `DANMU_API_BASE` 环境变量；不要把真实值写入源码、命令示例或提交历史。桌面入口以显式环境变量优先，`-NoDefaultApi` 仅禁用环境变量读取。普通使用在顶部输入并点击保存即可。
+
+API 使用 `ProtectedData` 的 `CurrentUser` 范围加密，独立存于 `%LOCALAPPDATA%\BaomihuaDanmuCompanion\api.dat`，原子写入失败时保留旧文件与活动地址；空地址表示显式清除。`DataProfile` 非 `app` 时改用项目 `.cache/<profile>/api.dat`，所有自动化使用隔离 profile，不读写用户的真实 API。客户端不使用 localStorage/sessionStorage 保存服务地址。参考微软的 [ProtectedData 文档](https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.protecteddata.protect)，相同 Windows 用户下的程序属于同一信任范围。
 
 ## 组包
 
 ```powershell
-.\.deps\pwsh\pwsh.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\New-PreviewPackage.ps1 -Version 0.1.0-preview.14
+.\.deps\pwsh\pwsh.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\New-PreviewPackage.ps1 -Version 0.1.0-preview.15
 ```
 
 脚本从固定校验值的原始归档取得便携运行时和 SDK，按白名单组包；附带文件清单、依赖许可、中文说明及 ZIP 的 SHA256。会在独立解压目录里运行包内校验和原生编译。同名产物已存在时拒绝覆盖。
 
-发布前运行 `npm.cmd --prefix ui audit --json`。提交源文件后可运行 `node scripts/Test-PublicPrivacy.mjs` 检查 Git 索引；它不会上传数据。任何日志、缓存、私人配置、截图或未审查二进制都不应进入 Git。
+发布前运行 `npm.cmd --prefix ui audit --json`。提交源文件后可运行 `node scripts/Test-PublicPrivacy.mjs` 检查 Git 索引；它不会上传数据。任何日志、缓存、私人配置、私人截图或未审查二进制都不应进入 Git。项目原创部分使用 MIT，组包必须包含根目录 `LICENSE`；第三方许可保留原文。
+
+README 预览图可在 UI 构建后依次运行 `scripts/Capture-ReadmeOverlay.ps1`（PS7，STA）和 `node scripts/Capture-ReadmeScreenshots.mjs` 重建。前两张为真实 React 界面配隔离 fixture，第三张为自制动画视频画面与生产原生渲染器输出的1:1叠合示意，均明确标注演示用途，不访问用户播放器或真实 API。临时 WebM 位于忽略的 `.cache/readme-demo/`，只提交已审查的三张 PNG。
 
 ## 质量约定
 

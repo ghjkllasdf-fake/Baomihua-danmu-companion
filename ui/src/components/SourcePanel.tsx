@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from '../bridge';
 import type { PlayerObservation } from '../player-observation';
-import { validPayload, type Anime, type Episode } from '../protocol';
+import type { Anime, Episode } from '../protocol';
 import type { AutomaticMatchStatus } from '../automatic-match';
 
 export function SourcePanel({ apiBase, connected, playback, getPlayback, onLoaded, automaticMatching = false, automaticStatus }: { apiBase: string; connected: boolean; playback: PlayerObservation; getPlayback(): PlayerObservation; onLoaded(count: number): void; automaticMatching?: boolean; automaticStatus?: AutomaticMatchStatus }) {
   const { player, identityEpoch } = playback;
-  const [base, setBase] = useState(apiBase), [showBase, setShowBase] = useState(false);
+  const base = apiBase;
   const [keyword, setKeyword] = useState(''), [results, setResults] = useState<Anime[]>([]), [episodes, setEpisodes] = useState<Episode[]>([]);
   const [animeId, setAnimeId] = useState(''), [episodeId, setEpisodeId] = useState('');
   const [busy, setBusy] = useState(''), [error, setError] = useState(''), [notice, setNotice] = useState('先找到正在看的作品，再选择正确来源。');
@@ -15,17 +15,9 @@ export function SourcePanel({ apiBase, connected, playback, getPlayback, onLoade
   const searchedTitle = useRef('');
   const boundTitle = useRef(''), observedMedia = useRef(playback);
   const isCurrent = (current: number, epoch: number) => current === version.current && epoch === getPlayback().identityEpoch;
-  useEffect(() => setBase(apiBase), [apiBase]);
   useEffect(() => {
-    if (!connected || !automaticMatching || !validPayload('configure-api', { apiBase: base })) return;
-    let active = true;
-    const timer = setTimeout(() => {
-      void request('configure-api', { apiBase: base }).catch(e => {
-        if (active) setError(e instanceof Error ? e.message : '弹幕服务设置失败。');
-      });
-    }, 600);
-    return () => { active = false; clearTimeout(timer); };
-  }, [base, connected, automaticMatching]);
+    version.current++; boundTitle.current = ''; setResults([]); setEpisodes([]); setEpisodeId(''); setBusy(''); setError('');
+  }, [apiBase]);
   useEffect(() => {
     if (identityEpoch === observedMedia.current.identityEpoch) return;
     const hadMedia = Boolean(observedMedia.current.player.title.trim());
@@ -107,6 +99,5 @@ export function SourcePanel({ apiBase, connected, playback, getPlayback, onLoade
     {!automaticMatching && <label className="toggle-row"><span>跟随播放器换集<small>载入匹配分集后，沿用同一来源</small></span><input type="checkbox" role="switch" checked={followPlayer} onChange={e => setFollowPlayer(e.target.checked)} /></label>}
     <p className={`source-notice ${error || automaticStatus?.state === 'failed' ? 'error' : ''}`} role={error ? 'alert' : 'status'}>{error || busy || (automaticStatus?.state !== 'manual' ? automaticStatus?.message : '') || notice}{!error && !busy && automaticStatus?.state === 'loaded' && automaticStatus.sourceTitle && <small>来源：{automaticStatus.sourceTitle}</small>}</p>
     {busy && <button className="text-button" onClick={() => { version.current++; setBusy(''); setNotice('已取消当前请求。'); void request('cancel').catch(e => setError(e.message)); }}>取消当前请求</button>}
-    <details className="api-details"><summary>弹幕服务连接 <span>仅本次会话</span></summary><label htmlFor="api-base">API 地址</label><div className="api-input"><input id="api-base" type={showBase ? 'text' : 'password'} autoComplete="off" spellCheck={false} value={base} disabled={Boolean(busy)} onChange={e => { boundTitle.current = ''; setBase(e.target.value); setResults([]); setEpisodes([]); }} /><button className="text-button" aria-label={showBase ? '隐藏服务地址' : '显示服务地址'} onClick={() => setShowBase(!showBase)}>{showBase ? '隐藏' : '显示'}</button></div><p className="muted">地址与密钥不写入显示偏好。</p></details>
   </aside>;
 }

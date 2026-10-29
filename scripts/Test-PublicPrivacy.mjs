@@ -16,7 +16,7 @@ for (const entry of entries) {
   if (!match) { report('(index)', 'unsupported-file-mode-or-unmerged-entry'); continue; }
   const [, , object, path] = match;
   if (/(^|\/)(?:\.deps|\.cache|node_modules|artifacts|tasks)(?:\/|$)/i.test(path) ||
-      /(^|\/)(?:DanmuCompanion\.ps1|Start-DanmuCompanion\.ps1|启动弹幕助手\.bat|HANDOFF[^/]*|\.env(?:\.(?!example$).*)?)$/i.test(path) ||
+      /(^|\/)(?:api\.dat|DanmuCompanion\.ps1|Start-DanmuCompanion\.ps1|启动弹幕助手\.bat|HANDOFF[^/]*|\.env(?:\.(?!example$).*)?)$/i.test(path) ||
       /\.(?:exe|dll|pdb|zip|pfx|p12|pem|key)$/i.test(path)) report(path, 'private-or-generated-file');
   const bytes = git(['cat-file', 'blob', object]);
   if (bytes.length > 2 * 1024 * 1024) { report(path, 'unexpected-large-source-file'); continue; }

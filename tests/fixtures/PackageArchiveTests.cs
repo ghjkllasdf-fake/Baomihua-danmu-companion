@@ -50,8 +50,10 @@ public static class PackageArchiveTests
         Check(Hash(original)==Hash(second),"Equivalent input must produce byte-identical ZIPs.");
         Reject(()=>PackageArchive.Create(source,original,"0.1.0-preview.1",fixture.ToArray(),Array.Empty<string>()),"already exists");
         Reject(()=>Build(fixture.Where(p=>p.Path!="desktop/native/Core.cs")),"required");
-        foreach(string native in new[]{"AppIcons","AutomaticMatch","DesktopTray","StartupRegistration","OverlayPresentation","PlaybackEventSignal"})
+        foreach(string native in new[]{"ApiPreferences","AppIcons","AutomaticMatch","DesktopTray","StartupRegistration","OverlayPresentation","PlaybackEventSignal"})
             Reject(()=>Build(fixture.Where(p=>p.Path!="desktop/native/"+native+".cs")),"required");
+        Reject(()=>Build(fixture.Where(p=>p.Path!="LICENSE")),"required");
+        Reject(()=>Build(fixture.Where(p=>p.Path!=".deps/pwsh/System.Security.Cryptography.ProtectedData.dll")),"required");
         foreach(string icon in new[]{"assets/app.ico","assets/tray.ico"})
             Reject(()=>Build(fixture.Where(p=>p.Path!=icon)),"required");
         Reject(()=>Build(fixture.Where(p=>p.Path!=".deps/webview2/runtimes/win-x64/native/WebView2Loader.dll")),"required");

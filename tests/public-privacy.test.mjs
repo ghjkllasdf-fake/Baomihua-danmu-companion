@@ -35,6 +35,7 @@ for (const [name, value, rule] of [
   ['source.txt', '-'.repeat(5) + 'BEGIN PRIVATE KEY' + '-'.repeat(5), 'private-key'],
   ['source.txt', 'C:' + '\\Users\\' + 'ExamplePerson\\Downloads', 'personal-home-path'],
   ['.env', 'PRIVATE_CONFIG=true', 'private-or-generated-file'],
+  ['api.dat', 'ENCRYPTED_EXAMPLE_ONLY', 'private-or-generated-file'],
   ['source.txt', 'https://' + '192.168.10.20/private', 'private-network-url'],
 ]) {
   test(`public privacy scan rejects ${rule} without echoing the matched value`, async () => {
