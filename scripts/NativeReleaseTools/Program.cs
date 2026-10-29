@@ -105,6 +105,7 @@ internal static class ReleaseTools
     {
         try
         {
+            if(args is ["installation-location"]){Console.WriteLine(JsonSerializer.Serialize(new{location=InstallationState.Read()}));return 0;}
             int files;
             if(args is ["pack",var root,var destination])files=Pack(root,destination);
             else if(args is ["verify",var archive])files=VerifyZip(archive);

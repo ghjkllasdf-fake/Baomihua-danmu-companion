@@ -19,11 +19,10 @@ for (let i = 2; i < process.argv.length; i++) {
 const names = releaseNames(version), id = randomUUID();
 const qaParent = join(root, 'artifacts', 'native-qa'), qa = join(qaParent, `beta-${id}`);
 const install = join(qa, '\u5b89\u88c5\u4f4d\u7f6e Beta'), portable = join(qa, '\u79fb\u52a8\u540e\u7684 Portable \u4e2d\u6587');
-const group = `Danmu Beta QA ${id}`;
+// The installer hides the group page, so Inno intentionally ignores /GROUP.
+const group = '\u7206\u7c73\u82b1\u5f39\u5e55\u4f34\u4fa3';
 const menu = join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', group);
 const link = join(menu, '\u7206\u7c73\u82b1\u5f39\u5e55\u4f34\u4fa3.lnk');
-const key = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{604952AE-033E-4832-9071-A9F995BA8C1D}_is1';
-const reg = join(process.env.SystemRoot, 'System32', 'reg.exe');
 const tools = join(root, 'scripts', 'NativeReleaseTools', 'bin', 'Release', 'net10.0', 'win-x64', 'NativeReleaseTools.exe');
 const checks = [], artifacts = [];
 let sourceCommit = null, payloadFiles = null;
@@ -33,15 +32,11 @@ function run(exe, args, expected = 0) {
   return result;
 }
 function registered() {
-  const parent = key.slice(0, key.lastIndexOf('\\'));
-  const entries = run(reg, ['query', parent, '/reg:64']).stdout;
-  if (!entries.toLowerCase().includes(key.toLowerCase())) return null;
-  const value = run(reg, ['query', key, '/v', 'InstallLocation', '/reg:64']).stdout;
-  return value.match(/InstallLocation\s+REG_SZ\s+(.+)/)?.[1]?.trim().replace(/[\\/]+$/, '') ?? '<unknown-installation>';
+  return JSON.parse(run(tools, ['installation-location']).stdout).location;
 }
 function ownedInstallation() { return registered()?.toLowerCase() === install.toLowerCase(); }
 function setupArgs(target, log) {
-  return ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', `/DIR=${target}`, `/GROUP=${group}`, '/TASKS=', `/LOG=${join(evidence, log)}`];
+  return ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', `/DIR=${target}`, '/TASKS=', `/LOG=${join(evidence, log)}`];
 }
 async function uninstall() {
   if (!ownedInstallation()) throw new Error('Refusing to uninstall a location not owned by this test.');
@@ -51,7 +46,7 @@ async function uninstall() {
 }
 
 assert.equal(registered(), null, 'An existing user installation must not be changed by artifact QA.');
-assert.equal(existsSync(menu), false, 'QA Start-menu group must be new.');
+assert.equal(existsSync(menu), false, 'The actual default Start-menu group must be absent; never overwrite user shortcuts.');
 assert.equal(existsSync(evidence), false, 'Use a new evidence directory, not stale QA results.');
 await mkdir(evidence, { recursive: true });await mkdir(qa, { recursive: true });
 let passed = false;
