@@ -7,6 +7,13 @@
     "sha512": "7a114c318fa7f1d9822991b534b2814d0e78386ceda816b371f5141acefe741d87ccb606ede06cadac8f9ac5070e32b708a67bbd1619ff5e5a7858a27874ef48"
   },
   "dotnetRuntime": "10.0.14",
+  "webview2Bootstrapper": {
+    "version": "1.3.307.15",
+    "archive": ".deps/native-downloads/MicrosoftEdgeWebview2Setup.exe",
+    "source": "https://go.microsoft.com/fwlink/p/?LinkId=2124703",
+    "sha256": "13f6d9cdc8c3e7186e4b180db7f48e199ee97d631480e8391fb3106f338fb21a",
+    "signatureVerified": "Microsoft Corporation / Valid / 2026-10-29"
+  },
   "webview2Sdk": {
     "version": "1.0.4314.35",
     "archive": ".deps/webview2.zip",

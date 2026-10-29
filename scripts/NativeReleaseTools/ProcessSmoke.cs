@@ -93,8 +93,22 @@ internal static class ProcessSmoke
             if(process.ExitCode!=0 || owned.Any(Alive))throw new InvalidDataException("Native application failed or left an owned process running.");
             ready=JsonDocument.Parse(File.ReadAllText(handshake)).RootElement.Clone();
             if(!ready.GetProperty("Ready").GetBoolean() || ready.GetProperty("Runtime").GetString()!="10.0.14")throw new InvalidDataException("Native/React handshake or self-contained runtime failed.");
-            string browser=Path.Combine(app,"WebView2Runtime","msedgewebview2.exe");
-            if(!owned.Any(p=>string.Equals(p.Image,browser,StringComparison.OrdinalIgnoreCase)))throw new InvalidDataException("No private WebView2 process observed.");
+            if(ready.TryGetProperty("BrowserMode",out var mode) && mode.GetString()=="evergreen")
+            {
+                string[] roots={Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),"Microsoft","EdgeWebView","Application"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"Microsoft","EdgeWebView","Application"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Microsoft","EdgeWebView","Application")};
+                var browsers=owned.Where(p=>Path.GetFileName(p.Image).Equals("msedgewebview2.exe",StringComparison.OrdinalIgnoreCase)).ToArray();
+                string version=ready.GetProperty("BrowserVersion").GetString()??"";
+                if(browsers.Length==0 || browsers.Any(p=>!roots.Any(root=>p.Image.StartsWith(root+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)) ||
+                    Path.GetFileName(Path.GetDirectoryName(p.Image))!=version))throw new InvalidDataException("Observed browser is not the detected installed Evergreen Runtime.");
+                if(Directory.Exists(Path.Combine(app,"WebView2Runtime")))throw new InvalidDataException("Shared Runtime app contains a private browser.");
+            }
+            else
+            {
+                string browser=Path.Combine(app,"WebView2Runtime","msedgewebview2.exe");
+                if(!owned.Any(p=>string.Equals(p.Image,browser,StringComparison.OrdinalIgnoreCase)))throw new InvalidDataException("No private WebView2 process observed.");
+            }
             if(!owned.Any(p=>string.Equals(p.Image,Path.Combine(app,"DanmuCompanion.Probe.exe"),StringComparison.OrdinalIgnoreCase)))throw new InvalidDataException("No native sampling worker observed.");
             if(owned.Any(p=>new[]{"pwsh.exe","powershell.exe","cmd.exe","wscript.exe","cscript.exe"}.Contains(Path.GetFileName(p.Image),StringComparer.OrdinalIgnoreCase)))throw new InvalidDataException("Application spawned a script interpreter.");
             passed=true;

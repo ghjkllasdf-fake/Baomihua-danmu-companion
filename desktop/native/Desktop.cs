@@ -58,7 +58,7 @@ public sealed class DesktopWindow : Form
         Text="爆米花 · 弹幕工作台"; ClientSize=new Size(1120,790); MinimumSize=new Size(760,620);
         StartPosition=FormStartPosition.CenterScreen; BackColor=Color.FromArgb(245,243,235);
         var paths=new ApplicationPaths(root,dataProfile,userDataRoot);
-        string data=paths.ProfileRoot; Directory.CreateDirectory(data);browserData=data;
+        string data=paths.ProfileRoot; Directory.CreateDirectory(data);browserData=paths.BrowserData;
         preferences=paths.Preferences;
         var savedPreferences=SettingsPreferences.Load(preferences);
         Settings=savedPreferences.Settings; Failure=savedPreferences.Notice;
@@ -194,7 +194,7 @@ public sealed class DesktopWindow : Form
         try
         {
             CoreWebView2Environment.SetLoaderDllFolderPath(root);
-            var env=await CoreWebView2Environment.CreateAsync(Path.Combine(root,"WebView2Runtime"),Path.Combine(data,"webview"));
+            var env=await CoreWebView2Environment.CreateAsync(null,data,SharedBrowserRuntime.Options);
             if (closing) return;
             controller=await env.CreateCoreWebView2ControllerAsync(surface.Handle);
             if (closing) { controller.Close(); return; }

@@ -15,15 +15,24 @@ export function allowedEntry(path) {
   if (parts.some(part => !part || part === '.' || part === '..' || /[. ]$/.test(part) ||
     /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(part))) return false;
   if (parts.some(part => /^(?:pwsh|powershell|System\.Management\.Automation|Microsoft\.PowerShell)(?:\.|$)/i.test(part))) return false;
-  if (path === 'WebView2Runtime/show_third_party_software_licenses.bat') return true;
+  if (parts[0].toLowerCase() === 'webview2runtime') return false;
   if (/\.(?:ps1|psm1|psd1|bat|cmd|pdb|cs|csproj|lnk)$/i.test(path)) return false;
-  return /^(DanmuCompanion(?:\.Probe)?\.exe|createdump\.exe|README\.md|LICENSE|DISTRIBUTION-LICENSE\.txt|THIRD-PARTY-NOTICES\.md|install-files\.txt|manifest\.json)$/.test(path) ||
+  return /^(DanmuCompanion(?:\.Probe)?\.exe|MicrosoftEdgeWebview2Setup\.exe|createdump\.exe|README\.md|LICENSE|DISTRIBUTION-LICENSE\.txt|THIRD-PARTY-NOTICES\.md|install-files\.txt|manifest\.json)$/.test(path) ||
     /^DanmuCompanion(?:\.Probe)?\.(?:deps|runtimeconfig)\.json$/.test(path) ||
     /^(?:[a-z]{2}(?:-[A-Za-z0-9]+)?\/)?[A-Za-z0-9_.-]+\.dll$/.test(path) ||
     /^assets\/[A-Za-z0-9_.-]+\.(?:ico|png|svg)$/.test(path) ||
     /^ui\/dist\/(?:index\.html|favicon\.svg|assets\/[A-Za-z0-9_.-]+\.(?:js|css|svg|png|jpg|webp|woff2))$/.test(path) ||
-    /^licenses\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\.(?:txt|rtf|json|nuspec|html|md)$/.test(path) ||
-    path.startsWith('WebView2Runtime/');
+    /^licenses\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\.(?:txt|rtf|json|nuspec|html|md)$/.test(path);
+}
+
+export function assertPayloadBudget(records, extraBytes = 0) {
+  let total = extraBytes;
+  for (const file of records) {
+    if (!Number.isSafeInteger(file.length) || file.length < 0) throw new Error('Invalid payload length.');
+    total += file.length;
+  }
+  if (!Number.isSafeInteger(total) || total < 0 || total > 210 * 1024 * 1024) throw new Error('Shared browser payload exceeds its 210 MiB budget.');
+  return total;
 }
 
 export async function fileHash(path, algorithm = 'sha256') {

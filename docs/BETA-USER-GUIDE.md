@@ -1,15 +1,17 @@
-# 爆米花弹幕伴侣 0.1.0-beta.1
+# 爆米花弹幕伴侣 0.1.0-beta.2（精简版）
 
 本版提供 Windows x64 安装版和 Portable 版。主程序、后台播放器采样和开机启动均直接使用 EXE，不再调用 PowerShell，不需要调整执行策略。
 
-两版均包含 .NET 10.0.14 和专用 WebView2 156.0.4314.50 运行环境，不需要另装 Node、npm、.NET SDK、.NET Runtime 或 WebView2 Runtime。需要完整保留包内 DLL、资源和 `WebView2Runtime` 文件夹；“EXE 程序”不等于只复制一个 EXE 即可运行。
+两版均包含 .NET 10.0.14，不需要另装 Node、npm、.NET SDK 或 .NET Runtime；改为复用系统的稳定版 WebView2 Evergreen Runtime（124 或更新版本），不再捆绑约 673 MiB 的私有浏览器。程序安装／解压大小约 200 MiB，下载包是压缩体积，会更小。请完整保留包内 DLL 和资源，“EXE 程序”不等于只复制一个 EXE。
+
+Windows 11 通常已有 WebView2，大多数 Windows 10 也已安装。没有或版本过旧时需要联网安装／更新：包内 `MicrosoftEdgeWebview2Setup.exe` 是微软签名的原始安装引导程序，不是 PowerShell。只安装了 Edge 浏览器不能代替 WebView2 Runtime。
 
 ## 安装版
 
-1. 运行 `DanmuCompanion-0.1.0-beta.1-win-x64-setup.exe`。
+1. 运行 `DanmuCompanion-0.1.0-beta.2-win-x64-setup.exe`。
 2. 阅读原创程序 MIT 许可和包内 Microsoft WebView2 的独立许可条款。
 3. 在“选择目标位置”页面指定安装文件夹。可以选择其他本地磁盘及包含中文、空格的路径；请选择当前账户可写的专用子目录，不要选择磁盘根目录或网络共享。
-4. 完成后从开始菜单打开“爆米花弹幕伴侣”。桌面快捷方式可选，开机启动不会自动开启。
+4. 已有合适的 WebView2 时直接复用；没有时安装器会运行微软引导程序联网补装并再次检测，失败会停止应用安装。完成后从开始菜单打开“爆米花弹幕伴侣”。桌面快捷方式可选，开机启动不会自动开启。
 
 默认安装到当前用户的本地程序目录，不需要提升管理员权限。不能写入选定位置时，应改选可写位置，不要因此关闭系统安全功能。
 
@@ -17,11 +19,11 @@
 
 ## Portable 版
 
-完整解压 `DanmuCompanion-0.1.0-beta.1-win-x64-portable.zip` 到本地文件夹，然后双击 `DanmuCompanion.exe`。不要在压缩软件中直接运行，也不要只取出一个 EXE。
+完整解压 `DanmuCompanion-0.1.0-beta.2-win-x64-portable.zip` 到本地文件夹，然后双击 `DanmuCompanion.exe`。不要在压缩软件中直接运行，也不要只取出一个 EXE。
 
-Portable 不创建安装记录、不要求先安装运行库。移动整个文件夹后仍可使用；如果曾手动开启开机启动，移动前先关闭，移动后再开启。
+Portable 不为应用创建安装记录；**已有 WebView2 时解压即用**。缺少时会明确提示，请先手动运行同目录 `MicrosoftEdgeWebview2Setup.exe` 联网安装／更新，再打开主程序。这个精简版不承诺在没有 WebView2 的电脑上完全离线、零前置环境启动。微软运行库自己的安装登记不属于应用 Portable 安装记录。
 
-请选择当前账户拥有写入及权限设置能力的本地目录。在 Windows 10 上，专用浏览器首次启动需要为它自己的文件夹设置沙箱只读／执行权限；不承诺从只读介质或无权限修改的目录直接运行。网络共享和映射网络盘均不支持。
+移动整个文件夹后仍可使用；如果曾手动开启开机启动，移动前先关闭，移动后再开启。请选择本地专用目录，不支持网络共享或映射网络盘。精简版不修改系统 WebView2 目录的权限，也不会在退出或卸载时删除共享浏览器。
 
 ## 开始使用
 
@@ -37,10 +39,12 @@ Portable 不创建安装记录、不要求先安装运行库。移动整个文�
 ```text
 %LOCALAPPDATA%\BaomihuaDanmuCompanion\api.dat
 %LOCALAPPDATA%\BaomihuaDanmuCompanion\app\preferences.json
-%LOCALAPPDATA%\BaomihuaDanmuCompanion\app\webview\
+%LOCALAPPDATA%\BaomihuaDanmuCompanion\app\webview-evergreen\
 ```
 
 API 地址继续使用当前 Windows 用户的 DPAPI 加密，并兼容 preview.15 的固定保存位置。Portable 并不把 API 凭据导出到移动介质；换账户或换电脑后应重新输入，不要把加密文件当成通用明文备份。
+
+共享浏览器使用新的 `webview-evergreen` 缓存目录，不会用较旧共享 Runtime 打开 beta.1 的 `webview` 私有浏览器资料；原 API 和显示偏好仍沿用。不要手动复制旧浏览器资料到新缓存目录。
 
 旧预览版解压目录里的 `.cache/app/preferences.json` 不会被自动搜索或删除。首次从旧预览版切换时，API 已保存则继续读取，显示偏好可在新版本重新设置；需要迁移旧偏好时，应先关闭两版、备份原文件，再复制到上述新位置。不要复制旧浏览器资料或把实际配置文件上传 GitHub。
 
@@ -48,23 +52,27 @@ API 地址继续使用当前 Windows 用户的 DPAPI 加密，并兼容 preview.
 
 安装版升级应先退出程序，继续安装到原目录，当前用户配置不会作为程序文件覆盖。需要改到另一个目录时，建议先卸载原安装，再安装到新位置。Portable 升级请解压到新文件夹，不要混合覆盖不同版本的运行库。
 
+从本地 beta.1 完整离线安装版升级时，请先卸载旧安装，再安装精简版。已登记的安装不能直接换到另一个目录，以免旧文件失去卸载登记。旧 Portable 可保留，精简 Portable 请另解压到新空目录。安装器会拒绝直接覆盖包含 `WebView2Runtime` 的旧布局，避免遗留大浏览器。
+
 安装版可从 Windows“已安装的应用”卸载。卸载只移除该安装拥有的文件和快捷方式，默认保留上述当前用户配置。Portable 退出后可删除程序文件夹。若要彻底清除个人数据，先在工作台清空并保存 API 地址、关闭开机启动、退出所有实例，再自行删除上述数据目录；这会同时影响安装版和 Portable 的共同配置。
 
 ## 安全与第三方说明
 
 本 Beta 的原创 EXE 和安装包未购买代码签名证书。Windows 可能提示未知发布者；请核对来源及 `SHA256SUMS.txt`，不要为运行本程序关闭杀毒软件。校验值只能检查文件一致性，不能代替发布者签名。
 
-包内 WebView2 包含 Microsoft Defender SmartScreen，并可能按微软条款收集和向微软发送终端用户相关安全及诊断信息。详见 `licenses/WebView2Runtime/LICENSE.html`、微软隐私声明和 Edge 隐私白皮书；原程序 MIT 许可不会替代第三方条款。程序本身没有接入向作者上传 API 地址的遥测服务。
+共享 WebView2 和微软安装引导程序可能按微软条款收集和发送安全及诊断信息；WebView2 包含 Microsoft Defender SmartScreen。详见 `licenses/WebView2Runtime/LICENSE.html`、微软隐私声明和 Edge 隐私白皮书；原程序 MIT 许可不会替代第三方条款。程序本身没有接入向作者上传 API 地址的遥测服务。
 
 - 微软隐私声明：https://aka.ms/privacy
 - SmartScreen 说明：https://learn.microsoft.com/en-us/microsoft-edge/privacy-whitepaper#smartscreen
 - 完整组成及许可证见 `THIRD-PARTY-NOTICES.md` 和 `licenses/`。
-- 原样保留了浏览器上游的 `show_third_party_software_licenses.bat`，它只用于显示浏览器第三方声明，不是本程序启动入口，也不调用 PowerShell。
+- 微软引导程序版本、校验值与签名检查记录见发行清单；共享浏览器由微软更新，不随本程序卸载。
 
 ## Beta 验证边界
 
 本版面向 Windows 10/11 x64；实际测试操作系统和结果以随交付提供的验证报告为准，不把单机结果外推到其他系统。ARM64、网络共享运行和不同安全策略环境未作兼容性承诺。
 
+应用显式请求稳定版 Runtime，并清理继承的浏览器／调试环境覆盖；受管电脑的 WebView2 注册表策略仍可能改变 SDK 的选择。此类策略环境未验证，不应通过关闭系统安全策略来强行运行。
+
 从脚本改为 EXE 不代表之前尚未完成的多屏 DPI、长期真实播放、严格延迟及所有窗口焦点场景已经通过。本版仍是 Beta，不宣称 preview.15 尚未完成的性能目标已经达成。
 
-程序界面能离线启动，但搜索和下载真实弹幕仍需要你配置的服务可达。若提示文件缺失或浏览器环境损坏，请重新完整解压或重新安装同一版本，不要混入旧版脚本／依赖。
+已有 WebView2 时程序界面能离线启动，但搜索和下载真实弹幕仍需要你配置的服务可达。若提示缺少 WebView2，请运行微软引导程序；若提示应用文件缺失，请完整解压或重新安装同一版本，不要混入旧版脚本／依赖。

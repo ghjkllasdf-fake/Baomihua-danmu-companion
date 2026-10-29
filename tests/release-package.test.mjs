@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { allowedEntry, inventory, releaseNames } from '../scripts/release-lib.mjs';
+import { allowedEntry, inventory, releaseNames, assertPayloadBudget } from '../scripts/release-lib.mjs';
 
 test('beta filenames are fixed and reject traversal/shell fragments', () => {
   assert.equal(releaseNames('0.1.0-beta.1').installer, 'DanmuCompanion-0.1.0-beta.1-win-x64-setup.exe');
@@ -15,16 +15,22 @@ test('beta filenames are fixed and reject traversal/shell fragments', () => {
 
 test('payload admits compiled dependencies and forbids app scripts/private files', () => {
   for (const path of ['DanmuCompanion.exe', 'DanmuCompanion.Probe.exe', 'coreclr.dll', 'zh-Hans/System.Windows.Forms.resources.dll',
-    'ui/dist/assets/main-123.js', 'WebView2Runtime/msedgewebview2.exe', 'licenses/React/LICENSE.txt', 'manifest.json']) {
+    'ui/dist/assets/main-123.js', 'MicrosoftEdgeWebview2Setup.exe', 'licenses/React/LICENSE.txt', 'manifest.json']) {
     assert.equal(allowedEntry(path), true, path);
   }
   for (const path of ['desktop/Host.ps1', 'pwsh.exe', 'powershell.exe', 'System.Management.Automation.dll', '.deps/pwsh/pwsh.dll',
     'start.bat', 'api.dat', 'data/preferences.json', 'obj/cache.json', 'a/../coreclr.dll', 'C:/private.dll', '/root.dll',
-    'ui/dist/assets/../../escape.js', 'assets/CON.txt', 'WebView2Runtime/evil.ps1', 'WebView2Runtime/evil.bat']) {
+    'ui/dist/assets/../../escape.js', 'assets/CON.txt', 'WebView2Runtime/evil.ps1', 'WebView2Runtime/evil.bat', 'WebView2Runtime/msedgewebview2.exe']) {
     assert.equal(allowedEntry(path), false, path);
   }
-  assert.equal(allowedEntry('WebView2Runtime/show_third_party_software_licenses.bat'), true,
-    'Unmodified upstream credits helper is not the application launcher and does not use PowerShell.');
+  assert.equal(allowedEntry('WebView2Runtime/show_third_party_software_licenses.bat'), false,
+    'The shared-browser release must not accidentally include a private runtime, including its credits helper.');
+});
+
+test('shared browser payload has a hard 210 MiB budget without padding', () => {
+  assert.equal(assertPayloadBudget([{ length: 200 * 1024 * 1024 }], 1000), 200 * 1024 * 1024 + 1000);
+  assert.throws(() => assertPayloadBudget([{ length: 210 * 1024 * 1024 }], 1), /budget/);
+  assert.throws(() => assertPayloadBudget([{ length: -1 }]), /length/);
 });
 
 test('manifest inventory hashes actual bytes and rejects private additions', async () => {

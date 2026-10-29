@@ -5,17 +5,18 @@ import { mkdir, readFile, writeFile, rename, rm, rmdir, realpath, stat } from 'n
 import { randomUUID } from 'node:crypto';
 import { join, resolve, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { fileHash, inventory, releaseNames } from './release-lib.mjs';
+import { fileHash, inventory, releaseNames, assertPayloadBudget } from './release-lib.mjs';
 
 const root = resolve(import.meta.dirname, '..');
-let directory = join(root, 'artifacts', 'releases'), version = '0.1.0-beta.1';
-let evidence = join(root, 'artifacts', 'native-beta', 'final-validation');
+let directory, version = '0.1.0-beta.2';
+let evidence = join(root, 'artifacts', 'shared-beta', 'final-validation');
 for (let i = 2; i < process.argv.length; i++) {
   if (process.argv[i] === '--directory') directory = resolve(process.argv[++i]);
   else if (process.argv[i] === '--evidence') evidence = resolve(process.argv[++i]);
   else if (process.argv[i] === '--version') version = process.argv[++i];
   else throw new Error('Unknown release test argument.');
 }
+directory ??= join(root, 'artifacts', 'releases', version);
 const names = releaseNames(version), id = randomUUID();
 const qaParent = join(root, 'artifacts', 'native-qa'), qa = join(qaParent, `beta-${id}`);
 const install = join(qa, '\u5b89\u88c5\u4f4d\u7f6e Beta'), portable = join(qa, '\u79fb\u52a8\u540e\u7684 Portable \u4e2d\u6587');
@@ -67,6 +68,13 @@ try {
   sourceCommit = manifest.sourceCommit;payloadFiles = manifest.files.length;
   const records = await inventory(portable);
   assert.equal(records.length, manifest.files.length);
+  assert.equal(manifest.browserDistribution, 'evergreen');
+  assert.equal(existsSync(join(portable, 'WebView2Runtime')), false);
+  assert.ok(existsSync(join(portable, 'MicrosoftEdgeWebview2Setup.exe')));
+  const toolchain = JSON.parse(await readFile(join(root, 'native-toolchain.json'), 'utf8'));
+  assert.equal(await fileHash(join(portable, 'MicrosoftEdgeWebview2Setup.exe')), toolchain.webview2Bootstrapper.sha256);
+  assertPayloadBudget(records, (await stat(join(portable, 'manifest.json'))).size);
+  checks.push('shared-browser-payload-under-210-MiB-with-signed-bootstrapper-and-no-private-runtime');
   const localPaths = [root, process.env.USERPROFILE].filter(Boolean);
   const prefixes = [...new Set(localPaths.flatMap(value => [value, value.toLowerCase(), value.replaceAll('\\', '/')]))];
   const privateBytes = prefixes.flatMap(value => [Buffer.from(value, 'utf8'), Buffer.from(value, 'utf16le')]);
@@ -77,7 +85,7 @@ try {
   checks.push('payload-allowlist-and-known-local-path-privacy-scan');
   checks.push('portable-manifest-clean-source-and-relocation');
   run(tools, ['smoke', portable, join(qa, 'portable-data'), join(evidence, 'portable-process-tree.json')]);
-  checks.push('portable-native-react-private-browser-probe-and-owned-process-exit');
+  checks.push('portable-native-react-system-browser-probe-and-owned-process-exit');
   const exeBefore = await fileHash(join(portable, 'DanmuCompanion.exe'));
   const rejected = run(join(directory, names.installer), setupArgs(portable, 'reject-portable.log'), null);
   assert.notEqual(rejected.status, 0);assert.equal(registered(), null);
@@ -92,8 +100,12 @@ try {
   assert.ok(ownedInstallation());run(tools, ['verify-installed', install]);
   run(tools, ['check-shortcut', link, join(install, 'DanmuCompanion.exe')]);
   checks.push('custom-chinese-space-installation-hashes-registration-and-direct-exe-shortcut');
+  const alternate = join(qa, 'alternate-install-location');
+  assert.notEqual(run(join(directory, names.installer), setupArgs(alternate, 'reject-orphan-install.log'), null).status, 0);
+  assert.ok(ownedInstallation());assert.equal(existsSync(alternate), false);
+  checks.push('same-AppId-rejects-new-location-without-uninstalling-original');
   run(tools, ['smoke', install, join(qa, 'installed-data'), join(evidence, 'installed-process-tree.json')]);
-  checks.push('installed-native-react-private-browser-probe-and-owned-process-exit');
+  checks.push('installed-native-react-system-browser-probe-and-owned-process-exit');
   const data = join(qa, 'installed-data', 'release-qa', 'preferences.json');
   await writeFile(data, '{"isolatedPreservationSentinel":true}\n');
   const dataBefore = await fileHash(data);

@@ -1,16 +1,16 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { cp, mkdir, readFile, writeFile, copyFile, rename } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { fileHash, inventory, releaseNames, walkFiles } from './release-lib.mjs';
+import { fileHash, inventory, releaseNames, walkFiles, assertPayloadBudget } from './release-lib.mjs';
 import { sourceState, requireSameSource } from './source-state.mjs';
 import { constants } from 'node:fs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const args = process.argv.slice(2);
-let version, output = join(root, 'artifacts', 'releases'), allowDirty = false;
+let version, output, allowDirty = false;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--version') version = args[++i];
   else if (args[i] === '--output') output = resolve(args[++i]);
@@ -18,6 +18,7 @@ for (let i = 0; i < args.length; i++) {
   else throw new Error('Unknown release build argument.');
 }
 const names = releaseNames(version);
+output ??= join(root, 'artifacts', 'releases', version);
 const projectVersion = (await readFile(join(root, 'desktop', 'NativeCommon.props'), 'utf8')).match(/<Version>([^<]+)<\/Version>/)?.[1];
 if (version !== projectVersion) throw new Error('Artifact version must match the compiled application version.');
 const lock = JSON.parse(await readFile(join(root, 'native-toolchain.json'), 'utf8'));
@@ -37,7 +38,7 @@ if (sourceDirty && !allowDirty) throw new Error('Commit release sources before p
 for (const name of [names.portable, names.installer, 'SHA256SUMS.txt']) {
   if (existsSync(join(output, name))) throw new Error('Refusing to overwrite an existing release artifact.');
 }
-for (const dependency of [lock.dotnetSdk, lock.webview2Sdk, lock.windowsProjection, lock.webview2Runtime, lock.inno]) {
+for (const dependency of [lock.dotnetSdk, lock.webview2Sdk, lock.windowsProjection, lock.webview2Bootstrapper, lock.inno]) {
   const algorithm = dependency.sha512 ? 'sha512' : 'sha256';
   if (await fileHash(join(root, dependency.archive), algorithm) !== dependency[algorithm]) throw new Error('Pinned build archive checksum mismatch.');
 }
@@ -82,9 +83,7 @@ for (const [component, name] of [['react', 'React'], ['react-dom', 'ReactDOM'], 
   await copyLicense(`ui/node_modules/${component}/LICENSE`, name, 'LICENSE.txt');
 }
 await copyFile(join(root, '.deps', 'webview2', 'runtimes', 'win-x64', 'native', 'WebView2Loader.dll'), join(payload, 'WebView2Loader.dll'));
-await mkdir(join(work, 'browser'));
-run(join(process.env.SystemRoot, 'System32', 'expand.exe'), [join(root, lock.webview2Runtime.archive), '-F:*', join(work, 'browser')], true);
-await rename(join(work, 'browser', `Microsoft.WebView2.FixedVersionRuntime.${lock.webview2Runtime.version}.x64`), join(payload, 'WebView2Runtime'));
+await copyFile(join(root, lock.webview2Bootstrapper.archive), join(payload, 'MicrosoftEdgeWebview2Setup.exe'));
 await mkdir(join(payload, 'licenses', 'Dotnet'), { recursive: true });
 for (const file of ['LICENSE.txt', 'ThirdPartyNotices.txt']) await copyFile(join(root, '.deps', 'dotnet', file), join(payload, 'licenses', 'Dotnet', file));
 await copyFile(join(root, 'LICENSE'), join(payload, 'LICENSE'));
@@ -92,16 +91,19 @@ await copyFile(join(root, 'docs', 'THIRD-PARTY-NOTICES.md'), join(payload, 'THIR
 await copyFile(join(root, 'docs', 'BETA-USER-GUIDE.md'), join(payload, 'README.md'));
 const license = await readFile(join(root, 'LICENSE'), 'utf8');
 const runtimeLicense = await readFile(join(root, 'licenses', 'WebView2Runtime', 'LICENSE.txt'), 'utf8');
-await writeFile(join(payload, 'DISTRIBUTION-LICENSE.txt'), '\ufeff' + license + '\r\n\r\nBundled Microsoft WebView2 Runtime terms (separate from the original application MIT license):\r\n\r\n' + runtimeLicense.replace(/^\ufeff/, ''), 'utf8');
+await writeFile(join(payload, 'DISTRIBUTION-LICENSE.txt'), '\ufeff' + license + '\r\n\r\nMicrosoft WebView2 Runtime terms (shared Evergreen Runtime; only its bootstrapper is bundled; separate from application MIT license):\r\n\r\n' + runtimeLicense.replace(/^\ufeff/, ''), 'utf8');
 const payloadFiles = [...await walkFiles(payload), 'manifest.json', 'install-files.txt'].sort();
 await writeFile(join(payload, 'install-files.txt'), payloadFiles.map(file => file.replaceAll('/', '\\')).join('\r\n') + '\r\n');
 const payloadFileList = join(work, 'IncomingPayload.iss');
 await writeFile(payloadFileList, 'procedure AddIncomingPayloadFiles(Files: TStringList);\nbegin\n' +
   payloadFiles.map(file => `  Files.Add('${file.replaceAll('/', '\\').replaceAll("'", "''")}');`).join('\n') + '\nend;\n');
-const manifest = { schemaVersion: 1, version, sourceCommit, sourceDirty, baseline: 'v0.1.0-preview.15',
-  dependencies: Object.fromEntries(['dotnetSdk', 'dotnetRuntime', 'webview2Sdk', 'windowsProjection', 'webview2Runtime', 'inno'].map(key => [key, lock[key]])),
+const manifest = { schemaVersion: 1, version, sourceCommit, sourceDirty, baseline: 'v0.1.0-preview.15', browserDistribution: 'evergreen',
+  dependencies: { ...Object.fromEntries(['dotnetSdk', 'dotnetRuntime', 'webview2Sdk', 'windowsProjection', 'webview2Bootstrapper', 'inno'].map(key => [key, lock[key]])),
+    webview2Runtime: { distribution: 'evergreen', minimumMajor: 124, bundled: false } },
   files: await inventory(payload) };
-await writeFile(join(payload, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+const manifestText = JSON.stringify(manifest, null, 2) + '\n';
+const payloadBytes = assertPayloadBudget(manifest.files, Buffer.byteLength(manifestText));
+await writeFile(join(payload, 'manifest.json'), manifestText);
 run(join(payload, 'DanmuCompanion.exe'), ['--check']);
 run(dotnet, ['restore', 'scripts/NativeReleaseTools/NativeReleaseTools.csproj', '--locked-mode']);
 run(dotnet, ['build', 'scripts/NativeReleaseTools/NativeReleaseTools.csproj', '--no-restore', '-c', 'Release']);
@@ -113,5 +115,5 @@ for (const file of [names.installer, names.portable]) sums += `${await fileHash(
 await writeFile(join(staged, 'SHA256SUMS.txt'), sums, { flag: 'wx' });
 requireSameSource(source, await sourceState(root));
 for (const file of [names.installer, names.portable, 'SHA256SUMS.txt']) await copyFile(join(staged, file), join(output, file), constants.COPYFILE_EXCL);
-await writeFile(join(work, 'build-result.json'), JSON.stringify({ version, sourceCommit, sourceDirty, payload, output, files: manifest.files.length }, null, 2));
-console.log(JSON.stringify({ passed: true, version, output, payload, sourceDirty, files: manifest.files.length }, null, 2));
+await writeFile(join(work, 'build-result.json'), JSON.stringify({ version, sourceCommit, sourceDirty, payload, output, files: manifest.files.length, payloadBytes }, null, 2));
+console.log(JSON.stringify({ passed: true, version, output, payload, sourceDirty, files: manifest.files.length, payloadBytes }, null, 2));

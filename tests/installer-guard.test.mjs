@@ -26,7 +26,7 @@ test('actual Inno destination guard protects foreign/portable files and handles 
     const result = await readFile(report, 'utf8');
     await writeFile(join(evidence, 'installer-guards.log'), result);
     const cases = result.trim().split(/\r?\n/);
-    assert.equal(cases.length, 20);
+    assert.equal(cases.length, 21);
     assert.ok(cases.every(line => line.endsWith('=pass')), result);
     assert.equal(await readFile(join(folder, 'occupied', 'sentinel.txt'), 'utf8'), 'unrelated sentinel');
     assert.equal(await readFile(join(folder, 'portable', 'DanmuCompanion.exe'), 'utf8'), 'portable sentinel');

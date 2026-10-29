@@ -35,10 +35,10 @@ internal static class NativeHost
             NativeRuntime.ValidateApplication(paths);
             NativeRuntime.LoadMediaProjection(paths.Root);
             if(check){Console.WriteLine("PASS: native executable payload and projection dependencies.");return 0;}
-            NativeRuntime.PrepareBrowserSandbox(paths);
+            NativeRuntime.ConfigureBrowserEnvironment(paths,debugPort);
+            string browserVersion=SharedBrowserRuntime.RequireAvailable();
             using var instance=new ApplicationInstance(paths);
             if(!instance.Acquired)throw new InvalidOperationException("本用户的弹幕伴侣已在运行，请从托盘打开，或先退出旧实例。");
-            NativeRuntime.ConfigureBrowserEnvironment(paths,debugPort);
             Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);Application.EnableVisualStyles();
             string api=Environment.GetEnvironmentVariable("DANMU_API_BASE");
             api=string.IsNullOrWhiteSpace(api) ? "" : ApiClient.NormalizeBase(api);
@@ -51,7 +51,7 @@ internal static class NativeHost
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(result));
                 File.WriteAllText(result,JsonSerializer.Serialize(new{window.Ready,window.Failure,Runtime=Environment.Version.ToString(),
-                    ApplicationRoot=paths.Root,DataRoot=paths.DataRoot,FixedBrowser=paths.FixedBrowser},new JsonSerializerOptions{WriteIndented=true}));
+                    ApplicationRoot=paths.Root,DataRoot=paths.DataRoot,BrowserMode="evergreen",BrowserVersion=browserVersion},new JsonSerializerOptions{WriteIndented=true}));
             }
             return smoke>0 && !window.Ready ? 1 : 0;
         }

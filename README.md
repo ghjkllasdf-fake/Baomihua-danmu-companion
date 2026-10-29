@@ -6,13 +6,13 @@
 
 填入你自己的弹幕 API 服务地址后，助手会识别正在播放的作品和集数，自动寻找弹幕、跟随播放进度，并把弹幕显示在视频窗口上。
 
-**当前本地 Beta：`0.1.0-beta.1`，Windows x64，原生 EXE 安装版与 Portable 版。**
+**当前 Beta：`0.1.0-beta.2`，Windows x64，约 200 MiB 的原生 EXE 安装版与 Portable 版。**
 
-Beta 仍是本地构建，尚未发布到 GitHub；已公开的基线是 `v0.1.0-preview.15`。两者的运行方式不同，不要混用文件。
+功能基线为 `v0.1.0-preview.15`，Beta 改用原生 EXE 和系统共享 WebView2；不要与旧脚本版或完整离线版混合覆盖。“约 200 MiB”指安装／解压后的程序文件，不是压缩下载包。
 
 ➡️ **[查看已发布版本](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases)**
 
-Beta 安装包为 `DanmuCompanion-0.1.0-beta.1-win-x64-setup.exe`，免安装包为 `DanmuCompanion-0.1.0-beta.1-win-x64-portable.zip`。普通用户不应下载 GitHub 自动生成的 **Source code** 压缩包；源码包不包含运行依赖。
+Beta 安装包为 `DanmuCompanion-0.1.0-beta.2-win-x64-setup.exe`，免安装包为 `DanmuCompanion-0.1.0-beta.2-win-x64-portable.zip`。普通用户不应下载 GitHub 自动生成的 **Source code** 压缩包；源码包不包含运行依赖。
 
 ## 界面与效果预览
 
@@ -51,9 +51,10 @@ Beta 安装包为 `DanmuCompanion-0.1.0-beta.1-win-x64-setup.exe`，免安装包
 | Windows x64 电脑 | Windows 10 2004（19041）或更新版本、Windows 11；实际验收见 Beta 验证报告，ARM64 未验证。 |
 | 网易爆米花 | 由你自行安装。助手不包含播放器、影视资源或下载功能。 |
 | 本地可写文件夹 | 安装或完整解压 Beta；不支持网络共享及映射网络盘。 |
+| WebView2 Evergreen Runtime | 系统稳定版 124 或更新版本；已有则复用，没有时运行包内微软联网引导程序。 |
 | 弹幕 API 服务 | **必须自行准备可用的服务地址**，详见下节。 |
 
-Beta 已包含自包含 .NET 和专用 WebView2 运行环境。主程序、播放器采样和开机启动均直接使用 EXE，**不需要 PowerShell、Node、npm、另装 .NET 或 WebView2**，也不需要管理员权限。文件体积较大是因为内置运行环境；不能只复制一个 EXE。
+Beta 内置自包含 .NET，主程序、播放器采样和开机启动直接使用 EXE，**不需要 PowerShell、Node、npm 或另装 .NET**。WebView2 使用系统共享版本：安装器缺少时会联网补装；Portable 缺少时请先运行同目录 `MicrosoftEdgeWebview2Setup.exe`。应用默认按当前用户安装，不要求提权；不能只复制一个 EXE。
 
 ## API 依赖：没有服务地址就不能下载弹幕
 
@@ -122,7 +123,8 @@ API 使用 Windows 当前用户的数据保护功能加密，独立保存在 `%L
 
 | 现象 | 先检查什么 |
 |---|---|
-| 提示缺少文件或 WebView2 环境损坏 | 重新完整解压或重新安装同版 Beta；不需要另装 Evergreen，也不要混入旧版依赖。 |
+| 提示缺少 WebView2 或版本过旧 | 运行包内微软 `MicrosoftEdgeWebview2Setup.exe` 联网安装／更新后重试；不要混入旧版私有浏览器。 |
+| 提示应用文件缺失 | 重新完整解压或安装同版 Beta，不要只复制主 EXE。 |
 | 没有识别出视频 | 打开爆米花的实际视频窗口。播放器版本、窗口标题或可访问性信息变化可能影响识别。 |
 | 匹配失败、没有弹幕 | 检查 API 地址和服务是否可用；该作品或分集也可能确实没有弹幕。可手动换源。 |
 | 弹幕不同步 | 先确认分集和版本，再调整时间偏移。播放信息读不到时不会假装已经自动同步。 |

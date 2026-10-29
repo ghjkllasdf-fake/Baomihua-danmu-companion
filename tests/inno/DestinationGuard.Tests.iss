@@ -43,6 +43,7 @@ begin
   SaveStringToFile(Registered + '\unins000.exe', 'owned uninstaller placeholder', False);
   SaveStringToFile(Registered + '\user-note.txt', 'must survive', False);
   CheckCase('new-directory', DestinationProblemForDrive(NewTarget, '', 3) = '');
+  CheckCase('registered-install-cannot-be-orphaned', DestinationProblemForDrive(NewTarget, Registered, 3) <> '');
   CheckCase('empty-directory', DestinationProblemForDrive(Empty, '', 3) = '');
   CheckCase('unrelated-nonempty', DestinationProblemForDrive(Occupied, '', 3) <> '');
   CheckCase('portable-is-not-installation', DestinationProblemForDrive(Portable, '', 3) <> '');

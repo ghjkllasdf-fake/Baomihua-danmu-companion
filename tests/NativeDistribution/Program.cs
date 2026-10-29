@@ -31,7 +31,8 @@ internal static class DistributionTests
             Check(paths.ApiPreferences==Path.Combine(data,"api.dat"),"App API storage must retain its fixed current-user location.");
             Check(paths.Preferences==Path.Combine(data,"app","preferences.json"),"Display preferences must use the profile directory.");
             Check(paths.ProbeExecutable==Path.Combine(root,"DanmuCompanion.Probe.exe"),"Sampling must target the compiled worker, not a script.");
-            Check(paths.FixedBrowser==Path.Combine(root,"WebView2Runtime"),"Browser must use a private fixed runtime.");
+            Check(paths.FixedBrowser==Path.Combine(root,"WebView2Runtime"),"Legacy private-runtime layout detection must remain deterministic.");
+            Check(paths.BrowserData==Path.Combine(data,"app","webview-evergreen"),"Shared Runtime must not reuse beta.1's fixed-browser profile.");
             var isolated=new ApplicationPaths(root,"smoke-123",data);
             Check(isolated.ApiPreferences==Path.Combine(data,"smoke-123","api.dat"),"Test profiles must not read or overwrite real API data.");
             var normal=new ApplicationPaths(root);
@@ -42,6 +43,7 @@ internal static class DistributionTests
             Reject(()=>new ApplicationPaths("relative-path","app",data),"Relative executable roots must be rejected.");
             Reject(()=>new ApplicationPaths(root,"app","relative-data"),"Relative data roots must be rejected.");
             NativeRuntimeTests.Run();
+            SharedBrowserTests.Run();
             NativeSandboxTests.Run();
             NativeInstanceTests.Run();
             NativeStartupTests.Run();

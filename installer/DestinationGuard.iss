@@ -99,10 +99,15 @@ begin
   end;
   Result := PathComponentProblem(Target);
   if Result <> '' then Exit;
-  if not DirExists(Target) then Exit;
   Registered := '';
   if RegisteredDirectory <> '' then
     Registered := RemoveBackslashUnlessRoot(ExpandFileName(RegisteredDirectory));
+  if (Registered <> '') and (CompareText(Target, Registered) <> 0) then
+  begin
+    Result := '本程序已安装在其他目录。请使用原目录重装，或先卸载旧安装再选择新目录，以免留下无法正常卸载的旧文件。';
+    Exit;
+  end;
+  if not DirExists(Target) then Exit;
   if (Registered <> '') and (CompareText(Target, Registered) = 0) and
      FileExists(Target + '\DanmuCompanion.exe') and
      FileExists(Target + '\manifest.json') and FileExists(Target + '\unins000.exe') then Exit;
