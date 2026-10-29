@@ -51,7 +51,8 @@ internal static class SampledMatchTests
             matcher.Observe("http://fixture.invalid/token","Bound",1,1);await matcher.Completion;
             attempted.Clear();round=2;
             matcher.Observe("http://fixture.invalid/token","Bound",2,2);await matcher.Completion;
-            Check(attempted.Count==3,"A failed bound-source attempt must count toward this round's three-source budget.");
+            Check(attempted.Count==9 && Enumerable.Range(0,3).All(n=>attempted.Skip(n*3).Take(3).Distinct().Count()==3),
+                "Each of the three retry rounds must retain its three-source budget, including the first round's bound-source attempt.");
         }
         int downloads=0;var notices=new List<string>();
         Task<JsonObject> Limited(string api,string action,string value,CancellationToken stop)
@@ -78,12 +79,14 @@ internal static class SampledMatchTests
             Check(externalLoaded?.SourceId=="1","External fixture must first bind the preferred source.");
             externalRound=2;externalLoaded=null;
             matcher.Observe("http://fixture.invalid/token","External",2,2);await matcher.Completion;
-            Check(externalLoaded?.SourceId=="2","External mode must retain fallback after a bound-source 429.");
+            Check(externalLoaded==null && matcher.Status.State=="failed" && matcher.Status.Message.Contains("限流"),
+                "A bound-source 429 must stop both editions, not amplify the rate limit with fallback.");
         }
         using(var matcher=new AutomaticMatcher(ExternalLimited,result=>externalLoaded=result,_=>{},_=>{}))
         {
             externalLoaded=null;matcher.Observe("http://fixture.invalid/token","External",2,3);await matcher.Completion;
-            Check(externalLoaded?.SourceId=="2","External mode must retain fallback after a first-candidate 429.");
+            Check(externalLoaded==null && matcher.Status.State=="failed" && matcher.Status.Message.Contains("限流"),
+                "A first-candidate 429 must stop the external edition as well as includeAPI.");
         }
         Console.WriteLine("PASS: sampled-three candidates, bounded source reuse, external baseline and terminal 429.");
     }

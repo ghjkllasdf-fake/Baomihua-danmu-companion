@@ -4,6 +4,7 @@ namespace Popcorn;
 
 public sealed record VideoWindow(IntPtr Handle,string Title,int X,int Y,int Width,int Height)
 {
+    public uint ProcessId {get;init;}
     public double? DpiScale { get; init; }
     public bool? WindowVisible { get; init; }
     public bool? WindowMinimized { get; init; }

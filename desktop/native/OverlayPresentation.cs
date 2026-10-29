@@ -36,7 +36,7 @@ internal sealed class OverlayPresentation : IDisposable
         try {
             result.fallback=new Window {
                 WindowStyle=WindowStyle.None,AllowsTransparency=true,Background=Brushes.Transparent,
-                ShowInTaskbar=false,ShowActivated=false,Topmost=true,ResizeMode=ResizeMode.NoResize,
+                ShowInTaskbar=false,ShowActivated=false,Topmost=false,ResizeMode=ResizeMode.NoResize,
                 Content=surface,IsHitTestVisible=false
             };
             result.Handle=new WindowInteropHelper(result.fallback).EnsureHandle();
@@ -45,6 +45,13 @@ internal sealed class OverlayPresentation : IDisposable
         } catch { result.Dispose();throw; }
     }
     public void Show() { if(fallback!=null) fallback.Show();else NativeWindows.ShowOverlay(Handle); }
+    public bool Show(VideoWindow video)
+    {
+        if(fallback==null)return NativeWindows.FollowCompanion(Handle,video,true,true);
+        if(!NativeWindows.FollowCompanion(Handle,video))return false;
+        fallback.Show();
+        return NativeWindows.FollowCompanion(Handle,video,false);
+    }
     public void Hide() { if(fallback!=null) fallback.Hide();else NativeWindows.HideOverlay(Handle); }
     public void ResizeContent(int width,int height) { if(source!=null) NativeWindows.ResizeOverlayChild(source.Handle,width,height); }
     private void ReleaseNative()

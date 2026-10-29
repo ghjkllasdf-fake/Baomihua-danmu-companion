@@ -12,7 +12,7 @@ public static class ProbeTransportTests
     private static void Check(bool value,string message) { if (!value) throw new Exception(message); }
     private static void Reject(Action action) { try { action(); } catch (InvalidDataException) { return; } throw new Exception("Invalid probe data was accepted."); }
     private static PlayerSample Sample()=>new(new VideoWindow(new IntPtr(0x123456789abL),"movie 第2集",-1920,-120,1920,1080)
-        {DpiScale=1.5,WindowVisible=true,WindowMinimized=false,IsForeground=null},"movie",2,10000.25,false,1000,"window client","uia-seekbar-ms+smtc",200,60000);
+        {DpiScale=1.5,WindowVisible=true,WindowMinimized=false,IsForeground=null,ProcessId=1234},"movie",2,10000.25,false,1000,"window client","uia-seekbar-ms+smtc",200,60000);
     private static async Task RejectAsync<T>(Func<Task> action) where T:Exception
     {
         try { await action(); } catch (T) { return; }
@@ -25,6 +25,7 @@ public static class ProbeTransportTests
             var sample=Sample(); var bytes=ProbeProtocol.Encode(sample,1);
             var roundtrip=ProbeProtocol.Decode(bytes,0,1200);
             Check(roundtrip.Sequence==1 && roundtrip.Sample==sample,"A nonzero full-width HWND, nullable metadata and negative coordinates did not roundtrip.");
+            Check(roundtrip.Sample.Window.ProcessId==1234,"The sampled video process identity was not preserved across the worker boundary.");
             var missing=new PlayerSample(null,"",0,null,null,1000,"missing","unavailable");
             Check(ProbeProtocol.Decode(ProbeProtocol.Encode(missing,2),1,1200).Sample==missing,"An unavailable player gained invented data.");
             var aged=ProbeProtocol.Decode(bytes,0,2600).Sample;
@@ -39,12 +40,17 @@ public static class ProbeTransportTests
                 o=>o["version"]=2,o=>o["sequence"]=0,o=>o["unexpected"]="credential-marker",o=>o["source"]="pretend-automatic",
                 o=>o["positionMs"]=-1,o=>o["playing"]="paused",o=>o["durationMs"]=-1,o=>o["positionResolutionMs"]=0,
                 o=>o["title"]=new string('x',1025),o=>o["window"]["handle"]=0,o=>o["window"]["width"]=0,
-                o=>o["window"]["dpiScale"]=-1,o=>o["window"]["windowVisible"]="true",o=>o["window"]=null })
+                o=>o["window"]["dpiScale"]=-1,o=>o["window"]["windowVisible"]="true",o=>o["window"]["processId"]=-1,
+                o=>o["window"]["processId"]=4294967296L,o=>o["window"]["processId"]="1234",o=>o["window"]["processId"]=1.5,
+                o=>o["window"]["processId"]=null,o=>o["window"]=null })
             {
                 var invalid=JsonNode.Parse(original).AsObject(); change(invalid);
                 Reject(()=>ProbeProtocol.Decode(Encoding.UTF8.GetBytes(invalid.ToJsonString()),0,1200));
             }
             Reject(()=>ProbeProtocol.Decode(Encoding.UTF8.GetBytes(original.Insert(1,"\"sequence\":2,")),0,1200));
+            var oldWire=JsonNode.Parse(original).AsObject();oldWire["window"].AsObject().Remove("processId");
+            Check(ProbeProtocol.Decode(Encoding.UTF8.GetBytes(oldWire.ToJsonString()),0,1200).Sample.Window.ProcessId==0,
+                "A legacy frame without sampled process identity must remain explicitly untrusted, not invent one.");
             Reject(()=>ProbeProtocol.Decode(new byte[ProbeProtocol.MaxFrameBytes+1],0,1200));
             Reject(()=>ProbeProtocol.Decode(new byte[] {255},0,1200));
             Reject(()=>ProbeProtocol.Decode(Encoding.UTF8.GetBytes("null"),0,1200));

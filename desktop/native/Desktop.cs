@@ -32,6 +32,7 @@ public sealed class DesktopWindow : Form
     private CancellationTokenSource pending = new();
     private int revision;
     private long documentEpoch,stateSequence,mediaRevision,settingsRevision;
+    private long presentationTicket,matchOperation=-1;
     private string apiBase;
     private volatile bool closing;
     private int playerUpdateQueued;
@@ -85,8 +86,8 @@ public sealed class DesktopWindow : Form
         probe=new PlayerProbe(root); probe.SampleUpdated+=QueuePlayerUpdate; sample=probe.Latest;
         startup=new StartupRegistration(root);
         tray=new DesktopTray(root,OpenWorkbench,RequestExit);
-        automaticMatcher=new AutomaticMatcher(api.FetchAsync,ApplyAutomaticMatch,_=>PushState(),message=>tray.ShowFailure(message),localApi==null ? 0 : 3);
-        CommentsLoaded+=overlay.SetComments;
+        automaticMatcher=new AutomaticMatcher(api.FetchAsync,ApplyAutomaticMatch,OnAutomaticState,message=>tray.ShowFailure(message),localApi==null ? 0 : 3);
+        CommentsLoaded+=comments=>overlay.SetComments(comments,presentationTicket);
         SettingsUpdated+=overlay.SetSettings;
         ManualClockUpdated+=(position,playing)=>sync.Manual(position,playing,Monotonic.Now);
         timer.Tick+=(_,_)=>{ UpdatePlayer(); PushState(); };
@@ -164,6 +165,13 @@ public sealed class DesktopWindow : Form
         if(closing || result.MediaRevision!=mediaRevision || result.Title!=sample.Title || result.EpisodeNumber!=sample.EpisodeNumber)return;
         CommentCount=result.Comments.Length;commentSourceTitle=result.SourceTitle;CommentsLoaded?.Invoke(result.Comments);
     }
+    private void OnAutomaticState(AutomaticMatchStatus status)
+    {
+        if(closing)return;
+        if(matchOperation!=automaticMatcher.OperationId){matchOperation=automaticMatcher.OperationId;presentationTicket++;}
+        string message=status.State=="matching" && !status.Message.StartsWith("搜索弹幕源",StringComparison.Ordinal) ? "搜索弹幕源" : status.Message;
+        overlay.SetStatus(presentationTicket,status.State,message);PushState();
+    }
     private void QueuePlayerUpdate()
     {
         if(closing || IsDisposed || !IsHandleCreated || Interlocked.Exchange(ref playerUpdateQueued,1)!=0) return;
@@ -183,14 +191,15 @@ public sealed class DesktopWindow : Form
         if (sample.Title.Length>0 && lastMedia!=media)
         {
             mediaRevision++;
+            overlay.SetStatus(++presentationTicket,"waiting","");
             sync.BeginMediaEpoch(now);
             pending.Cancel(); revision++; CommentCount=0; commentSourceTitle=""; overlay.SetComments(Array.Empty<Comment>());
         }
         if (sample.Title.Length>0) lastMedia=media;
         bool identified=sample.Window!=null && !string.IsNullOrWhiteSpace(sample.Title);
         sync.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,media,sample.PositionResolutionMs); sync.Tick(now);
-        var video=sample.Title.Length>0 && sync.Mode is "automatic" or "manual" ? sample.Window : null;
-        overlay.Update(video,sync.At(now),sync.Running,sync.SeekRevision,sync.Mode=="automatic",sync.LastProofMs);
+        var video=identified ? sample.Window : null;
+        overlay.Update(video,sync.At(now),sync.Running,sync.SeekRevision,sync.Mode=="automatic",sync.LastProofMs,sync.Mode is "automatic" or "manual");
         automaticMatcher?.Observe(apiBase,identified && (localApi==null || apiBase.Length>0) ? sample.Title : "",sample.EpisodeNumber,mediaRevision);
     }
     private void OnNavigationStarting(object sender,CoreWebView2NavigationStartingEventArgs e)
@@ -267,6 +276,7 @@ public sealed class DesktopWindow : Form
         if (!IsAppSource(e.Source) || closing) return;
         long epoch=documentEpoch;
         string id="", type="", commandCode="command-failed";
+        long requestNoticeTicket=0;
         bool settingsCommitted=false;
         try
         {
@@ -380,6 +390,8 @@ public sealed class DesktopWindow : Form
                     throw new InvalidOperationException("播放器已切换，请核对分集并重新加载弹幕。");
                 }
                 automaticMatcher?.Suspend();
+                requestNoticeTicket=++presentationTicket;
+                overlay.SetStatus(requestNoticeTicket,type=="search" ? "matching" : "loading",type=="search" ? "搜索弹幕源" : "已发现弹幕，进行装载");
                 apiBase=requestedBase;
                 pending.Cancel(); pending.Dispose(); pending=new(); int current=++revision;
                 var body=await api.FetchAsync(apiBase,type,value,pending.Token);
@@ -393,6 +405,7 @@ public sealed class DesktopWindow : Form
                     UpdatePlayer();
                     if (closing || current!=revision) throw new OperationCanceledException();
                     CommentCount=comments.Length;commentSourceTitle=string.IsNullOrWhiteSpace(requestedSource) ? "手动选择的来源" : requestedSource; CommentsLoaded?.Invoke(comments);
+                    overlay.SetStatus(requestNoticeTicket,comments.Length>0 ? "loaded" : "failed",comments.Length>0 ? "已发现弹幕，进行装载" : "未找到弹幕，可手动搜索或换源");
                     result=new { count=CommentCount, duration=body["videoDuration"]?.DeepClone() };
                 }
                 else result=body;
@@ -406,6 +419,7 @@ public sealed class DesktopWindow : Form
             if (epoch!=documentEpoch) return;
             string error=ex is OperationCanceledException ? "请求已取消。" : ex is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException ? ex.Message : "操作失败，请重试。";
             if (!string.IsNullOrEmpty(apiBase)) error=error.Replace(apiBase,"[API 地址]",StringComparison.OrdinalIgnoreCase);
+            if(requestNoticeTicket>0 && requestNoticeTicket==presentationTicket)overlay.SetStatus(requestNoticeTicket,"failed",error);
             string code=type=="update-settings" ? settingsCommitted ? "settings-outcome-unknown" : "settings-not-applied" : commandCode;
             Send(new { type="response", id, ok=false, error, code });
         }

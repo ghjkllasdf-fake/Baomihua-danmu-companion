@@ -14,6 +14,9 @@ public static class NativeWindows
     private delegate bool EnumProc(IntPtr window,IntPtr parameter);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumProc callback,IntPtr parameter);
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window,out uint processId);
+    [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr window,uint command);
+    [DllImport("user32.dll")] private static extern IntPtr WindowFromPoint(Point point);
+    [DllImport("user32.dll")] private static extern IntPtr GetAncestor(IntPtr window,uint flags);
     [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr window,out Rect rect);
     [DllImport("user32.dll")] private static extern bool ClientToScreen(IntPtr window,ref Point point);
     [DllImport("user32.dll",CharSet=CharSet.Unicode)] private static extern int GetWindowText(IntPtr window,StringBuilder text,int size);
@@ -32,7 +35,7 @@ public static class NativeWindows
     [DllImport("dwmapi.dll")] private static extern int DwmExtendFrameIntoClientArea(IntPtr window,ref Margins margins);
     internal static IntPtr CreateDwmOverlay()
     {
-        const uint styles=0x80000|0x20|0x08000000|0x80|0x8;
+        const uint styles=0x80000|0x20|0x08000000|0x80;
         // WS_CLIPCHILDREN prevents the parent's GDI background/text painting
         // from replacing transparent pixels outside the WPF drawing bounds.
         IntPtr window=CreateWindowEx(styles,"STATIC","Popcorn danmaku overlay",0x82000000,
@@ -53,17 +56,26 @@ public static class NativeWindows
     internal static void ResizeOverlayChild(IntPtr window,int width,int height)=>SetWindowPos(window,IntPtr.Zero,0,0,width,height,0x10|0x4);
     public static void ClickThrough(IntPtr window) => SetWindowLongPtr(window,-20,new IntPtr(GetWindowLongPtr(window,-20).ToInt64()|0x20|0x08000000|0x80));
     public static bool HasExtendedStyles(IntPtr window,long flags)=>window!=IntPtr.Zero && (GetWindowLongPtr(window,-20).ToInt64()&flags)==flags;
+    internal static uint ProcessId(IntPtr window) {GetWindowThreadProcessId(window,out uint process);return process;}
+    internal static bool IsVideoPointExposed(IntPtr overlay,IntPtr video,int x,int y)
+    {
+        IntPtr hit=GetAncestor(WindowFromPoint(new Point {X=x,Y=y}),2);
+        return hit==overlay || hit==GetAncestor(video,2);
+    }
     public static VideoWindow Read(IntPtr window)
     {
+        uint process=ProcessId(window);
+        if(process==0)return null;
         if (!GetClientRect(window,out var rect)) return null;
         var point=new Point(); if (!ClientToScreen(window,ref point)) return null;
         var title=new StringBuilder(1024); GetWindowText(window,title,title.Capacity);
         // GetDpiForWindow reports the target window's DPI awareness, not a guessed monitor scale.
         // https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getdpiforwindow
         uint dpi=GetDpiForWindow(window);
+        if(ProcessId(window)!=process)return null;
         return new VideoWindow(window,title.ToString(),point.X,point.Y,rect.Right-rect.Left,rect.Bottom-rect.Top)
         {
-            DpiScale=dpi>0 ? dpi/96.0 : null,WindowVisible=IsWindowVisible(window),
+            ProcessId=process,DpiScale=dpi>0 ? dpi/96.0 : null,WindowVisible=IsWindowVisible(window),
             WindowMinimized=IsIconic(window),IsForeground=GetForegroundWindow()==window
         };
     }
@@ -96,5 +108,22 @@ public static class NativeWindows
         },IntPtr.Zero);
         return SelectPlayer(candidates,GetForegroundWindow(),preferredTitle);
     }
-    public static void Follow(IntPtr overlay,VideoWindow video)=>SetWindowPos(overlay,new IntPtr(-1),video.X,video.Y,video.Width,video.Height,0x10|0x40);
+    // Keep an independent no-activate HWND adjacent to the video. Cross-process
+    // parenting would also couple the lifetime of the WPF presentation source.
+    // https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-setwindowpos
+    internal static bool FollowCompanion(IntPtr overlay,VideoWindow video,bool geometryChanged=true,bool show=false)
+    {
+        uint flags=0x10|0x200|(show ? 0x40u : 0); // NOACTIVATE | NOOWNERZORDER | optional SHOWWINDOW
+        bool targetTopmost=HasExtendedStyles(video.Handle,0x8);
+        if(HasExtendedStyles(overlay,0x8)!=targetTopmost &&
+            !SetWindowPos(overlay,new IntPtr(targetTopmost ? -1 : -2),0,0,0,0,flags|0x1|0x2))return false;
+        IntPtr previous=GetWindow(video.Handle,3); // GW_HWNDPREV
+        // The common case changes only geometry; changing Z order every frame can
+        // reorder unrelated windows and interfere with activation.
+        if(previous==overlay && !geometryChanged && !show)return true;
+        if(!geometryChanged)flags|=0x1|0x2;
+        if(previous==overlay)flags|=0x4;
+        return SetWindowPos(overlay,previous==overlay ? IntPtr.Zero : previous,video.X,video.Y,video.Width,video.Height,flags);
+    }
+    public static void Follow(IntPtr overlay,VideoWindow video)=>FollowCompanion(overlay,video);
 }

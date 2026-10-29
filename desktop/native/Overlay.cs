@@ -33,12 +33,14 @@ public sealed class OverlayHost : IDisposable
         if (failure!=null) throw new InvalidOperationException("原生弹幕窗口启动失败。",failure);
     }
     private void Post(Action action) { if (!window.Dispatcher.HasShutdownStarted) window.Dispatcher.BeginInvoke(action); }
-    public void SetComments(Comment[] comments)=>Post(()=>window.Surface.Load(comments));
+    public void SetComments(Comment[] comments)=>SetComments(comments,-1);
+    public void SetComments(Comment[] comments,long ticket)=>Post(()=>window.Surface.Load(comments,ticket));
+    public void SetStatus(long ticket,string state,string message)=>Post(()=>{window.Surface.SetStatus(ticket,state,message);window.Follow();});
     public void SetSettings(DanmakuSettings settings)=>Post(()=>window.Surface.Configure(settings));
-    public void Update(VideoWindow video,double position,bool running,int revision,bool automatic,double proofStamp)
+    public void Update(VideoWindow video,double position,bool running,int revision,bool automatic,double proofStamp,bool allowComments=true)
     {
         double stamp=Monotonic.Now;
-        Post(()=>{ window.Surface.UpdateClock(position,running,stamp,revision,automatic,proofStamp); window.Target=video; window.Follow(); });
+        Post(()=>{ window.Surface.AllowComments=allowComments;window.Surface.UpdateClock(position,running,stamp,revision,automatic,proofStamp); window.Target=video; window.Follow(); });
     }
     public double[] FrameIntervals()=>window.Dispatcher.Invoke(()=>window.Surface.Intervals.ToArray());
     public int MaxActive()=>window.Dispatcher.Invoke(()=>window.Surface.MaxActive);
@@ -76,6 +78,9 @@ internal sealed class OverlayWindow
     {
         Surface.IsHitTestVisible=false;
         presentation=OverlayPresentation.Create(Surface);handle=presentation.Handle;
+        Surface.IsPointExposed=(x,y)=>Target!=null && lastBounds!=null && Surface.ActualWidth>0 && Surface.ActualHeight>0 &&
+            NativeWindows.IsVideoPointExposed(handle,Target.Handle,lastBounds.X+(int)(x*lastBounds.Width/Surface.ActualWidth),
+                lastBounds.Y+(int)(y*lastBounds.Height/Surface.ActualHeight));
         runFrameWork=RunFrameWork;
         framePump=new DispatcherTimer(DispatcherPriority.Render) { Interval=TimeSpan.FromMilliseconds(16) };
         framePump.Tick+=(_,_)=>{ if (IsVisible) Surface.InvalidateVisual(); };
@@ -83,7 +88,7 @@ internal sealed class OverlayWindow
         CompositionTarget.Rendering+=Rendering;
     }
     public void Close() { CancelFrameWork();framePump.Stop();CompositionTarget.Rendering-=Rendering;presentation.Dispose(); }
-    private void Show()=>presentation.Show();
+    private bool Show(VideoWindow video)=>presentation.Show(video);
     private void Hide()=>presentation.Hide();
     private void Rendering(object sender,EventArgs args)
     {
@@ -117,16 +122,20 @@ internal sealed class OverlayWindow
     }
     public void Follow()
     {
-        bool visible=Target!=null && Surface.HasComments && Surface.Enabled && NativeWindows.IsWindowVisible(Target.Handle) &&
-            !NativeWindows.IsIconic(Target.Handle);
+        bool visible=Target!=null && (Surface.HasComments && Surface.AllowComments || Surface.HasNotice) && Surface.Enabled && NativeWindows.IsWindowVisible(Target.Handle) &&
+            !NativeWindows.IsIconic(Target.Handle) && Target.ProcessId!=0 && NativeWindows.ProcessId(Target.Handle)==Target.ProcessId;
+        Surface.VideoVisible=visible;
         if (!visible) { if (IsVisible) Hide(); return; }
         var bounds=NativeWindows.Read(Target.Handle);
-        if (bounds==null || bounds.Title!=Target.Title || bounds.Width<100 || bounds.Height<100) { Hide(); return; }
-        if (!IsVisible) { Surface.Rebuild(true); Show(); }
-        if (lastBounds==null || bounds.X!=lastBounds.X || bounds.Y!=lastBounds.Y || bounds.Width!=lastBounds.Width || bounds.Height!=lastBounds.Height)
+        if (bounds==null || bounds.Title!=Target.Title || bounds.Width<100 || bounds.Height<100) { Surface.VideoVisible=false;Hide(); return; }
+        bool moved=lastBounds==null || bounds.X!=lastBounds.X || bounds.Y!=lastBounds.Y || bounds.Width!=lastBounds.Width || bounds.Height!=lastBounds.Height;
+        if(moved)
         {
-            NativeWindows.Follow(handle,bounds);presentation.ResizeContent(bounds.Width,bounds.Height);lastBounds=bounds;
+            presentation.ResizeContent(bounds.Width,bounds.Height);lastBounds=bounds;
         }
+        if(!IsVisible)
+        {Surface.Rebuild(true);if(!Show(bounds)){Surface.VideoVisible=false;Hide();}}
+        else if(!NativeWindows.FollowCompanion(handle,bounds,moved)){Surface.VideoVisible=false;Hide();}
     }
 }
 
@@ -150,6 +159,15 @@ internal sealed class OverlaySurface : FrameworkElement
     private IEnumerator<int> pendingFrame;
     private int generation;
     private bool detached,stepping;
+    private readonly VideoNotice notice=new();
+    private long contentTicket=-1;
+    private FormattedText noticeText;
+    private string noticeLabel="";
+    private double noticeWidth,noticeDpi;
+    public bool VideoVisible {get;set;}
+    public bool AllowComments {get;set;}=true;
+    public Func<double,double,bool> IsPointExposed {get;set;}
+    public bool HasNotice=>notice.At(Monotonic.Now).Visible;
     public bool HasPendingFrame=>pendingFrame!=null;
     public bool NeedsWork=>!detached && (rebuild || pendingFrame!=null || queue.HasDue(Position));
     public bool HasComments { get; private set; }
@@ -163,14 +181,18 @@ internal sealed class OverlaySurface : FrameworkElement
         foreach (var bullet in active) shapes.Release(bullet.Sprite);
         active.Clear();
     }
-    public void Load(Comment[] comments)
+    public void Load(Comment[] comments,long ticket=-1)
     {
         CancelFrame(); detached=false;
         var display=comments.Select(c=>c with { Text=DanmakuText.SingleLine(c.Text) }).Where(c=>c.Text.Length>0).ToArray();
         ReleaseActive();
         if (display.Length==0) shapes.ClearUnused();
         queue=new(display); HasComments=display.Length>0; Rebuild();
+        contentTicket=ticket;
+        if(HasComments)notice.ContentLoaded(ticket);
     }
+    public void SetStatus(long ticket,string state,string message)
+    {notice.Set(ticket,state,message,Monotonic.Now);InvalidateVisual();}
     private void ReleasePreparing()
     {
         if(preparing==null) return;
@@ -383,14 +405,36 @@ internal sealed class OverlaySurface : FrameworkElement
         if (width<=0 || height<=0) return;
         double scale=LayoutMath.Scale(width,height,layoutSettings.ScaleWithWindow),line=layoutSettings.FontSize*scale*1.4+4*scale;
         dc.PushClip(new RectangleGeometry(new Rect(0,0,width,Math.Max(0,height*settings.AreaFraction))));
-        foreach (var b in active)
+        bool rendered=false;
+        foreach (var b in AllowComments ? active : Enumerable.Empty<Bullet>())
         {
             double x=width-b.Motion.Progress(position)*(width+b.Width);
             double y=6*scale+b.Lane*line;
             // Text and outline share this bitmap; brush alpha avoids a full-overlay opacity layer.
             dc.DrawRectangle(b.Sprite.AlphaBrush(settings.Opacity),null,new Rect(x,y,b.Sprite.Width,b.Sprite.Height));
+            double left=Math.Max(0,x),right=Math.Min(width,x+b.Sprite.Width),bottom=Math.Min(height*settings.AreaFraction,y+b.Sprite.Height);
+            if(!rendered && notice.AwaitingDraw && VideoVisible && settings.Opacity>0 && right>left && bottom>y &&
+                IsPointExposed?.Invoke((left+right)/2,(y+bottom)/2)==true)rendered=true;
         }
         dc.Pop();
+        notice.Rendered(contentTicket,Monotonic.Now,rendered);
+        DrawNotice(dc,width);
+    }
+    private void DrawNotice(DrawingContext dc,double width)
+    {
+        var view=notice.At(Monotonic.Now);
+        if(!view.Visible || width<64)return;
+        double dpi=VisualTreeHelper.GetDpi(this).PixelsPerDip,maxWidth=Math.Min(320,width-48);
+        if(noticeText==null || noticeLabel!=view.Text || noticeWidth!=maxWidth || noticeDpi!=dpi)
+        {
+            noticeLabel=view.Text;noticeWidth=maxWidth;noticeDpi=dpi;
+            noticeText=new FormattedText(view.Text,System.Globalization.CultureInfo.CurrentUICulture,FlowDirection.LeftToRight,
+                new Typeface("Microsoft YaHei UI"),13,Brushes.White,dpi) {MaxTextWidth=maxWidth,MaxTextHeight=60,Trimming=TextTrimming.CharacterEllipsis};
+        }
+        double boxWidth=noticeText.Width+24,boxHeight=noticeText.Height+16,x=width-boxWidth-12;
+        dc.PushOpacity(view.Opacity);
+        dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(220,35,39,34)),null,new Rect(x,12,boxWidth,boxHeight),6,6);
+        dc.DrawText(noticeText,new Point(x+12,20));dc.Pop();
     }
     public void Detach() { CancelFrame(); detached=true;ReleaseActive(); shapes.ClearUnused(); colors.Clear(); recent.Clear();HasComments=false; }
 }

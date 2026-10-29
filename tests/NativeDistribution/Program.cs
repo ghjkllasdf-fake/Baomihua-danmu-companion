@@ -22,6 +22,10 @@ internal static class DistributionTests
     {
         try
         {
+            if(args.Length>0 && args[0]=="--video-companion-target")return VideoCompanionTests.RunTarget();
+            if(args.Length>0 && args[0]=="--video-companion-tests"){VideoCompanionTests.Run();return 0;}
+            if(args.Length>0 && args[0]=="--retry-match-tests"){RetryMatchTests.Run().GetAwaiter().GetResult();return 0;}
+            if(args.Length>0 && args[0]=="--video-notice-tests"){VideoNoticeTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--image-fixture"){Console.WriteLine("ready");Console.Out.Flush();Console.ReadLine();return 0;}
             if(args.Length>0 && args[0]=="--process-image-tests"){NativeProcessImageTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--fixture")return NativeChildTests.Emit(args[^1]);
@@ -53,6 +57,7 @@ internal static class DistributionTests
             NativeInstanceTests.Run();
             NativeStartupTests.Run();
             NativePreferenceTests.Run();
+            VideoNoticeTests.Run();
             PlaybackEventSignalTests.Run();
             ProbeOperationTests.Run();
             ProbeTransportTests.Run("All").GetAwaiter().GetResult();
@@ -61,6 +66,7 @@ internal static class DistributionTests
             AutomaticMatchTests.Run().GetAwaiter().GetResult();
             SampledMatchTests.Run().GetAwaiter().GetResult();
             MatchingDeadlineTests.Run().GetAwaiter().GetResult();
+            RetryMatchTests.Run().GetAwaiter().GetResult();
             EmbeddedApiTests.Run().GetAwaiter().GetResult();
             ApiTimeoutTests.Run().GetAwaiter().GetResult();
             Console.WriteLine($"PASS: {assertions} native distribution path assertions.");

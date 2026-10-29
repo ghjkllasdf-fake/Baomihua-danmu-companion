@@ -12,7 +12,7 @@ public static class ProbeProtocol
 {
     public const int MaxFrameBytes=32768;
     private const double MaxMeasurement=9007199254740991;
-    private sealed record WindowFrame(long Handle,string Title,int X,int Y,int Width,int Height,double? DpiScale,bool? WindowVisible,bool? WindowMinimized,bool? IsForeground);
+    private sealed record WindowFrame(long Handle,string Title,int X,int Y,int Width,int Height,double? DpiScale,bool? WindowVisible,bool? WindowMinimized,bool? IsForeground,uint ProcessId=0);
     private sealed record Frame(int Version,long Sequence,WindowFrame Window,string Title,int EpisodeNumber,double? PositionMs,bool? Playing,
         double StampMs,string Detail,string Source,double PositionResolutionMs,double? DurationMs);
     private static readonly JsonSerializerOptions Json=new() { PropertyNamingPolicy=JsonNamingPolicy.CamelCase,UnmappedMemberHandling=JsonUnmappedMemberHandling.Disallow,
@@ -36,7 +36,7 @@ public static class ProbeProtocol
     {
         ArgumentNullException.ThrowIfNull(sample);
         var w=sample.Window;
-        var window=w==null ? null : new WindowFrame(w.Handle.ToInt64(),w.Title,w.X,w.Y,w.Width,w.Height,w.DpiScale,w.WindowVisible,w.WindowMinimized,w.IsForeground);
+        var window=w==null ? null : new WindowFrame(w.Handle.ToInt64(),w.Title,w.X,w.Y,w.Width,w.Height,w.DpiScale,w.WindowVisible,w.WindowMinimized,w.IsForeground,w.ProcessId);
         var frame=new Frame(1,sequence,window,sample.Title,sample.EpisodeNumber,sample.PositionMs,sample.Playing,sample.StampMs,sample.Detail,sample.Source,sample.PositionResolutionMs,sample.DurationMs);
         Validate(frame,0,sample.StampMs);
         var bytes=JsonSerializer.SerializeToUtf8Bytes(frame,Json);
@@ -53,7 +53,7 @@ public static class ProbeProtocol
             Validate(frame,previous,now);
             var w=frame.Window;
             var window=w==null ? null : new VideoWindow(new IntPtr(w.Handle),w.Title,w.X,w.Y,w.Width,w.Height)
-                { DpiScale=w.DpiScale,WindowVisible=w.WindowVisible,WindowMinimized=w.WindowMinimized,IsForeground=w.IsForeground };
+                { ProcessId=w.ProcessId,DpiScale=w.DpiScale,WindowVisible=w.WindowVisible,WindowMinimized=w.WindowMinimized,IsForeground=w.IsForeground };
             bool aged=now-frame.StampMs>1500;
             return new(frame.Sequence,new(window,frame.Title,frame.EpisodeNumber,aged ? null : frame.PositionMs,aged ? null : frame.Playing,frame.StampMs,
                 aged ? "播放器采样已过期" : frame.Detail,aged ? "unavailable" : frame.Source,frame.PositionResolutionMs,frame.DurationMs>0 ? frame.DurationMs : null));

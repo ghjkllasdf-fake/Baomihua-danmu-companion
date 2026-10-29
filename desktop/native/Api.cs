@@ -15,6 +15,10 @@ public sealed class ApiRateLimitException : InvalidOperationException
 {
     public ApiRateLimitException() : base("弹幕服务已限流，请稍后重试；不会自动循环请求。") { }
 }
+public sealed class ApiAuthenticationException : InvalidOperationException
+{
+    public ApiAuthenticationException() : base("弹幕服务认证失败，请检查 API 地址或凭据。") { }
+}
 
 public sealed class ApiClient : IDisposable
 {
@@ -47,6 +51,7 @@ public sealed class ApiClient : IDisposable
         {
             using var response=await client.GetAsync(apiBase+"/api/v2"+path,HttpCompletionOption.ResponseHeadersRead,requestStop).ConfigureAwait(false);
             if((int)response.StatusCode==429)throw new ApiRateLimitException();
+            if((int)response.StatusCode is 401 or 403)throw new ApiAuthenticationException();
             if (!response.IsSuccessStatusCode) throw new InvalidOperationException("弹幕服务返回 HTTP "+(int)response.StatusCode+"。");
             if (response.Content.Headers.ContentLength>64*1024*1024) throw new InvalidOperationException("弹幕响应超过大小限制。");
             using var stream=await response.Content.ReadAsStreamAsync(requestStop).ConfigureAwait(false);
@@ -72,6 +77,7 @@ public sealed class ApiClient : IDisposable
         }
         catch (OperationCanceledException) { throw; }
         catch (ApiRateLimitException) { throw; }
+        catch (ApiAuthenticationException) { throw; }
         catch (Exception ex)
         {
             string message=ex is HttpRequestException ? "无法连接弹幕服务，请检查地址和网络。" : ex.Message;
