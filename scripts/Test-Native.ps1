@@ -57,6 +57,10 @@ if($Module -eq 'all'){
     if($LASTEXITCODE -ne 0){ throw 'Settings-latency host ownership regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -File (Join-Path $root 'tests\Test-Preferences.ps1')
     if($LASTEXITCODE -ne 0){ throw 'Preference compatibility regression failed.' }
+    & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -File (Join-Path $root 'tests\Test-AppearancePreferences.ps1')
+    if($LASTEXITCODE -ne 0){ throw 'Appearance preference regression failed.' }
+    & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-AppearanceRuntime.ps1')
+    if($LASTEXITCODE -ne 0){ throw 'Appearance host/runtime regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -File (Join-Path $root 'tests\Test-ApiPreferences.ps1')
     if($LASTEXITCODE -ne 0){ throw 'API persistence regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-ApiStartup.ps1')

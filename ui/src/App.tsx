@@ -10,9 +10,12 @@ import { SourcePanel } from './components/SourcePanel';
 import { ApiConnection } from './components/ApiConnection';
 import { LocalApiConnection } from './components/LocalApiConnection';
 import { validAutomaticMatch, type AutomaticMatchStatus } from './automatic-match';
+import { useAppearance } from './use-appearance';
+import { SkinPicker } from './components/SkinPicker';
 
 export function App() {
-  const [view, setView] = useState<'display' | 'sources' | 'more'>('display'), [canHide, setCanHide] = useState(false);
+  const [view, setView] = useState<'display' | 'sources' | 'more' | 'appearance'>('display'), [canHide, setCanHide] = useState(false);
+  const appearance = useAppearance();
   const mainHeading = useRef<HTMLHeadingElement>(null), viewHeading = useRef<HTMLHeadingElement>(null);
   const [settings, setSettings] = useState(defaultSettings), [playback, setPlayback] = useState(initialPlayback);
   const player = playback.player;
@@ -135,12 +138,14 @@ export function App() {
     <header className="mini-toolbar">
       <div className="master-switch"><h1 className="mini-heading" ref={mainHeading} tabIndex={-1} aria-label="爆米花弹幕面板"><label htmlFor="master-enabled">弹幕</label></h1><input id="master-enabled" aria-label="显示弹幕" type="checkbox" role="switch" checked={settings.enabled} onChange={e => update({ enabled: e.target.checked })} /></div>
       <StartupOptions available={connected && desktopLifecycle} />
+      <button className="skin-trigger" aria-label="切换皮肤" title="切换皮肤" aria-pressed={view === 'appearance'} onClick={() => navigate(view === 'appearance' ? 'display' : 'appearance')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 4 6 6-7 7-6-6zM14 4l2-2 6 6-2 2M7 11l-2 2 6 6 2-2M6 17c-4 0-5 2-4 5 3 1 5 0 5-4" /></svg></button>
       <button className="hide-panel text-button" aria-label="收起面板" disabled={!canHide} onClick={() => void hide()}>收起</button>
     </header>
     {!inDesktop && <div className="preview-banner" role="status">浏览器预览模式：未连接桌面宿主或播放器。</div>}
     {shownError && <div className="app-error" role="alert">{shownError}<button aria-label="关闭提示" onClick={() => { setConnectionError(''); setError(''); settingsSession.current?.dismissMessage(); }}>×</button></div>}
     <main id="main" className="panel-main">
-      {view !== 'display' && <nav className="panel-navigation" aria-label="面板导航"><button className="text-button" onClick={() => navigate('display')} aria-label="返回设置">← 返回设置</button><h2 ref={viewHeading} tabIndex={-1}>{view === 'sources' ? '手动搜索' : '更多设置'}</h2></nav>}
+      {view !== 'display' && <nav className="panel-navigation" aria-label="面板导航"><button className="text-button" onClick={() => navigate('display')} aria-label="返回设置">← 返回设置</button><h2 ref={viewHeading} tabIndex={-1}>{view === 'sources' ? '手动搜索' : view === 'appearance' ? '外观与皮肤' : '更多设置'}</h2></nav>}
+      <div hidden={view !== 'appearance'}><SkinPicker {...appearance} /></div>
       <div hidden={view !== 'display'} className="display-view">
         {!localApi && (!inDesktop || connected) && <ApiConnection apiBase={apiBase} saved={apiSaved} available={connected && apiPersistence} notice={apiNotice} onSaved={(base, saved) => { setApiBase(base); setApiSaved(saved); setApiNotice(''); }} />}
         {localApi && localApi.state !== 'ready' && <p className="local-api-summary" role="status">{localApi.state === 'starting' ? '本地弹幕服务正在启动…' : '本地服务未就绪，请在更多设置中重试。'}</p>}
