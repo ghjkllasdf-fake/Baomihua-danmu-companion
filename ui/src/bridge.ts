@@ -66,6 +66,8 @@ export function request<C extends HostRequest>(...command: C): Promise<Result<C[
   const payload: unknown = command[1] ?? {};
   if (!validPayload(type, payload)) return Promise.reject(new HostCommandError('请求参数无效，未发送给宿主。', 'invalid-payload'));
   if (type !== 'hello' && !stateReady) return Promise.reject(new HostCommandError('尚未完成安全握手，请重新打开新版工作台。', 'host-not-ready'));
+  if ((type === 'get-appearance' || type === 'set-appearance') && (connection.status !== 'ready' || !connection.hello.capabilities.includes('appearance-v1')))
+    return Promise.reject(new HostCommandError('宿主不支持保存皮肤。', 'unsupported-capability'));
   if (type === 'hide' && (connection.status !== 'ready' || !connection.hello.capabilities.includes('tray-flyout-v1')))
     return Promise.reject(new HostCommandError('宿主不支持托盘面板。', 'unsupported-capability'));
   if ((type === 'get-local-api' || type === 'set-local-sources') &&
@@ -83,7 +85,7 @@ export function request<C extends HostRequest>(...command: C): Promise<Result<C[
       if (type === 'hello' && epoch === handshakeEpoch) connectionChanged({ status: 'failed', message: error.message });
       reject(error);
     };
-    const timeoutMs = ['update-settings', 'get-settings', 'get-startup', 'set-startup', 'save-api'].includes(type) ? 10000 : 190000;
+    const timeoutMs = ['update-settings', 'get-settings', 'get-startup', 'set-startup', 'save-api', 'get-appearance', 'set-appearance'].includes(type) ? 10000 : 190000;
     const timer = setTimeout(() => { pending.delete(id); fail(new HostTimeoutError()); }, timeoutMs);
     pending.set(id, { type, resolve: value => {
       if (validResult(type, value)) resolve(value);

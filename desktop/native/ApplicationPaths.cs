@@ -11,6 +11,7 @@ public sealed class ApplicationPaths
     public string ProfileRoot {get;}
     public string ApiPreferences {get;}
     public string Preferences=>Path.Combine(ProfileRoot,"preferences.json");
+    public string AppearancePreferences=>Path.Combine(ProfileRoot,"appearance.json");
     public string BrowserData=>Path.Combine(ProfileRoot,"webview-evergreen");
     public string FixedBrowser=>Path.Combine(Root,"WebView2Runtime");
     public string MainExecutable=>Path.Combine(Root,"DanmuCompanion.exe");

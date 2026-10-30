@@ -28,7 +28,11 @@ public sealed class DesktopWindow : Form
     private readonly StartupRegistration startup;
     private readonly Icon applicationIcon;
     private readonly System.Windows.Forms.Timer timer = new() { Interval=200 };
-    private readonly string root, preferences, apiPreferences;
+    private readonly string root, preferences, apiPreferences, appearancePreferences;
+    private AppearanceSettings appearanceSettings=new();
+    private string appearanceNotice="",backdrop="solid";
+    private long appearanceRevision;
+    public AppearanceSnapshot Appearance=>new(appearanceSettings.Skin,appearanceSettings.ReduceTransparency,appearanceRevision,backdrop,appearanceNotice);
     private string savedApiBase="",apiNotice="";
     private CancellationTokenSource pending = new();
     private int revision;
@@ -66,6 +70,10 @@ public sealed class DesktopWindow : Form
         var paths=new ApplicationPaths(root,dataProfile,userDataRoot);
         string data=paths.ProfileRoot; Directory.CreateDirectory(data);browserData=paths.BrowserData;
         preferences=paths.Preferences;
+        appearancePreferences=paths.AppearancePreferences;
+        var savedAppearance=AppearancePreferences.Load(appearancePreferences);
+        appearanceSettings=savedAppearance.Settings;appearanceNotice=savedAppearance.Notice;
+        BackColor=surface.BackColor=WindowMaterial.Fallback(appearanceSettings.Skin);
         localSourcesFile=Path.Combine(data,"embedded-api","sources.json");
         if(EmbeddedApiService.IsPackaged(paths)){localApi=new EmbeddedApiService(paths);apiBase="";localApi.Changed+=QueueLocalApiUpdate;}
         api=new ApiClient(useProxy:localApi==null);
@@ -148,6 +156,15 @@ public sealed class DesktopWindow : Form
         // https://learn.microsoft.com/dotnet/api/microsoft.web.webview2.core.corewebview2controller.isvisible
         controller.IsVisible=Visible && WindowState!=FormWindowState.Minimized;
         if(controller.IsVisible)controller.NotifyParentWindowPositionChanged();
+    }
+    protected override void WndProc(ref Message message)
+    {
+        base.WndProc(ref message);
+        if((message.Msg==0x001A || message.Msg==0x031A) && !closing && controller!=null)
+        {
+            backdrop=WindowMaterial.Apply(this,surface,controller,appearanceSettings);
+            PushState();
+        }
     }
     public void RequestExit()
     {
@@ -237,6 +254,7 @@ public sealed class DesktopWindow : Form
             if (closing) return;
             controller=await env.CreateCoreWebView2ControllerAsync(surface.Handle);
             if (closing) { controller.Close(); return; }
+            backdrop=WindowMaterial.Apply(this,surface,controller,appearanceSettings);
             UpdateBrowserPresentation();
             core=controller.CoreWebView2;
             ConfigureBrowserSettings(core.Settings);
@@ -265,7 +283,7 @@ public sealed class DesktopWindow : Form
         double now=Monotonic.Now; sync.Tick(now);
         Send(new { type="state", sequence, data=new { settings=Settings,settingsRevision,
             player=PlaybackSnapshot.Capture(sample,sync,now,sequence,mediaRevision),
-            commentCount=CommentCount, notice=Failure,automaticMatch=automaticMatcher?.Status,localApi=localApi?.View } });
+            commentCount=CommentCount, notice=Failure,automaticMatch=automaticMatcher?.Status,localApi=localApi?.View,appearance=Appearance } });
     }
     private void QueueLocalApiUpdate()
     {
@@ -288,7 +306,7 @@ public sealed class DesktopWindow : Form
         long epoch=documentEpoch;
         string id="", type="", commandCode="command-failed";
         long requestNoticeTicket=0;
-        bool settingsCommitted=false;
+        bool settingsCommitted=false,appearanceCommitted=false;
         try
         {
             string raw=e.WebMessageAsJson;
@@ -300,8 +318,22 @@ public sealed class DesktopWindow : Form
             type=msg.GetProperty("type").GetString()??"";
             var payload=msg.GetProperty("payload");
             object result;
-            if (type=="hello") { Ready=true; result=new { apiBase, apiSaved=localApi==null && apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=localApi==null ? new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1" } : new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","embedded-api-v1" },localApi=localApi?.View }; }
+            if (type=="hello") { Ready=true; result=new { apiBase, apiSaved=localApi==null && apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=localApi==null ? new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","appearance-v1" } : new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","embedded-api-v1","appearance-v1" },localApi=localApi?.View,appearance=Appearance }; }
             else if (type=="get-settings") result=new { settings=Settings,settingsRevision };
+            else if(type is "get-appearance" or "set-appearance")
+            {
+                if(type=="set-appearance")
+                {
+                    var next=AppearancePreferences.Parse(payload);
+                    try{AppearancePreferences.Save(appearancePreferences,next);}
+                    catch(Exception storageError) when(storageError is IOException or UnauthorizedAccessException)
+                    {throw new InvalidOperationException("外观保存失败，本次设置未应用。");}
+                    appearanceCommitted=true;appearanceSettings=next;appearanceRevision++;appearanceNotice="";
+                    backdrop=WindowMaterial.Apply(this,surface,controller,appearanceSettings);
+                }
+                else if(payload.ValueKind!=JsonValueKind.Object || payload.EnumerateObject().Any())throw new ArgumentException("读取外观参数无效。");
+                result=Appearance;
+            }
             else if(type is "get-local-api" or "set-local-sources")
             {
                 if(localApi==null)throw new InvalidOperationException("此版本不包含本机弹幕服务。");
@@ -439,7 +471,7 @@ public sealed class DesktopWindow : Form
             string error=ex is OperationCanceledException ? "请求已取消。" : ex is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException ? ex.Message : "操作失败，请重试。";
             if (!string.IsNullOrEmpty(apiBase)) error=error.Replace(apiBase,"[API 地址]",StringComparison.OrdinalIgnoreCase);
             if(requestNoticeTicket>0 && requestNoticeTicket==presentationTicket)overlay.SetStatus(requestNoticeTicket,"failed",error);
-            string code=type=="update-settings" ? settingsCommitted ? "settings-outcome-unknown" : "settings-not-applied" : commandCode;
+            string code=type=="update-settings" ? settingsCommitted ? "settings-outcome-unknown" : "settings-not-applied" : type=="set-appearance" ? appearanceCommitted ? "appearance-outcome-unknown" : "appearance-not-applied" : commandCode;
             Send(new { type="response", id, ok=false, error, code });
         }
     }
