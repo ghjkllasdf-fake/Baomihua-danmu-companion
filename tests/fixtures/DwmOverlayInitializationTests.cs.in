@@ -8,8 +8,9 @@ public static class DwmOverlayInitializationTests
     private static IntPtr CreateWindowEx(uint exStyle,string cls,string title,uint style,int x,int y,int width,int height,IntPtr parent,IntPtr menu,IntPtr instance,IntPtr parameter)
     {
         creates++;
-        if((exStyle&0x080800A8)!=0x080800A8 || style!=0x82000000 || parent!=IntPtr.Zero || width!=1 || height!=1)
-            throw new Exception("Create a hidden top-level layered, transparent, topmost, no-activate tool window and exclude child pixels from parent painting.");
+        if((exStyle&0x080800A0)!=0x080800A0 || style!=0x82000000 || parent!=IntPtr.Zero || width!=1 || height!=1)
+            throw new Exception("Create a hidden top-level layered, transparent, no-activate tool window and exclude child pixels from parent painting.");
+        if((exStyle&0x8)!=0)throw new Exception("The overlay must follow video stacking instead of starting permanently topmost.");
         return failure=="create" ? IntPtr.Zero : Owned;
     }
     private static int DwmIsCompositionEnabled(out bool enabled) {
@@ -27,7 +28,7 @@ public static class DwmOverlayInitializationTests
         return failure!="alpha";
     }
     private static bool HasExtendedStyles(IntPtr handle,long flags) {
-        if(handle!=Owned || flags!=0x080800A8) throw new Exception("Verify every requested input/composition style.");
+        if(handle!=Owned || flags!=0x080800A0) throw new Exception("Verify every requested input/composition style.");
         return failure!="style";
     }
     private static bool DestroyWindow(IntPtr handle) {

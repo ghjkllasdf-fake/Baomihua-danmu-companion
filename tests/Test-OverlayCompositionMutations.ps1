@@ -9,7 +9,8 @@ $native=[IO.File]::ReadAllText((Join-Path $review 'desktop\native\Windows.cs'))
 $presentation=[IO.File]::ReadAllText((Join-Path $review 'desktop\native\OverlayPresentation.cs'))
 $variants=@(
     @{Name='parent-paints-child';File='Windows.cs';Original='styles,"STATIC","Popcorn danmaku overlay",0x82000000,';Replacement='styles,"STATIC","Popcorn danmaku overlay",0x80000000,';Test='Test-DwmOverlayInitialization.ps1';Expected='exclude child pixels'},
-    @{Name='missing-transparent';File='Windows.cs';Original='const uint styles=0x80000|0x20|0x08000000|0x80|0x8;';Replacement='const uint styles=0x80000|0x08000000|0x80|0x8;';Test='Test-DwmOverlayInitialization.ps1';Expected='layered, transparent'},
+    @{Name='missing-transparent';File='Windows.cs';Original='const uint styles=0x80000|0x20|0x08000000|0x80;';Replacement='const uint styles=0x80000|0x08000000|0x80;';Test='Test-DwmOverlayInitialization.ps1';Expected='layered, transparent'},
+    @{Name='permanent-topmost';File='Windows.cs';Original='const uint styles=0x80000|0x20|0x08000000|0x80;';Replacement='const uint styles=0x80000|0x20|0x08000000|0x80|0x8;';Test='Test-DwmOverlayInitialization.ps1';Expected='must follow video stacking'},
     @{Name='disabled-composition';File='Windows.cs';Original='DwmIsCompositionEnabled(out bool enabled)<0 || !enabled ||';Replacement='DwmIsCompositionEnabled(out bool enabled)<0 ||';Test='Test-DwmOverlayInitialization.ps1';Expected='partial failure'},
     @{Name='leak-failed-parent';File='Windows.cs';Original='finally { if(!accepted) DestroyWindow(window); }';Replacement='finally { if(!accepted) { } }';Test='Test-DwmOverlayInitialization.ps1';Expected='partial failure'},
     @{Name='leak-native-before-fallback';File='OverlayPresentation.cs';Original='result.ReleaseNative();';Replacement='/* mutation: leak */';Test='Test-OverlayPresentation.ps1';Expected='Failed native initialization leaked'},

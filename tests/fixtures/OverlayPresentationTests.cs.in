@@ -51,12 +51,13 @@ namespace System.Windows.Interop {
     }
 }
 namespace Popcorn {
+    public sealed record VideoWindow(IntPtr Handle);
     public static class Fixture {
-        public static bool FailParent,FailChild,FailRoot,Visible;
-        public static int Fallbacks,Children,ChildDisposals,Destroyed,Closes,Resizes,ClickThroughs;
+        public static bool FailParent,FailChild,FailRoot,FailFollow,Visible;
+        public static int Fallbacks,Children,ChildDisposals,Destroyed,Closes,Resizes,ClickThroughs,Follows;
         public static void Reset() {
-            FailParent=FailChild=FailRoot=Visible=false;
-            Fallbacks=Children=ChildDisposals=Destroyed=Closes=Resizes=ClickThroughs=0;
+            FailParent=FailChild=FailRoot=FailFollow=Visible=false;
+            Fallbacks=Children=ChildDisposals=Destroyed=Closes=Resizes=ClickThroughs=Follows=0;
         }
     }
     public static class NativeWindows {
@@ -73,6 +74,14 @@ namespace Popcorn {
             Fixture.Resizes++;
         }
         public static void ClickThrough(IntPtr handle)=>Fixture.ClickThroughs++;
+        public static bool FollowCompanion(IntPtr handle,VideoWindow video,bool geometryChanged=true,bool show=false) {
+            if(handle!=new IntPtr(1) && handle!=new IntPtr(2) || video?.Handle!=new IntPtr(7))
+                throw new Exception("Only follow the supplied video with the owned overlay.");
+            Fixture.Follows++;
+            if(Fixture.FailFollow)return false;
+            if(show)Fixture.Visible=true;
+            return true;
+        }
     }
     public static class OverlayPresentationTests {
         private static void Check(bool condition,string message) { if(!condition) throw new Exception(message); }
@@ -84,6 +93,11 @@ namespace Popcorn {
             primary.Show(); Check(primary.IsVisible,"Show must expose the actual native parent.");
             primary.ResizeContent(1920,1080);Check(Fixture.Resizes==1,"Resize the child with its parent.");
             primary.Hide();Check(!primary.IsVisible,"Hide must remove the actual native parent.");
+            var video=new VideoWindow(new IntPtr(7));
+            Check(primary.Show(video) && primary.IsVisible && Fixture.Follows==1,"Native show must follow the actual supplied video.");
+            primary.Hide();Fixture.FailFollow=true;
+            Check(!primary.Show(video) && !primary.IsVisible,"A failed video follow must not expose the native overlay.");
+            Fixture.FailFollow=false;
             primary.Dispose();primary.Dispose();
             Check(Fixture.ChildDisposals==1 && Fixture.Destroyed==1,"Release the child and parent exactly once.");
             foreach(var failure in new[]{"parent","child","root"}) {
@@ -95,6 +109,9 @@ namespace Popcorn {
                 Check(Fixture.ClickThroughs==1,"Legacy input styles must still be applied.");
                 fallback.Show();Check(fallback.IsVisible,"Legacy show must work.");
                 fallback.Hide();Check(!fallback.IsVisible,"Legacy hide must work.");
+                Check(fallback.Show(video) && fallback.IsVisible && Fixture.Follows==2,"Legacy show must follow before and after the fallback window appears.");
+                fallback.Hide();Fixture.FailFollow=true;
+                Check(!fallback.Show(video) && !fallback.IsVisible,"A failed video follow must not expose the fallback overlay.");
                 fallback.Dispose();fallback.Dispose();Check(Fixture.Closes==1,"Close the legacy window once.");
             }
         }
