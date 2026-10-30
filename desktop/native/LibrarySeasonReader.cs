@@ -80,7 +80,7 @@ internal sealed class LibrarySeasonReader(CancellationToken stop)
             }
         }
         catch(Exception error) when(error is not (OutOfMemoryException or ProbeRestartException or TimeoutException or OperationCanceledException)){LastReason=error.GetType().Name;}
-        if(cachedSeason>0){season=cachedSeason;continuity.Confirm(season);LastReason="current-media-homepage-cache";return season;}
+        if(cachedSeason>0){season=cachedSeason;continuity.Confirm(season);LastReason="current-media-recent-cache";return season;}
         return Carry();
     }
     private int Carry()

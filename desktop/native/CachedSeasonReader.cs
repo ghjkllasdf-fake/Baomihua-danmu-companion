@@ -8,24 +8,25 @@ using System.Text.RegularExpressions;
 
 namespace Popcorn;
 
-// Reads only existing homepage metadata. Never contacts a server, opens a drive,
+// Reads only existing homepage/recent-play metadata. Never contacts a server, opens a drive,
 // decrypts a database, writes the player's cache, or returns file paths.
 internal static class CachedSeasonReader
 {
     private const int MaxBytes=1024*1024;
     private static readonly JsonDocumentOptions Options=new(){MaxDepth=24,AllowDuplicateProperties=false};
     internal static int Read(SeriesIdentity playing,double? duration,out bool conflict)
+        =>Read(playing,duration,Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"BaoMiHua","Cache","RequestCache"),out conflict);
+    internal static int Read(SeriesIdentity playing,double? duration,string directory,out bool conflict)
     {
         conflict=false;
-        string directory=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"BaoMiHua","Cache","RequestCache");
         var matches=new HashSet<int>();int bytesRead=0;
         try
         {
-            foreach(string path in Directory.EnumerateFiles(directory,"*.json").Take(32))
+            foreach(string path in Directory.EnumerateFiles(directory,"*.json").Where(path=>Regex.IsMatch(Path.GetFileName(path),
+                @"^(?:[a-fA-F0-9]{32,64}|api_cache__v3_albums_name=recent_play&id=recent_play&type=recent_play&page=[1-9][0-9]{0,3}&size=[1-9][0-9]{0,2})\.json$")).Take(32))
             {
-                // Current homepage envelopes use hashed names. Named credentials
-                // and drive-cache files are excluded before opening any stream.
-                if(!Regex.IsMatch(Path.GetFileName(path),@"^[a-fA-F0-9]{32,64}\.json$"))continue;
+                // Allow only hashed envelopes and the observed recent-play album
+                // key. Credential/drive and unrelated named caches stay unopened.
                 try
                 {
                     if((File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0)continue;
@@ -59,25 +60,37 @@ internal static class CachedSeasonReader
     private static int ResolveCore(SeriesIdentity playing,double? duration,JsonElement envelope,DateTimeOffset now,out bool conflict)
     {
         conflict=false;
+        string endpoint=Text(envelope,"url");
         if(playing.Episode==0 || duration is not >0 || SeriesIdentity.EpisodeKey(playing.EpisodeTitle).Length<3 ||
-            Text(envelope,"url")!="/v2/homepage" || !envelope.TryGetProperty("statusCode",out var status) || !status.TryGetInt32(out int code) || code!=200 ||
+            endpoint is not ("/v2/homepage" or "/v3/albums") || !envelope.TryGetProperty("statusCode",out var status) || !status.TryGetInt32(out int code) || code!=200 ||
             !DateTimeOffset.TryParse(Text(envelope,"expiryUtc"),CultureInfo.InvariantCulture,DateTimeStyles.None,out var expiry) || expiry<now)return 0;
         string encoded=Text(envelope,"data");if(encoded.Length==0 || encoded.Length>MaxBytes*4/3+4)return 0;
         byte[] decoded=Convert.FromBase64String(encoded);if(decoded.Length>MaxBytes)return 0;
         using var body=JsonDocument.Parse(decoded,Options);
         if(!body.RootElement.TryGetProperty("code",out var responseCode) || !responseCode.TryGetInt32(out int result) || result!=0 ||
-            !body.RootElement.TryGetProperty("data",out var data) || !data.TryGetProperty("general_albums",out var albums) || albums.ValueKind!=JsonValueKind.Array)return 0;
+            !body.RootElement.TryGetProperty("data",out var data))return 0;
+        IEnumerable<JsonElement> albums;
+        if(endpoint=="/v2/homepage")
+        {
+            if(!data.TryGetProperty("general_albums",out var general) || general.ValueKind!=JsonValueKind.Array)return 0;
+            albums=general.EnumerateArray().Take(100);
+        }
+        else
+        {
+            if(Text(data,"album_type")!="recent_play" || Text(data,"album_id")!="recent_play")return 0;
+            albums=new[]{data};
+        }
         var matches=new HashSet<int>();string key=SeriesIdentity.TitleKey(playing.Title),caption=SeriesIdentity.EpisodeKey(playing.EpisodeTitle);
-        foreach(var album in albums.EnumerateArray().Take(100))
+        foreach(var album in albums)
         {
             if(Text(album,"album_type")!="recent_play" || !album.TryGetProperty("list",out var list) || list.ValueKind!=JsonValueKind.Array)continue;
             foreach(var item in list.EnumerateArray().Take(1000))
             {
                 if(SeriesIdentity.TitleKey(Text(item,"session_title"))!=key)continue;
                 var active=SeriesIdentity.Parse(Text(item,"player_title"));
-                if(active.Episode!=playing.Episode || SeriesIdentity.EpisodeKey(active.EpisodeTitle)!=caption ||
+                if(SeriesIdentity.TitleKey(active.Title)!=key || active.Episode!=playing.Episode || SeriesIdentity.EpisodeKey(active.EpisodeTitle)!=caption ||
                     !item.TryGetProperty("last_played",out var last) || !last.TryGetProperty("season",out var seasonValue) ||
-                    !seasonValue.TryGetInt32(out int season) || season is <1 or >999 ||
+                    !seasonValue.TryGetInt32(out int season) || season is <1 or >999 || active.Season>0 && active.Season!=season ||
                     !last.TryGetProperty("episode",out var episodeValue) || !episodeValue.TryGetInt32(out int episode) || episode!=playing.Episode ||
                     !item.TryGetProperty("files",out var files) || files.ValueKind!=JsonValueKind.Array)continue;
                 foreach(var file in files.EnumerateArray().Take(32))

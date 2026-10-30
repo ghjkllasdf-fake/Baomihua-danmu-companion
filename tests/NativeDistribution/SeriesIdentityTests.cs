@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -73,6 +74,7 @@ internal static class SeriesIdentityTests
         continuity.Confirm(2);
         Check(continuity.Next(video with{Handle=new IntPtr(2)},current with{Episode=4})==0,"A new playback window must revalidate its season.");
         CheckCache(current);
+        CheckRecentAlbumCache(current);
         Console.WriteLine("PASS: Chinese/SxxExx/Season identities, long episode numbers, literal movie sequels, and cross-checked library evidence without guessing.");
     }
     private static void CheckCache(SeriesIdentity current)
@@ -105,5 +107,114 @@ internal static class SeriesIdentityTests
         rejected=Envelope(item);rejected["statusCode"]="invalid";
         Check(Resolve(rejected)==0,"Invalid cache types must not break playback sampling.");
         Console.WriteLine("PASS: read-only homepage evidence, stale/contradictory/expired/corrupt cache rejection, and no credentials-body decoding.");
+    }
+
+    private static void CheckRecentAlbumCache(SeriesIdentity current)
+    {
+        var item=JsonNode.Parse("""
+            {"player_title":"示例剧 第2集 测试分集标题","session_title":"示例剧","last_played":{"season":2,"episode":2},
+             "files":[{"drive_path_info":{"file_path":"/TV/示例剧/Season 2/示例剧 - S02E02.mkv"},"real_total_duration":2784}]}
+            """).AsObject();
+        JsonObject RecentBody(JsonNode[] entries,string type="recent_play",string id="recent_play")=>
+            new(){["code"]=0,["data"]=new JsonObject{["album_type"]=type,["album_id"]=id,
+                ["album_name"]="最近观看",["count"]=entries.Length,["list"]=new JsonArray(entries.Select(e=>e.DeepClone()).ToArray())}};
+        JsonObject HomeBody(JsonNode entry)=>new(){["code"]=0,["data"]=new JsonObject{["general_albums"]=new JsonArray(
+            new JsonObject{["album_type"]="recent_play",["list"]=new JsonArray(entry.DeepClone())})}};
+        JsonObject Envelope(JsonObject body,string url="/v3/albums")=>new(){["url"]=url,["statusCode"]=200,
+            ["expiryUtc"]="2030-01-01T00:00:00Z",["data"]=Convert.ToBase64String(Encoding.UTF8.GetBytes(body.ToJsonString()))};
+        JsonObject Recent(JsonNode entry)=>Envelope(RecentBody(new[]{entry}));
+        int Resolve(JsonObject envelope)=>CachedSeasonReader.Resolve(current,2784000,JsonSerializer.SerializeToElement(envelope),new DateTimeOffset(2026,10,30,0,0,0,TimeSpan.Zero));
+        Check(Resolve(Recent(item))==2,"The dedicated recent-play album must identify the active episode when the homepage is stale.");
+
+        var changed=item.DeepClone().AsObject();changed["player_title"]="示例剧 第2集 另一季的标题";
+        Check(Resolve(Recent(changed))==0,"A recent entry for another episode caption must not identify the active season.");
+        changed=item.DeepClone().AsObject();changed["session_title"]="同名另一部作品";
+        Check(Resolve(Recent(changed))==0,"A different work in recent-play data must not supply a season.");
+        var wrongTitle=item.DeepClone().AsObject();wrongTitle["player_title"]="另一部作品 第2集 测试分集标题";
+        var wrongSeason=item.DeepClone().AsObject();wrongSeason["player_title"]="示例剧 第1季 第2集 测试分集标题";
+        int recentTitle=Resolve(Recent(wrongTitle)),recentSeason=Resolve(Recent(wrongSeason));
+        int homeTitle=Resolve(Envelope(HomeBody(wrongTitle),"/v2/homepage")),homeSeason=Resolve(Envelope(HomeBody(wrongSeason),"/v2/homepage"));
+        Check(recentTitle==0 && recentSeason==0 && homeTitle==0 && homeSeason==0,
+            $"Player title/work and explicit season must agree with the session and file (recent work={recentTitle}, recent season={recentSeason}, home work={homeTitle}, home season={homeSeason}).");
+        changed=item.DeepClone().AsObject();changed["player_title"]="示例剧 第2季 第2集 测试分集标题";
+        Check(Resolve(Recent(changed))==2 && Resolve(Envelope(HomeBody(changed),"/v2/homepage"))==2,
+            "An explicit player-title season matching the session and file must remain eligible.");
+        changed=item.DeepClone().AsObject();changed["last_played"]["episode"]=1;
+        Check(Resolve(Recent(changed))==0,"The recent item's episode number must match the current episode.");
+        changed=item.DeepClone().AsObject();changed["last_played"]["season"]=1;
+        Check(Resolve(Recent(changed))==0,"The recent item's season must agree with the source filename.");
+        changed=item.DeepClone().AsObject();changed["files"][0]["drive_path_info"]["file_path"]="/TV/示例剧 - S02E03.mkv";
+        Check(Resolve(Recent(changed))==0,"A recent entry naming a different episode file must not identify this episode.");
+        changed=item.DeepClone().AsObject();changed["files"][0]["real_total_duration"]=20;
+        Check(Resolve(Recent(changed))==0,"A recent entry with a mismatched duration must remain unusable.");
+        Check(Resolve(Envelope(RecentBody(new[]{item},"media")))==0,"A non-recent album must not supply season evidence.");
+        Check(Resolve(Envelope(RecentBody(new[]{item},id:"movie")))==0,"The recent album ID must agree with its type.");
+        var rejected=Recent(item);rejected["url"]="/v3/albums?name=recent_play";
+        Check(Resolve(rejected)==0,"An unverified query-bearing album endpoint must not supply season evidence.");
+        rejected=Recent(item);rejected["url"]="/v2/drive/alltokens";rejected["data"]="NOT_BASE64_PRIVATE_EXAMPLE";
+        Check(Resolve(rejected)==0,"Credential endpoints must be excluded before decoding their body.");
+        rejected=Recent(item);rejected["expiryUtc"]="2020-01-01T00:00:00Z";
+        Check(Resolve(rejected)==0,"Expired recent-play cache data must remain unusable.");
+        rejected=Recent(item);rejected["statusCode"]=500;
+        Check(Resolve(rejected)==0,"An unsuccessful recent-play response must remain unusable.");
+        rejected=Recent(item);rejected["data"]="INVALID_BASE64";
+        Check(Resolve(rejected)==0,"Corrupt recent-play cache must fail closed.");
+
+        var otherSeason=item.DeepClone().AsObject();otherSeason["last_played"]["season"]=1;
+        otherSeason["files"][0]["drive_path_info"]["file_path"]="/TV/示例剧 - S01E02.mkv";
+        var conflicting=Envelope(RecentBody(new JsonNode[]{item,otherSeason}));
+        var result=CachedSeasonReader.Resolve(current,2784000,JsonSerializer.SerializeToElement(conflicting),
+            new DateTimeOffset(2026,10,30,0,0,0,TimeSpan.Zero),out bool conflict);
+        Check(result==0 && conflict,"Matching entries from two seasons in one recent album must be reported as ambiguous.");
+
+        string directory=Path.Combine(Path.GetTempPath(),"danmu-recent-cache-tests-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string recent=Path.Combine(directory,"api_cache__v3_albums_name=recent_play&id=recent_play&type=recent_play&page=1&size=30.json");
+        string secondPage=Path.Combine(directory,"api_cache__v3_albums_name=recent_play&id=recent_play&type=recent_play&page=2&size=50.json");
+        string stale=Path.Combine(directory,new string('a',32)+".json");
+        string decoy=Path.Combine(directory,"api_cache__v1_drive_alltokens.json");
+        string sameEpisode=Path.Combine(directory,new string('b',32)+".json");
+        string[] rejectedNames=new[]{
+            "api_cache__v3_albums_name=recent_play&id=recent_play&type=recent_play&page=0&size=30.json",
+            "api_cache__v3_albums_name=recent_play&id=recent_play&type=recent_play&page=01&size=30.json",
+            "api_cache__v3_albums_name=recent_play&id=recent_play&type=recent_play&page=1&size=0.json",
+            "api_cache__v3_albums_name=recent_play&id=recent_play&type=recent_play&page=1&size=030.json",
+            "api_cache__v3_albums_name=movie&id=recent_play&type=recent_play&page=1&size=30.json",
+            "api_cache__v3_albums_name=recent_play&id=movie&type=recent_play&page=1&size=30.json",
+            "api_cache__v3_albums_name=recent_play&id=recent_play&type=media&page=1&size=30.json",
+            "api_cache__v3_albums_name=recent_play&id=recent_play&type=recent_play&page=1&size=30&extra=1.json"
+        }.Select(name=>Path.Combine(directory,name)).ToArray();
+        try
+        {
+            var old=item.DeepClone().AsObject();old["player_title"]="示例剧 第1集 旧的分集标题";
+            old["last_played"]["season"]=1;old["last_played"]["episode"]=1;
+            old["files"][0]["drive_path_info"]["file_path"]="/TV/示例剧 - S01E01.mkv";
+            File.WriteAllText(stale,Envelope(HomeBody(old),"/v2/homepage").ToJsonString());
+            File.WriteAllText(recent,Recent(item).ToJsonString());
+            File.WriteAllText(decoy,Recent(otherSeason).ToJsonString());
+            foreach(string path in rejectedNames)File.WriteAllText(path,Recent(otherSeason).ToJsonString());
+            result=CachedSeasonReader.Read(current,2784000,directory,out conflict);
+            Check(result==2 && !conflict,"The recent-play cache must work with a stale homepage, while credential and invalid album/page/size names are excluded.");
+
+            File.Delete(recent);
+            File.WriteAllText(secondPage,Recent(item).ToJsonString());
+            result=CachedSeasonReader.Read(current,2784000,directory,out conflict);
+            Check(result==2 && !conflict,"A later recent-play page with positive page and size must be eligible by itself.");
+            File.WriteAllText(recent,Recent(item).ToJsonString());
+            File.WriteAllText(secondPage,Recent(otherSeason).ToJsonString());
+            result=CachedSeasonReader.Read(current,2784000,directory,out conflict);
+            Check(result==0 && conflict,"Matching entries from different recent-play cache pages must report conflicting seasons.");
+            File.Delete(secondPage);
+
+            File.WriteAllText(sameEpisode,Envelope(HomeBody(otherSeason),"/v2/homepage").ToJsonString());
+            result=CachedSeasonReader.Read(current,2784000,directory,out conflict);
+            Check(result==0 && conflict,"Conflicting recent-play and homepage evidence for the same episode must not choose a season.");
+        }
+        finally
+        {
+            foreach(string path in new[]{recent,secondPage,stale,decoy,sameEpisode}.Concat(rejectedNames))if(File.Exists(path))File.Delete(path);
+            if(Directory.Exists(directory))Directory.Delete(directory);
+        }
+        Console.WriteLine("PASS: dedicated recent-play cache identity, endpoint/album validation, stale homepage, and conflict rejection.");
     }
 }
