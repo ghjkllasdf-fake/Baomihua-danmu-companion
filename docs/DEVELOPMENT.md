@@ -44,6 +44,8 @@ node scripts/test-release.mjs --version 0.1.1-beta.6
 
 显式诊断 `--seek-live-sampler SECONDS` 只读输出当前播放器与时钟状态；`--packaged-playback ABS_INCLUDEAPI_PAYLOAD SECONDS` 在隔离配置中实际加载指定成品的主程序 DLL、采样器和内置服务，并记录渲染状态。后者需要当前播放器保持可见且允许实际联网；会短暂显示真实弹幕，不操作视频。输出仅保存在忽略的 `artifacts`，含当前片名与弹幕文本，不应原样公开。
 
+`--packaged-shutdown ABS_INCLUDEAPI_PAYLOAD SECONDS` 只验证观察器定时结束、原生握手与关闭收尾，不要求视频或弹幕出现，不能代替播放验收。观察器防止跨 Dispatcher 取样时的计时器重入，关闭前先停止取样；启动未完成或提前退出仍视为失败。
+
 ## 历史预览版开发参考
 
 ## 固定工具链

@@ -10,7 +10,7 @@ namespace Popcorn;
 // packaged probe and bundled API, with an isolated profile. No player inputs.
 internal static class PackagedPlaybackEvidence
 {
-    internal static void Run(string root,int seconds)
+    internal static void Run(string root,int seconds,bool requireComments=true)
     {
         root=Path.GetFullPath(root);seconds=Math.Clamp(seconds,10,300);
         string evidence=Path.Combine(Directory.GetCurrentDirectory(),"artifacts","packaged-playback-"+Guid.NewGuid().ToString("N"));
@@ -33,9 +33,17 @@ internal static class PackagedPlaybackEvidence
         using var trace=new StreamWriter(Path.Combine(evidence,"trace.jsonl")){AutoFlush=true};
         using var timer=new Timer{Interval=200};
         double started=Monotonic.Now;int maxComments=0,maxActive=0;Exception failure=null;
+        bool reading=false,exiting=false,timedExit=false;
         timer.Tick+=(_,_)=>{
+            if(reading || exiting)return;
+            reading=true;
             try
             {
+                if(Monotonic.Now-started>=seconds*1000)
+                {
+                    timedExit=exiting=true;timer.Stop();
+                    Type("DesktopWindow").GetMethod("RequestExit").Invoke(host,null);return;
+                }
                 var sample=Field(host,"sample");
                 var snapshot=overlay.GetType().GetMethod("Snapshot").Invoke(overlay,null);
                 int count=(int)Get(host,"CommentCount"),active=(int)Get(snapshot,"ActiveCount");
@@ -45,15 +53,17 @@ internal static class PackagedPlaybackEvidence
                     seekRevision=Get(sync,"SeekRevision"),mode=Get(sync,"Mode"),running=Get(sync,"Running"),comments=count,
                     source=Field(host,"commentSourceTitle"),active,x=Get(snapshot,"X"),text=Get(snapshot,"Text"),
                     layoutPending=Get(snapshot,"LayoutPending")}));
-                if(Monotonic.Now-started>=seconds*1000)Type("DesktopWindow").GetMethod("RequestExit").Invoke(host,null);
             }
-            catch(Exception error){failure=error;Type("DesktopWindow").GetMethod("RequestExit").Invoke(host,null);}
+            catch(Exception error){failure=error;exiting=true;timer.Stop();Type("DesktopWindow").GetMethod("RequestExit").Invoke(host,null);}
+            finally{reading=false;}
         };
         timer.Start();Application.Run(host);timer.Stop();
         if(failure!=null)throw failure;
-        if(!(bool)Get(host,"Ready") || maxComments==0 || maxActive==0)throw new Exception("Packaged live host did not load and display real comments.");
+        if(!timedExit || !(bool)Get(host,"Ready"))throw new Exception("Packaged observation did not complete its timed native lifecycle.");
+        if(requireComments && (maxComments==0 || maxActive==0))throw new Exception("Packaged live host did not load and display real comments.");
         File.WriteAllText(Path.Combine(evidence,"result.json"),JsonSerializer.Serialize(new{passed=true,hostAssembly=assembly.Location,
-            maxComments,maxActive,seconds,scope="exact packaged host/probe and real API/player; isolated profile; no player inputs"},new JsonSerializerOptions{WriteIndented=true}));
-        Console.WriteLine(JsonSerializer.Serialize(new{passed=true,evidence,maxComments,maxActive}));
+            maxComments,maxActive,seconds,requireComments,scope=requireComments ? "exact packaged host/probe and real API/player; isolated profile; no player inputs" :
+                "exact packaged host timed shutdown only; no playback acceptance claim"},new JsonSerializerOptions{WriteIndented=true}));
+        Console.WriteLine(JsonSerializer.Serialize(new{passed=true,evidence,maxComments,maxActive,requireComments}));
     }
 }
