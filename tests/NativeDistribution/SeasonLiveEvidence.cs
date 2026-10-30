@@ -10,6 +10,35 @@ namespace Popcorn;
 
 internal static class SeasonLiveEvidence
 {
+    internal static void Trace(int seconds)
+    {
+        Exception failure=null;
+        var worker=new Thread(()=>{
+            try
+            {
+                NativeRuntime.LoadMediaProjection(AppContext.BaseDirectory);
+                using var stop=new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(seconds,1,300)));
+                using var sampler=new PlayerSampler(stop.Token);
+                var clock=new SyncClock();string media="";
+                while(!stop.IsCancellationRequested)
+                {
+                    var sample=sampler.Poll();double now=Monotonic.Now;
+                    string key=sample.Title.Length>0 ? sample.Title+"#"+sample.EpisodeNumber : media;
+                    if(media!=key){media=key;clock.BeginMediaEpoch(now);}
+                    bool identified=sample.Window!=null && sample.Title.Length>0;
+                    clock.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,key,sample.PositionResolutionMs);
+                    Console.WriteLine(JsonSerializer.Serialize(new{now,sample.Title,sample.EpisodeNumber,sample.PositionMs,sample.Playing,sample.Source,
+                        age=now-sample.StampMs,clock.SeekRevision,clock.Mode,clockRunning=clock.Running,clockPosition=clock.At(now),seasonEvidence=sampler.SeasonEvidence}));
+                    Console.Out.Flush();sampler.WaitForNext(100);
+                }
+            }
+            catch(OperationCanceledException){}
+            catch(Exception error){failure=error;}
+        }){IsBackground=true};
+        worker.SetApartmentState(ApartmentState.MTA);worker.Start();
+        if(!worker.Join((Math.Clamp(seconds,1,300)+10)*1000))throw new TimeoutException("Read-only trace exceeded its deadline.");
+        if(failure!=null)throw failure;
+    }
     internal static PlayerSample Sample()
     {
         PlayerSample result=null;Exception failure=null;

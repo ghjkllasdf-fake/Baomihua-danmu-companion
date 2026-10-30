@@ -124,6 +124,28 @@ $published.Observe(10100,$true,300,300,'episode-1',200)
 $published.Observe(10450,$true,500,500,'episode-1',200)
 $published.Observe(10550,$true,700,700,'episode-1',200)
 Assert ($published.SeekRevision -eq $revision) 'Observed player publication jitter must not repeatedly rebuild the comment queue.'
+$buffering=[Popcorn.SyncClock]::new()
+$buffering.Observe(300000,$true,100,100,'seek-buffer',200)
+$buffering.Observe(1500000,$true,300,300,'seek-buffer',200)
+$revision=$buffering.SeekRevision
+for($stamp=500;$stamp -le 7500;$stamp+=200){
+    $buffering.Observe(1500000,$true,$stamp,$stamp,'seek-buffer',200)
+    Assert ($buffering.SeekRevision -eq $revision) 'A frozen precise position with SMTC Playing after a large seek is buffering, not repeated seeks.'
+}
+Assert (-not $buffering.Running) 'Repeated stationary progress must freeze extrapolation even when SMTC still reports Playing.'
+$held=$buffering.At(7500)
+$buffering.Observe(1500200,$true,7700,7700,'seek-buffer',200)
+Assert ($buffering.Running -and $buffering.SeekRevision -eq $revision -and $buffering.At(7700) -ge $held) 'Progress after buffering must resume without rewinding or clearing the scene.'
+$buffering.Observe(1500400,$null,7900,7900,'seek-buffer',200)
+$buffering.Observe(1500600,$true,8100,8100,'seek-buffer',200)
+Assert ($buffering.SeekRevision -eq $revision) 'One incomplete SMTC status during seek recovery must not create another scene epoch.'
+$buffering.Observe(300000,$true,8300,8300,'seek-buffer',200)
+Assert ($buffering.SeekRevision -eq $revision+1 -and $buffering.At(8300) -eq 300000) 'A real large backward seek must still reset immediately after buffering.'
+$revision=$buffering.SeekRevision
+$buffering.Observe(1500000,$null,8500,8500,'seek-buffer',200)
+Assert ($buffering.SeekRevision -eq $revision+1 -and $buffering.At(8500) -eq 1500000 -and -not $buffering.Running) 'A verified new seek target must isolate the old scene even before SMTC returns its running status.'
+$buffering.Observe(1500000,$true,8700,8700,'seek-buffer',200)
+Assert ($buffering.SeekRevision -eq $revision+1) 'Receiving the running status for an already admitted seek must not clear the scene a second time.'
 $mediaChange=[Popcorn.SyncClock]::new()
 $mediaChange.Observe(100000,$true,100,100,'A',200)
 $revision=$mediaChange.SeekRevision

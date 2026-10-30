@@ -25,7 +25,7 @@ public sealed class PlaybackClock
 public sealed class SyncClock
 {
     private readonly PlaybackClock clock=new();
-    private double lastStamp=-1, manualStamp=-1, lastPosition, lastResolution=1000;
+    private double lastStamp=-1, manualStamp=-1, lastPosition, lastResolution=1000, lastMotionStamp;
     private string media="";
     public string Mode { get; private set; } = "unavailable";
     public int SeekRevision { get; private set; }
@@ -46,8 +46,11 @@ public sealed class SyncClock
             else Tick(now);
             return;
         }
-        double sampleElapsed=lastStamp<0 ? 0 : stamp-lastStamp;
+        double sampleElapsed=LastProofMs>0 ? stamp-LastProofMs : 0;
         lastStamp=stamp;
+        double resolution=double.IsFinite(resolutionMs) ? Math.Clamp(resolutionMs,1,1000) : 1000;
+        bool tracking=(Mode is "automatic" or "stale") && LastProofMs>0 && !changed;
+        double uncertainty=tracking ? Math.Max(resolution,lastResolution) : resolution;
         if (!position.HasValue || !playing.HasValue || !double.IsFinite(position.Value))
         {
             if (changed)
@@ -57,22 +60,41 @@ public sealed class SyncClock
                 return;
             }
             Tick(now);
+            if(tracking && position.HasValue && double.IsFinite(position.Value) &&
+                (position.Value-lastPosition-sampleElapsed>Math.Max(100,uncertainty) ||
+                 position.Value-lastPosition< -Math.Max(100,uncertainty*.5)))
+            {
+                // The slider already proves the new target while SMTC is still
+                // changing state. Isolate the old scene once, without inventing
+                // a running status or resetting it again when that status arrives.
+                clock.Set(position.Value,false,stamp);Mode="stale";SeekRevision++;
+                lastPosition=position.Value;lastResolution=resolution;lastMotionStamp=stamp;
+            }
             if (Mode=="automatic") { clock.Set(clock.At(now),false,now); Mode="stale"; }
             return;
         }
         double drift=position.Value-clock.At(stamp);
-        double resolution=double.IsFinite(resolutionMs) ? Math.Clamp(resolutionMs,1,1000) : 1000;
-        double uncertainty=Mode=="automatic" ? Math.Max(resolution,lastResolution) : resolution;
         double movement=position.Value-lastPosition;
-        // A pause/resume may occur anywhere between the two samples. Only motion
-        // outside that interval (plus existing source uncertainty) proves a seek.
-        bool transitionWithinInterval=Mode=="automatic" && playing.Value!=clock.Running &&
-            movement>=-Math.Max(100,uncertainty*.5) && movement<=sampleElapsed+Math.Max(100,uncertainty);
-        bool seek=Mode!="automatic" || changed || !transitionWithinInterval && Math.Abs(drift)>Math.Max(100,uncertainty*1.5) ||
+        bool stationary=tracking && Math.Abs(movement)<.5;
+        if(!stationary)lastMotionStamp=stamp;
+        // SMTC can stay Playing while VLC buffers at the exact seek target.
+        // Stop extrapolating a repeatedly held position; a clock prediction
+        // disagreeing with stationary media is not evidence of another seek.
+        bool held=stationary && playing.Value && stamp-lastMotionStamp>=Math.Max(400,uncertainty*2);
+        bool running=playing.Value && !held;
+        // Only observed motion outside the sampled interval (plus source
+        // uncertainty) proves a seek, including across pause/resume and gaps.
+        bool seek=!tracking || changed ||
             movement-sampleElapsed>Math.Max(100,uncertainty) || movement< -Math.Max(100,uncertainty*.5) ||
             (!playing.Value && !clock.Running && Math.Abs(position.Value-lastPosition)>Math.Max(20,uncertainty*.5));
         if (seek) SeekRevision++;
-        if (seek || drift>Math.Max(20,resolution*.3) || playing.Value!=clock.Running || !playing.Value) clock.Set(position.Value,playing.Value,stamp);
+        if (seek || drift>Math.Max(20,resolution*.3) || running!=clock.Running || !playing.Value)
+        {
+            // Only a proven displacement may rewind a playing scene. Buffering
+            // and its recovery retain the already displayed comment positions.
+            double next=seek || !playing.Value ? position.Value : Math.Max(position.Value,clock.At(stamp));
+            clock.Set(next,running,stamp);
+        }
         Mode="automatic"; LastProofMs=stamp; lastPosition=position.Value; lastResolution=resolution; media=mediaKey;
         Tick(now);
     }
