@@ -47,13 +47,13 @@ internal sealed class LibrarySeasonReader(CancellationToken stop)
         retryAt=Monotonic.Now+2000;
         if(playing.Episode==0 || SeriesIdentity.EpisodeKey(playing.EpisodeTitle).Length<3 || !duration.HasValue)
         {LastReason="missing-episode-caption-or-duration";return Carry();}
+        int cachedSeason=0;
         try
         {
             if(NativeWindows.IsPlayerProcess(window))
             {
-                season=CachedSeasonReader.Read(playing,duration,out bool conflict);
+                cachedSeason=CachedSeasonReader.Read(playing,duration,out bool conflict);
                 if(conflict){continuity.Confirm(0);sequentialSeason=0;LastReason="conflicting-season-cache";return 0;}
-                if(season>0){continuity.Confirm(season);LastReason="current-media-homepage-cache";return season;}
             }
             LastReason="no-library-window";
             foreach(var library in NativeWindows.FindLibraries(window))
@@ -72,10 +72,15 @@ internal sealed class LibrarySeasonReader(CancellationToken stop)
                     if(name.Length<=1024)texts.Add(new(value.AutomationId??"",name));
                 }
                 season=Resolve(playing,duration,texts,out var reason);LastReason=reason;
-                if(season>0){continuity.Confirm(season);return season;}
+                if(season>0)
+                {
+                    if(cachedSeason>0 && season!=cachedSeason){season=0;sequentialSeason=0;continuity.Confirm(0);LastReason="conflicting-cache-and-library";return 0;}
+                    continuity.Confirm(season);return season;
+                }
             }
         }
         catch(Exception error) when(error is not (OutOfMemoryException or ProbeRestartException or TimeoutException or OperationCanceledException)){LastReason=error.GetType().Name;}
+        if(cachedSeason>0){season=cachedSeason;continuity.Confirm(season);LastReason="current-media-homepage-cache";return season;}
         return Carry();
     }
     private int Carry()

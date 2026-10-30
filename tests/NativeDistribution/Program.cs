@@ -30,6 +30,7 @@ internal static class DistributionTests
             if(args.Length==2 && args[0]=="--season-live-sampler"){SeasonLiveEvidence.RunSampler(int.Parse(args[1]));return 0;}
             if(args.Length==3 && args[0]=="--season-live-api"){SeasonLiveEvidence.RunApi(args[1],int.Parse(args[2])).GetAwaiter().GetResult();return 0;}
             if(args.Length==3 && args[0]=="--season-live-catalog"){SeasonLiveEvidence.RunCatalog(args[1],args[2]).GetAwaiter().GetResult();return 0;}
+            if(args.Length==4 && args[0]=="--season-api-only"){SeasonLiveEvidence.RunApiForTitle(args[1],args[2],int.Parse(args[3])).GetAwaiter().GetResult();return 0;}
             if(args.Length>0 && args[0]=="--video-notice-tests"){VideoNoticeTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--video-notice-runtime"){VideoNoticeTests.RunRuntime();return 0;}
             if(args.Length>0 && args[0]=="--tray-placement-tests"){TrayPlacementTests.Run();return 0;}

@@ -38,6 +38,10 @@ internal static class SeasonLiveEvidence
     {
         var sample=Sample();
         if(sample.Window==null || SeriesIdentity.Parse(sample.Title).Season!=expectedSeason)throw new Exception("The live player season precondition is not met.");
+        await RunApiForTitle(payload,sample.Title,sample.EpisodeNumber,"actual player identity and owned bundled API; no endpoint/token logged");
+    }
+    internal static async Task RunApiForTitle(string payload,string title,int episode,string scope="actual service only; explicit title, not a current-player acceptance test")
+    {
         string directory=Path.Combine(Path.GetTempPath(),"danmu-season-live-"+Guid.NewGuid().ToString("N"));
         var paths=new ApplicationPaths(Path.GetFullPath(payload),"season-live",directory);
         using var service=new EmbeddedApiService(paths);
@@ -45,10 +49,10 @@ internal static class SeasonLiveEvidence
         if(service.View.State!="ready")throw new Exception("The owned includeAPI service did not become ready.");
         using var client=new ApiClient();AutomaticMatchResult loaded=null;
         using var matcher=new AutomaticMatcher(client.FetchAsync,result=>loaded=result,_=>{},_=>{},3);
-        matcher.Observe(service.ApiBase,sample.Title,sample.EpisodeNumber,1);
+        matcher.Observe(service.ApiBase,title,episode,1);
         await matcher.Completion;
         if(loaded==null)throw new Exception("Live automatic season match failed: "+matcher.Status.Message);
-        Console.WriteLine(JsonSerializer.Serialize(new{title=loaded.Title,episode=loaded.EpisodeNumber,source=loaded.SourceTitle,comments=loaded.Comments.Length,scope="actual player identity and owned bundled API; no endpoint/token logged"}));
+        Console.WriteLine(JsonSerializer.Serialize(new{title=loaded.Title,episode=loaded.EpisodeNumber,source=loaded.SourceTitle,comments=loaded.Comments.Length,scope}));
     }
     internal static async Task RunCatalog(string payload,string title)
     {

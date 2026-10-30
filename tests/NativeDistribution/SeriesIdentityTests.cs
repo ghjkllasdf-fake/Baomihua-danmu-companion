@@ -15,6 +15,7 @@ internal static class SeriesIdentityTests
             ("示例剧 第 二 季 第3集 相逢","示例剧",2,3,"相逢"),
             ("示例剧 - S02E03 - 相逢.mkv","示例剧",2,3,"相逢"),
             ("Example.Show.S02E03.mkv","Example.Show",2,3,""),
+            ("示例剧 [S02E03] 相逢.mkv","示例剧",2,3,"相逢"),
             ("Example Show Season 2 第3集 相逢","Example Show",2,3,"相逢"),
             ("Example_Show_Season_2 第3集 相逢","Example_Show",2,3,"相逢"),
             ("示例剧S2 第3集 相逢","示例剧",2,3,"相逢"),
@@ -32,6 +33,7 @@ internal static class SeriesIdentityTests
         Check(SeriesIdentity.Parse("示例剧 第一季").QualifiedTitle=="示例剧 第1季","Equivalent season labels need one stable media title.");
         Check(SeriesIdentity.Parse("示例剧 S00E02").Title!="示例剧","Special-season markers must not be erased into an ordinary first-season identity.");
         Check(SeriesIdentity.Parse("示例剧 第二季").SearchQueries().SequenceEqual(new[]{"示例剧 第2季","示例剧"}),"Season queries must retain the base-title fallback.");
+        Check(SeriesIdentity.Parse("示例剧(2019) 第2季").SearchQueries().SequenceEqual(new[]{"示例剧 第2季","示例剧"}),"A series' original year must not hide a later-season search result.");
         var current=SeriesIdentity.Parse("示例剧 第2集 测试分集标题");
         LibrarySeasonText[] context={
             new("","示例剧 第 2 季"),new("","示例剧 - S02E02 - 测试文件.mkv"),

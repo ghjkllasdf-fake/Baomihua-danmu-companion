@@ -40,14 +40,14 @@ internal sealed record SeriesIdentity(string Title,int Season,int Episode,string
             episode=Number(marker.Groups["episode"].Value);
             if(marker.Groups["season"].Success)season=Number(marker.Groups["season"].Value);
             if(marker.Groups["season"].Success && season==0)return new(text,0,0,"");
-            caption=text[(marker.Index+marker.Length)..].Trim(' ','.','_','-','–','—',':','：');
-            text=text[..marker.Index];
+            caption=text[(marker.Index+marker.Length)..].Trim(' ','.','_','-','–','—',':','：',']',')','】');
+            text=text[..marker.Index].TrimEnd(' ','.','_','-','–','—',':','：','[','(','【');
         }
         var seasons=SeasonMarker.Matches(text).Select(m=>Number(m.Groups["season"].Value)).Where(n=>n>0).Distinct().ToArray();
         if(seasons.Length==1 && (season==0 || season==seasons[0]))season=seasons[0];
         else if(seasons.Length>0)return new(text,0,episode,caption);
         text=Regex.Replace(SeasonMarker.Replace(text,m=>Number(m.Groups["season"].Value) is >0 and <=999 ? "" : m.Value),
-            @"[\[（(]\s*[\]）)]","").Trim(' ','.','_','-','–','—',':','：');
+            @"[\[（(]\s*[\]）)]|【\s*】","").Trim(' ','.','_','-','–','—',':','：');
         if(season>999)season=0;
         return new(text,season,episode,caption);
     }
@@ -65,7 +65,9 @@ internal sealed record SeriesIdentity(string Title,int Season,int Episode,string
     internal string[] SearchQueries()
     {
         if(Season==0)return new[]{Title.Trim()};
+        string searchTitle=Regex.Replace(Title,@"\s*[（(](?:19|20)\d{2}[)）]\s*"," ").Trim();
+        if(searchTitle.Length==0)searchTitle=Title;
         // The base-title fallback also finds providers which name a sequel "Title2".
-        return new[]{QualifiedTitle,Title.Trim()}.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return new[]{searchTitle+" 第"+Season.ToString(CultureInfo.InvariantCulture)+"季",searchTitle}.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 }

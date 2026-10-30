@@ -14,6 +14,7 @@ internal static class SeasonMatchTests
     internal static async Task Run()
     {
         foreach(int limit in new[]{0,3})
+        foreach(bool rejectSeasonQuery in new[]{false,true})
         {
             var searches=new List<string>();var read=new List<string>();AutomaticMatchResult loaded=null;
             Task<JsonObject> Fetch(string api,string action,string value,CancellationToken stop)
@@ -21,6 +22,7 @@ internal static class SeasonMatchTests
                 if(action=="search")
                 {
                     searches.Add(value);
+                    if(rejectSeasonQuery && value!="示例剧")throw new InvalidOperationException("Unsupported season keyword.");
                     return Task.FromResult(value=="示例剧" ? Json("""
                         {"animes":[{"animeId":"first","animeTitle":"示例剧 第1季 (2019) 源A"},{"animeId":"second","animeTitle":"示例剧 第二季 (2024) 源B"}]}
                         """) : Json("""{"animes":[]}"""));
@@ -78,6 +80,24 @@ internal static class SeasonMatchTests
             },_=>throw new Exception("An unresolved season must not load."),_=>{},notices.Add,retryDelay:(_,_)=>Task.CompletedTask);
             matcher.Observe("https://danmu.example.com","示例剧",2,1);await matcher.Completion;
             Check(downloads==0 && notices.Count==1 && notices[0].Contains("季"),"Unknown seasons must report ambiguity once instead of selecting by comment count.");
+        }
+        {
+            int downloads=0;
+            using var matcher=new AutomaticMatcher((api,action,value,stop)=>{
+                if(action=="comments")downloads++;
+                return Task.FromResult(Json("""{"animes":[{"animeId":"one","animeTitle":"示例剧 第一季"}]}"""));
+            },_=>throw new Exception("Unavailable season evidence must not become season one."),_=>{},_=>{},retryDelay:(_,_)=>Task.CompletedTask);
+            matcher.Observe("https://danmu.example.com","示例剧",2,1);await matcher.Completion;
+            Check(downloads==0 && matcher.Status.State=="failed","Only having a first-season search result does not prove that the video belongs to season one.");
+        }
+        {
+            AutomaticMatchResult loaded=null;
+            using var matcher=new AutomaticMatcher((api,action,value,stop)=>Task.FromResult(action=="search" ?
+                Json("""{"animes":[{"animeId":"wrong-year","animeTitle":"示例剧 第一季(2024)"},{"animeId":"right-year","animeTitle":"示例剧 第1季(2019)"}]}""") : action=="episodes" ?
+                Json($$$"""{"bangumi":{"episodes":[{"episodeId":"{{{value}}}-2","episodeNumber":2}]}}""") :
+                Json("""{"comments":[{"p":"1,1,16777215","m":"测试"}]}""")),result=>loaded=result,_=>{},_=>{},retryDelay:(_,_)=>Task.CompletedTask);
+            matcher.Observe("https://danmu.example.com","示例剧(2019) 第1季",2,1);await matcher.Completion;
+            Check(loaded?.EpisodeId=="right-year-2","A known first-season year must retain the original protection against same-name remakes.");
         }
         {
             AutomaticMatchResult loaded=null;

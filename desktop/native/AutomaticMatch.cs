@@ -153,7 +153,11 @@ public sealed class AutomaticMatcher : IDisposable
             var found=new List<SeasonSource>();
             foreach(string query in identity.SearchQueries())
             {
-                var search=await fetch(apiBase,"search",query,stop);Check(owner,stop);
+                JsonObject search;
+                try{search=await fetch(apiBase,"search",query,stop);Check(owner,stop);}
+                catch(OperationCanceledException){throw;}
+                catch(Exception error) when(error is ApiRateLimitException or ApiAuthenticationException){throw;}
+                catch{Check(owner,stop);readFailed=true;continue;}
                 foreach(var item in (search["animes"] as JsonArray ?? new JsonArray()).OfType<JsonObject>())
                 {
                     var source=Source(identity,item["animeId"]?.ToString()??"",item["animeTitle"]?.ToString()??"",episode>0);
@@ -161,7 +165,7 @@ public sealed class AutomaticMatcher : IDisposable
                 }
             }
             var sources=found.OrderBy(s=>s.Rank).DistinctBy(s=>s.Id).ToArray();
-            if(identity.Season==0 && sources.Any(s=>s.Season>1))throw new SeasonAmbiguityException();
+            if(identity.Season==0 && sources.Any(s=>s.Season>0))throw new SeasonAmbiguityException();
             if(sources.Length==0)
             {
                 if(readFailed)throw new InvalidOperationException("弹幕服务读取失败。");
@@ -218,7 +222,7 @@ public sealed class AutomaticMatcher : IDisposable
         var origin=Source(target,sourceId,source,episode>0);
         if(origin==null)return null;
         var all=episodes.OfType<JsonObject>().Select(e=>new {Node=e,Identity=SeriesIdentity.Parse(e["episodeTitle"]?.ToString()??"")}).ToArray();
-        if(target.Season==0 && origin.Season==0 && all.Any(e=>e.Identity.Season>1))throw new SeasonAmbiguityException();
+        if(target.Season==0 && origin.Season==0 && all.Any(e=>e.Identity.Season>0))throw new SeasonAmbiguityException();
         var choices=all.Where(e=>
             (e.Identity.Season==0 || target.Season==0 || e.Identity.Season==target.Season) &&
             (e.Identity.Season==0 || origin.Season==0 || e.Identity.Season==origin.Season) &&
@@ -249,7 +253,7 @@ public sealed class AutomaticMatcher : IDisposable
         if(target.Season>0 && season>0 && target.Season!=season)return null;
         var year=Regex.Match(target.Title,@"[（(]((?:19|20)\d{2})[)）]");
         // A series' original year is not necessarily the release year of a later season.
-        if(target.Season==0 && year.Success && !candidate.Contains(year.Groups[1].Value,StringComparison.Ordinal))return null;
+        if(target.Season<2 && year.Success && !actual.Title.Contains(year.Groups[1].Value,StringComparison.Ordinal))return null;
         int rank=target.Season>0 ? target.Season==season ? 0 : 1 :
             string.Equals(target.Title.Trim(),candidate.Trim(),StringComparison.OrdinalIgnoreCase) ? 0 : 1;
         return new(id,candidate,season,rank);

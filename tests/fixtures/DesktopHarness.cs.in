@@ -29,6 +29,11 @@ public sealed class DesktopHarness : IDisposable
     public bool closing,Ready,Hidden;
     public string apiBase="http://fixture.invalid/token",lastMedia="",preferences="fixture-preferences",Failure="";
     public string apiPreferences="",savedApiBase="",apiNotice="";
+    public string appearancePreferences="",appearanceNotice="",backdrop="solid";
+    public long appearanceRevision;
+    public FakeAppearanceSettings appearanceSettings=new();
+    public object surface,controller;
+    public object Appearance=>new{appearanceSettings.Skin,appearanceSettings.ReduceTransparency,revision=appearanceRevision,backdrop,notice=appearanceNotice};
     public FakeEmbeddedApi localApi;
     public string localSourcesFile="";
     public bool localSourcesChanging;
@@ -106,6 +111,19 @@ public sealed class FakeOverlay
 }
 public sealed class FakeTray { public void Update(string title,int episode,string source,int count) { } }
 public sealed class FakeStartup { public bool Enabled;public bool SetEnabled(bool value)=>Enabled=value; }
+// Appearance storage and native material are external to this playback-handler
+// harness. Real writes/painting are covered by the dedicated appearance tests.
+// Unexpected calls here fail rather than manufacture a successful visual update.
+public sealed record FakeAppearanceSettings(string Skin="fluent",bool ReduceTransparency=false);
+internal static class AppearancePreferences
+{
+    public static FakeAppearanceSettings Parse(JsonElement value)=>throw new NotSupportedException();
+    public static void Save(string path,FakeAppearanceSettings value)=>throw new NotSupportedException();
+}
+internal static class WindowMaterial
+{
+    public static string Apply(object host,object surface,object controller,FakeAppearanceSettings value)=>throw new NotSupportedException();
+}
 // This ordinary-edition handler fixture cannot start an embedded process. The
 // actual embedded service/source validation is covered by NativeDistribution.
 public sealed record FakeEmbeddedApiView(string State);
