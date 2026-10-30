@@ -25,17 +25,22 @@ try {
     await page.addInitScript(({ initial, sources, embedded }) => {
       const callbacks = [];
       let settings = initial, settingsRevision = 0;
+      let appearance = { skin: 'fluent', reduceTransparency: false, revision: 0, backdrop: 'solid', notice: '' };
       const localApi = { enabled: true, state: 'ready', message: '本机弹幕服务已就绪。', sources,
-        availableSources: [{ id: 'douban', label: '豆瓣' }, { id: '360', label: '360' }, { id: 'renren', label: '人人视频' }, { id: 'hanjutv', label: '韩剧TV' }] };
+        availableSources: [{ id: 'douban', label: '豆瓣' }, { id: '360', label: '360' }, { id: 'renren', label: '人人视频' }, { id: 'hanjutv', label: '韩剧TV' },
+          { id: 'tencent', label: '腾讯视频' }, { id: 'youku', label: '优酷' }, { id: 'iqiyi', label: '爱奇艺' }, { id: 'imgo', label: '芒果TV' }] };
       Object.defineProperty(window, 'chrome', { configurable: true, value: { webview: {
         addEventListener: (_, callback) => callbacks.push(callback),
         postMessage: message => {
           let data;
           if (message.type === 'hello') data = { apiBase: embedded ? 'http://127.0.0.1:12345/EXAMPLE_ONLY' : 'https://danmu.example.com/EXAMPLE_ONLY',
             apiSaved: !embedded, apiNotice: '', settings, settingsRevision, stateSequence: 0, protocolVersion: 1,
-            capabilities: ['media-context-v1', 'automatic-match-v1', 'desktop-lifecycle-v1', 'tray-flyout-v1', ...(embedded ? ['embedded-api-v1'] : ['api-persistence-v1'])],
+            appearance,
+            capabilities: ['media-context-v1', 'automatic-match-v1', 'desktop-lifecycle-v1', 'tray-flyout-v1', 'appearance-v1', ...(embedded ? ['embedded-api-v1'] : ['api-persistence-v1'])],
             ...(embedded ? { localApi } : {}) };
           else if (message.type === 'get-startup') data = { enabled: false };
+          else if (message.type === 'get-appearance') data = appearance;
+          else if (message.type === 'set-appearance') { appearance = { ...appearance, ...message.payload, revision: appearance.revision + 1 }; data = appearance; }
           else if (message.type === 'get-settings') data = { settings, settingsRevision };
           else if (message.type === 'update-settings') { settings = message.payload.settings; settingsRevision++; data = settings; }
           else if (message.type === 'search') data = { animes: [{ animeId: 1, animeTitle: '海边日落 · 自制演示作品' }] };
@@ -71,7 +76,15 @@ try {
   const embedded = await panel(true);
   await expect(embedded.getByLabel('API 地址', { exact: true })).toHaveCount(0);
   await embedded.screenshot({ path: resolve(output, 'tray-includeapi.png') });
-  console.log('Captured four labelled compact React panels with isolated fixtures; no real service or player access.');
+  await embedded.getByRole('button', { name: '更多设置', exact: true }).click();
+  await embedded.locator('.local-sources > summary').click();
+  await expect(embedded.getByRole('button', { name: '全选', exact: true })).toBeVisible();
+  await embedded.locator('.local-api-status').scrollIntoViewIfNeeded();
+  await embedded.screenshot({ path: resolve(output, 'tray-includeapi-sources.png') });
+  await standard.getByRole('button', { name: '切换皮肤', exact: true }).click();
+  await expect(standard.getByRole('heading', { name: '外观与皮肤', exact: true })).toBeFocused();
+  await standard.screenshot({ path: resolve(output, 'tray-appearance.png') });
+  console.log('Captured six labelled compact React panels with isolated fixtures; no real service or player access.');
 } finally {
   await browser?.close();
   if (server.exitCode === null) { const exited = once(server, 'exit'); server.kill(); await exited; }

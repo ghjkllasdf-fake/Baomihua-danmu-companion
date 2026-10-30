@@ -105,7 +105,7 @@ API 使用 `ProtectedData` 的 `CurrentUser` 范围加密，独立存于 `%LOCAL
 
 发布前运行 `npm.cmd --prefix ui audit --json`。提交源文件后可运行 `node scripts/Test-PublicPrivacy.mjs` 检查 Git 索引；它不会上传数据。任何日志、缓存、私人配置、私人截图或未审查二进制都不应进入 Git。项目原创部分使用 MIT，组包必须包含根目录 `LICENSE`；第三方许可保留原文。
 
-当前托盘面板图在 UI 构建后运行 `node scripts/Capture-TrayScreenshots.mjs`；四张图使用隔离 fixture，明确标注演示，不访问真实 API 或播放器。原有视频效果示意仍可依次运行 `scripts/Capture-ReadmeOverlay.ps1`（PS7，STA）和 `node scripts/Capture-ReadmeScreenshots.mjs` 重建。前两张为真实 React 界面配隔离 fixture，第三张为自制动画视频画面与生产原生渲染器输出的1:1叠合示意，均明确标注演示用途，不访问用户播放器或真实 API。临时 WebM 位于忽略的 `.cache/readme-demo/`，只提交已审查的三张 PNG。
+当前托盘面板图在 UI 构建后运行 `node scripts/Capture-TrayScreenshots.mjs`；六张图（含皮肤和来源批量选择）使用隔离 fixture，明确标注演示，不访问真实 API 或播放器。原有视频效果示意仍可依次运行 `scripts/Capture-ReadmeOverlay.ps1`（PS7，STA）和 `node scripts/Capture-ReadmeScreenshots.mjs` 重建。前两张为真实 React 界面配隔离 fixture，第三张为自制动画视频画面与生产原生渲染器输出的1:1叠合示意，均明确标注演示用途，不访问用户播放器或真实 API。临时 WebM 位于忽略的 `.cache/readme-demo/`，只提交已审查的三张 PNG。
 
 ## 质量约定
 

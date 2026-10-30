@@ -2,6 +2,7 @@
 .cache/
 artifacts/
 node_modules/
+.taste-skill/
 ui/dist/
 ui/coverage/
 ui/test-results/
@@ -55,3 +56,5 @@ PERFORMANCE.md
 !/docs/assets/tray-includeapi.png
 !/docs/assets/tray-more.png
 !/docs/assets/tray-source.png
+!/docs/assets/tray-appearance.png
+!/docs/assets/tray-includeapi-sources.png

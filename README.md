@@ -8,9 +8,9 @@
 
 它是配合播放器使用的小工具，不提供影视资源。获取弹幕需要联网。
 
-**[下载 Beta4](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.1.1-beta.4)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
+**[下载 Beta6](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.1.1-beta.6)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
 
-当前代码已加入 `0.1.1-beta.6` 直接选集识季和跳转缓冲修复，用于本机试用；上面的链接仍对应已公开发布的 Beta4。
+**Beta6 更新**：修复直接点选剧集时的识季问题，以及大幅跳转后弹幕反复入场、消失的问题；同时加入四套皮肤、内置来源批量选择和更清楚的匹配失败提示。详见 [更新记录](CHANGELOG.md)。
 
 ## 能做什么
 
@@ -18,6 +18,7 @@
 - **多季剧分别匹配**：核对当前季数后搜索，兼容“第二季”“第2季”“S02E02”等写法；不同季分别绑定来源，其他季的弹幕不会因为数量更多而被选中。
 - **跟随视频播放**：响应播放、暂停和进度跳转。弹幕只显示在视频窗口上，视频最小化后一起隐藏，其他窗口也能盖住它。
 - **随手调整显示**：区域、字号、速度、不透明度、描边、缩放和密度都在托盘面板里。
+- **四套外观可选**：原生清爽、流光玻璃、WinUI、石墨工作室，选择后下次启动继续使用。
 - **手动搜索、换源**：自动匹配不合适时，自己选择作品、来源和分集。
 - **过滤和校时**：屏蔽关键词、合并重复弹幕，调整时间偏移；也可以按需开启 Windows 开机启动。
 
@@ -29,12 +30,12 @@
 
 **没有自己的弹幕服务，选 includeAPI 安装版。** 它会自动启动包内的本机服务，无需填写地址。已有可用弹幕 API 的用户可以选普通版，文件更小。
 
-本文对应 `0.1.1-beta.4`：
+本文对应 `0.1.1-beta.6`：
 
 | 版本 | 适合谁 | 安装包 | 免安装包 |
 |---|---|---|---|
-| includeAPI 版 | 想直接使用，不自行部署服务 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.4/DanmuCompanion-0.1.1-beta.4-win-x64-includeAPI-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.4/DanmuCompanion-0.1.1-beta.4-win-x64-includeAPI-portable.zip) |
-| 普通版 | 已有兼容的弹幕 API 地址 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.4/DanmuCompanion-0.1.1-beta.4-win-x64-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.4/DanmuCompanion-0.1.1-beta.4-win-x64-portable.zip) |
+| includeAPI 版 | 想直接使用，不自行部署服务 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.6/DanmuCompanion-0.1.1-beta.6-win-x64-includeAPI-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.6/DanmuCompanion-0.1.1-beta.6-win-x64-includeAPI-portable.zip) |
+| 普通版 | 已有兼容的弹幕 API 地址 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.6/DanmuCompanion-0.1.1-beta.6-win-x64-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.6/DanmuCompanion-0.1.1-beta.6-win-x64-portable.zip) |
 
 - **安装版**：运行下载的安装包，按提示完成安装，再从开始菜单打开“爆米花弹幕伴侣”或“爆米花弹幕伴侣 includeAPI”。默认安装到当前用户目录。
 - **Portable 版**：把 ZIP **完整解压**到本地可写文件夹，再运行其中的 `DanmuCompanion.exe`。请保留整个文件夹，不要只复制 EXE，也不要在压缩软件里直接运行。
@@ -50,6 +51,8 @@
 3. **在爆米花里播放视频。** 伴侣会自动识别、匹配并加载弹幕，面板底部可以查看当前作品、来源和弹幕数量。
 
 搜索和装载进度会显示在视频右上角，首条弹幕出现后提示渐隐。遇到临时网络问题或没有搜索结果时，自动匹配最多尝试三轮；仍未找到会提示手动搜索，视频上的失败提示在五秒后消失。
+
+最终匹配失败时，面板底部的“手动搜索 / 换源”会突出显示“需处理”。点击后可以自行搜索；切换作品或开始处理后，提示恢复普通状态。
 
 ### 普通版：填写 API 地址
 
@@ -86,6 +89,24 @@ https://danmu.example.com/YOUR_TOKEN/api/v2
 | 更多设置 | 调整来源类型、重复弹幕合并、屏蔽关键词和时间偏移；includeAPI 版也在这里选择弹幕来源。 |
 
 首次使用默认字号为 22 px、速度为 0.8×、不透明度为 85%、描边为 0 px，等比缩放关闭。设置会自动保存。
+
+### 更换皮肤与选择内置来源
+
+点击右上角的 **衣服图标**，选择原生清爽、流光玻璃、WinUI 或石墨工作室。外观会自动保存；流光玻璃的透明效果取决于 Windows 支持和系统设置，也可以开启“减少透明效果”使用实色底。
+
+includeAPI 版在“更多设置 → 选择弹幕来源”中调整来源。可以“全选”“全不选”或逐项勾选、上移排序，最后点击 **“应用来源”**。至少保留一个来源；勾选更多来源不代表每个来源都能返回结果，也可能增加等待时间。
+
+| 外观与皮肤 | includeAPI 来源选择 |
+|---|---|
+| ![Beta6 外观与皮肤](docs/assets/tray-appearance.png) | ![Beta6 内置来源批量选择](docs/assets/tray-includeapi-sources.png) |
+
+*界面截图为当前 React 界面配隔离示例数据；玻璃皮肤的实际桌面透色不能由浏览器截图展示。*
+
+### 观看效果
+
+![自制视频画面与从右向左滚动的弹幕效果示意](docs/assets/preview-playback.png)
+
+*视频画面为本项目自制演示素材，弹幕使用生产原生渲染器绘制并叠合展示；此图不作为真实播放器、性能或多屏验收证据。*
 
 ### 手动搜索或换源
 
@@ -147,7 +168,7 @@ https://danmu.example.com/YOUR_TOKEN/api/v2
 - 普通版的 API 地址使用当前 Windows 用户的加密保护，保存在 `%LOCALAPPDATA%\BaomihuaDanmuCompanion\api.dat`。换电脑或 Windows 账户后需要重新填写。
 - 显示设置保存在 `%LOCALAPPDATA%\BaomihuaDanmuCompanion\app\preferences.json`，普通版和 includeAPI 版共用。
 - 搜索片名和获取弹幕的请求会发送到你配置的服务，或 includeAPI 中启用的来源。本机服务也需要联网获取弹幕，请使用自己信任的服务。
-- 为补足播放窗口省略的季数，开发版会只读核对爆米花已有的首页缓存或详情页中的当前季、集、文件名和时长。不会修改播放器缓存，不解析凭据端点、不解密数据库，也不上传文件路径或缓存。信息不足或冲突时会提示处理，不默认猜第一季。
+- 为补足播放窗口省略的季数，伴侣会只读核对爆米花已有的首页缓存或详情页中的当前季、集、文件名和时长。不会修改播放器缓存，不解析凭据端点、不解密数据库，也不上传文件路径或缓存。信息不足或冲突时会提示处理，不默认猜第一季。
 
 ## 更多说明
 
