@@ -1,6 +1,6 @@
 # 爆米花弹幕伴侣
 
-<img src="docs/assets/app-icon.png" width="96" height="96" alt="电视屏幕里的爆米花与弹幕点线" />
+<img src="docs/assets/app-icon.png" width="96" height="96" alt="爆米花与弹幕图标" />
 
 给 **网易爆米花 Windows 播放器**加上弹幕。
 
@@ -10,7 +10,9 @@
 
 **[下载 Beta6](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.1.1-beta.6)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
 
-**Beta6 更新**：修复直接点选剧集时的识季问题，以及大幅跳转后弹幕反复入场、消失的问题；同时加入四套皮肤、内置来源批量选择和更清楚的匹配失败提示。详见 [更新记录](CHANGELOG.md)。
+**Beta6 更新**：更新应用、托盘和浏览器图标；修复直接选集识季、大幅跳转后弹幕反复入场的问题，加入四套皮肤和来源批量选择。详见 [更新记录](CHANGELOG.md)。
+
+**2026-10-30 图标补发**：版本号仍为 `0.1.1-beta.6`，安装包和 Portable 已重新构建。已下载早期 Beta6 的用户，请退出旧版后重新下载；Portable 请解压到新文件夹。
 
 ## 能做什么
 
