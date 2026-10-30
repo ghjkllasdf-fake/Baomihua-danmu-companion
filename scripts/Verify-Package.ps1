@@ -10,7 +10,7 @@ function Test-AllowedPackagePath([string]$path){
         '^desktop/(Host|Start|ProbeWorker)\.ps1$',
         '^desktop/native/[A-Za-z0-9]+\.cs$',
         '^assets/(app|tray)\.ico$',
-        '^ui/dist/(index\.html|favicon\.svg|assets/[A-Za-z0-9_-]+\.(js|css|svg|png|jpg|webp|woff2))$',
+        '^ui/dist/(index\.html|favicon\.(svg|ico)|assets/[A-Za-z0-9_-]+\.(js|css|svg|png|jpg|webp|woff2))$',
         '^\.deps/pwsh/.+$',
         '^\.deps/webview2/(lib_manual/netcoreapp3\.0/Microsoft\.Web\.WebView2\.Core\.dll|runtimes/win-x64/native/WebView2Loader\.dll)$',
         '^\.deps/windows-sdk/lib/net8\.0/(WinRT\.Runtime|Microsoft\.Windows\.SDK\.NET)\.dll$',

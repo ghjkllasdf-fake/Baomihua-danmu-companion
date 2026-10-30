@@ -72,7 +72,7 @@ public static class PackageArchive
     private static void Allowed(string path)
     {
         PathShape(path);
-        bool allowed=RequiredPaths.Contains(path,StringComparer.Ordinal) ||
+        bool allowed=RequiredPaths.Contains(path,StringComparer.Ordinal) || path=="ui/dist/favicon.ico" ||
             Regex.IsMatch(path,@"^ui/dist/assets/[A-Za-z0-9_-]+\.(js|css|svg|png|jpg|webp|woff2)$") ||
             Regex.IsMatch(path,@"^desktop/native/[A-Za-z0-9]+\.cs$") ||
             path.StartsWith(".deps/pwsh/",StringComparison.Ordinal) ||

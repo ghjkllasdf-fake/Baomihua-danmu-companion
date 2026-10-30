@@ -7,6 +7,14 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory } from '../scripts/release-lib.mjs';
 
+test('browser icons allow only the fixed ICO and legacy SVG basenames', () => {
+  assert.equal(allowedEntry('ui/dist/favicon.ico'), true);
+  assert.equal(allowedEntry('ui/dist/favicon.svg'), true);
+  for (const path of ['ui/dist/other.ico', 'ui/dist/favicon.exe', 'ui/dist/favicon.ico:stream', 'ui/dist/../favicon.ico']) {
+    assert.equal(allowedEntry(path), false);
+  }
+});
+
 test('installer file version comes from the same native properties as the artifact version', () => {
   const props = '<Project><Version>0.1.1-beta.3</Version><FileVersion>0.1.1.3</FileVersion></Project>';
   assert.deepEqual(releaseVersions(props, '0.1.1-beta.3'), { fileVersion: '0.1.1.3' });

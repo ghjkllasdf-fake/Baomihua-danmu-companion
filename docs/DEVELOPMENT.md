@@ -114,3 +114,18 @@ API 使用 `ProtectedData` 的 `CurrentUser` 范围加密，独立存于 `%LOCAL
 保留的目标包括：500ms 播放响应、100ms 设置交付、连续10秒暂停零漂移；1080p / 5万条时间轴 / 实际100活动弹幕 / 60秒测试的回调间隔 p95≤20ms、p99≤33.4ms。回调间隔不是实际屏幕帧率，局部通过也不等于上述目标全部达标。
 
 渲染资源上限保持：8192px 单边、16MiB 单位图、64MiB 活动及缓存总像素、512缓存项。真实视频、多屏、长期资源和完整使用流程仍需独立验收。
+
+## 图标资源
+
+当前图标采用提供的 `baomihua-danmu-icons` 素材：`assets/app.ico` 用于主程序、窗口、任务栏、启动快捷方式和安装器，`assets/tray.ico` 用于通知区域。应用 ICO 含 16、20、24、32、40、48、64、96、128、256px 共 10 帧，托盘 ICO 含 16、20、24、32、40、48、64、256px 共 8 帧。小尺寸帧有独立优化，必须保留原始 ICO 字节，不应从大图或 SVG 批量缩放重建。
+
+`docs/assets/app-icon.png` 和 `docs/assets/tray-icon.png` 保留提供的 1024px 原稿。`assets/app.svg`、`assets/tray.svg` 是提供的位图包装 SVG，不代表可重新生成小尺寸 ICO 的矢量源。浏览器入口使用与应用相同的 `ui/public/favicon.ico`；继续保留同步更新的 `favicon.svg` 供旧源码组包流程兼容。
+
+```text
+node scripts/Build-Icons.mjs
+node scripts/Build-Icons.mjs --out artifacts/icon-preview
+node --test tests/icon-assets.test.mjs
+.deps\pwsh\pwsh.exe -NoProfile -File tests/Test-AppIcons.ps1
+```
+
+图标脚本只刷新浏览器副本和尺寸／灰阶预览，不改写 `assets/*.ico`。可用 `--out` 将输出放到隔离目录。原生构建后，可给 `Test-AppIcons.ps1` 传入 `-ApplicationExecutable`，逐像素核对 EXE 内嵌图标与提供的应用图标。此流程不创建 Release、不移动既有标签，也不替换发布附件。

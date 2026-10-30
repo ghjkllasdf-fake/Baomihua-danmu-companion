@@ -10,10 +10,13 @@ test('honest browser preview, display controls, responsive layout and accessibil
   await expect(page.getByText('浏览器预览模式：', { exact: false })).toBeVisible();
   await expect(page.getByRole('heading', { name: '爆米花弹幕面板' })).toHaveCount(1);
   await expect(page.locator('.preview')).toHaveCount(0);
-  const icon = await page.request.get('/favicon.svg');
+  const icon = await page.request.get('/favicon.ico');
   expect(icon.ok()).toBe(true);
-  expect(icon.headers()['content-type']).toContain('image/svg+xml');
-  expect(await icon.text()).toContain('<svg');
+  expect(icon.headers()['content-type']).toMatch(/image\/(?:x-icon|vnd\.microsoft\.icon)/);
+  const iconBytes = await icon.body();
+  expect(iconBytes.readUInt16LE(0)).toBe(0);
+  expect(iconBytes.readUInt16LE(2)).toBe(1);
+  expect(iconBytes.readUInt16LE(4)).toBe(10);
   await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
   await expect(page.getByRole('button', { name: '搜索弹幕来源' })).toBeDisabled();
   await page.getByRole('button', { name: '返回设置', exact: true }).click();
