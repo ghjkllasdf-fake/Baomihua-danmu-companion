@@ -117,15 +117,24 @@ internal sealed class LibrarySeasonReader(CancellationToken stop)
     }
     private static bool SameDuration(string text,double expected)
     {
-        double ms=0;
+        double ms=0;bool minutePrecision=false;
         var clock=Regex.Match(text.Split('/','／').Last().Trim(),@"^(?:(?<hours>\d{1,3}):)?(?<minutes>\d{1,3}):(?<seconds>[0-5]\d)$");
         if(clock.Success)
         {
             double.TryParse(clock.Groups["hours"].Value,NumberStyles.None,CultureInfo.InvariantCulture,out double hours);
             ms=(hours*3600+double.Parse(clock.Groups["minutes"].Value,CultureInfo.InvariantCulture)*60+double.Parse(clock.Groups["seconds"].Value,CultureInfo.InvariantCulture))*1000;
+            // Unplayed library rows expose minute-truncated metadata as mm:00.
+            // This evidence is only used together with the exact episode caption,
+            // matching series header and a filename proving the same season.
+            minutePrecision=clock.Groups["seconds"].Value=="00";
         }
-        else foreach(Match m in Regex.Matches(text,@"(\d+)\s*(小时|分钟|秒)"))
-            ms+=double.Parse(m.Groups[1].Value,CultureInfo.InvariantCulture)*(m.Groups[2].Value=="小时" ? 3600000 : m.Groups[2].Value=="分钟" ? 60000 : 1000);
-        return ms>0 && Math.Abs(ms-expected)<=2000;
+        else
+        {
+            var units=Regex.Matches(text,@"(\d+)\s*(小时|分钟|秒)");
+            foreach(Match m in units)
+                ms+=double.Parse(m.Groups[1].Value,CultureInfo.InvariantCulture)*(m.Groups[2].Value=="小时" ? 3600000 : m.Groups[2].Value=="分钟" ? 60000 : 1000);
+            minutePrecision=units.Any(m=>m.Groups[2].Value=="分钟") && !units.Any(m=>m.Groups[2].Value=="秒");
+        }
+        return ms>0 && (Math.Abs(ms-expected)<=2000 || minutePrecision && expected>=ms && expected<ms+60000);
     }
 }

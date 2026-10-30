@@ -49,6 +49,20 @@ internal static class SeriesIdentityTests
             "Auto-next may use the matching episode row and its duration while the details page still selects the previous file.");
         Check(LibrarySeasonReader.Resolve(SeriesIdentity.Parse("示例剧 第3集 新的分集标题"),20000,next)==0,
             "Auto-next still needs the current episode's duration, not a stale selected-file duration.");
+        var directEpisode=new[]{
+            new LibrarySeasonText("","示例剧 第 1 季"),new("","示例剧 - S01E19 - 之前的文件.mp4"),
+            new("VideoTimeText","45:00"),new("","21. 当前分集标题"),new("VideoTimeSpanText","46 分钟")};
+        var directIdentity=SeriesIdentity.Parse("示例剧 第21集 当前分集标题");
+        Check(LibrarySeasonReader.Resolve(directIdentity,2750040,directEpisode)==1,
+            "Direct episode selection must accept the library's truncated-minute duration while the selected filename still belongs to another episode.");
+        Check(LibrarySeasonReader.Resolve(directIdentity,2800000,directEpisode)==0,
+            "Truncated-minute evidence must not accept a video outside that minute.");
+        Check(LibrarySeasonReader.Resolve(directIdentity,2690000,directEpisode)==0,
+            "Truncated-minute evidence must not accept the previous minute.");
+        Check(LibrarySeasonReader.Resolve(directIdentity,2750040,directEpisode.Select(t=>t.Id=="VideoTimeText" ? t with{Text="45:10"} : t))==0,
+            "A duration containing explicit seconds must retain its seconds-level comparison.");
+        Check(LibrarySeasonReader.Resolve(directIdentity,2750040,directEpisode.Select(t=>t.Text=="21. 当前分集标题" ? t with{Text="21. 其他分集标题"} : t))==0,
+            "A minute-level duration must still require the exact active episode caption.");
         Check(SeriesIdentity.Parse("示例剧 第1季").QualifiedTitle!=SeriesIdentity.Parse("示例剧 第2季").QualifiedTitle,"Same episode number in distinct seasons must form separate media keys.");
         var video=new VideoWindow(new IntPtr(1),"video",0,0,1280,720){ProcessId=7};
         var continuity=new SeasonContinuity();
