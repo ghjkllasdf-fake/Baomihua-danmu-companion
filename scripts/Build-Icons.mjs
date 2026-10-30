@@ -41,7 +41,6 @@ await mkdir(resolve(output, 'docs/assets'), { recursive: true });
 await mkdir(resolve(output, 'ui/public'), { recursive: true });
 for (const name of ['app', 'tray']) await writeFile(resolve(output, `docs/assets/${name}-icon.png`), artwork[name]);
 await writeFile(resolve(output, 'ui/public/favicon.ico'), icons.app);
-await writeFile(resolve(output, 'ui/public/favicon.svg'), await readFile(resolve(root, 'assets/app.svg')));
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 try {
   const app = artwork.app.toString('base64');

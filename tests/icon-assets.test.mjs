@@ -43,7 +43,6 @@ test('all supplied application and tray artwork is preserved, including optimize
     assert.equal(hash(await readFile(join(root, 'docs/assets', `${name}-icon.png`))), expected.png);
   }
   assert.equal(hash(await readFile(join(root, 'ui/public/favicon.ico'))), supplied.app.ico);
-  assert.equal(hash(await readFile(join(root, 'ui/public/favicon.svg'))), supplied.app.svg);
   assert.match(await readFile(join(root, 'ui/index.html'), 'utf8'), /href="\/favicon\.ico"/);
 });
 
@@ -61,7 +60,6 @@ test('refreshing icon previews keeps source ICO bytes unchanged and writes brows
       assert.equal(hash(await readFile(join(output, 'docs/assets', `${name}-icon.png`))), expected.png);
     }
     assert.equal(hash(await readFile(join(output, 'ui/public/favicon.ico'))), supplied.app.ico);
-    assert.equal(hash(await readFile(join(output, 'ui/public/favicon.svg'))), supplied.app.svg);
     for (const name of ['icon-preview.png', 'icon-size-review.png']) {
       const png = await readFile(join(output, 'docs/assets', name));
       assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');

@@ -7,10 +7,12 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory } from '../scripts/release-lib.mjs';
 
-test('browser icons allow only the fixed ICO and legacy SVG basenames', () => {
+test('runtime payload keeps the actual ICO entries and excludes source artwork and the retired SVG favicon', () => {
   assert.equal(allowedEntry('ui/dist/favicon.ico'), true);
-  assert.equal(allowedEntry('ui/dist/favicon.svg'), true);
-  for (const path of ['ui/dist/other.ico', 'ui/dist/favicon.exe', 'ui/dist/favicon.ico:stream', 'ui/dist/../favicon.ico']) {
+  assert.equal(allowedEntry('assets/app.ico'), true);
+  assert.equal(allowedEntry('assets/tray.ico'), true);
+  for (const path of ['assets/app.svg', 'assets/tray.svg', 'assets/other.ico', 'ui/dist/favicon.svg',
+    'ui/dist/other.ico', 'ui/dist/favicon.exe', 'ui/dist/favicon.ico:stream', 'ui/dist/../favicon.ico']) {
     assert.equal(allowedEntry(path), false);
   }
 });

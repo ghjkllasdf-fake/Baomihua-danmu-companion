@@ -51,8 +51,8 @@ export function allowedEntry(path, apiEntries = null) {
   return /^(DanmuCompanion(?:\.Probe)?\.exe|MicrosoftEdgeWebview2Setup\.exe|createdump\.exe|README\.md|LICENSE|DISTRIBUTION-LICENSE\.txt|THIRD-PARTY-NOTICES\.md|install-files\.txt|manifest\.json)$/.test(path) ||
     /^DanmuCompanion(?:\.Probe)?\.(?:deps|runtimeconfig)\.json$/.test(path) ||
     /^(?:[a-z]{2}(?:-[A-Za-z0-9]+)?\/)?[A-Za-z0-9_.-]+\.dll$/.test(path) ||
-    /^assets\/[A-Za-z0-9_.-]+\.(?:ico|png|svg)$/.test(path) ||
-    /^ui\/dist\/(?:index\.html|favicon\.(?:svg|ico)|assets\/[A-Za-z0-9_.-]+\.(?:js|css|svg|png|jpg|webp|woff2))$/.test(path) ||
+    /^assets\/(?:app|tray)\.ico$/.test(path) ||
+    /^ui\/dist\/(?:index\.html|favicon\.ico|assets\/[A-Za-z0-9_.-]+\.(?:js|css|svg|png|jpg|webp|woff2))$/.test(path) ||
     /^licenses\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\.(?:txt|rtf|json|nuspec|html|md)$/.test(path);
 }
 

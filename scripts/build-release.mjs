@@ -70,7 +70,8 @@ for (const [project, directory] of [['NativeHost', 'host'], ['NativeProbe', 'pro
   }
 }
 await cp(join(root, 'ui', 'dist'), join(payload, 'ui', 'dist'), { recursive: true });
-await cp(join(root, 'assets'), join(payload, 'assets'), { recursive: true });
+await mkdir(join(payload, 'assets'));
+for (const name of ['app.ico', 'tray.ico']) await copyFile(join(root, 'assets', name), join(payload, 'assets', name));
 await cp(join(root, 'licenses', 'WebView2Runtime'), join(payload, 'licenses', 'WebView2Runtime'), { recursive: true });
 let apiInventory = null, apiInventorySha256 = null;
 if (includeApi) {
