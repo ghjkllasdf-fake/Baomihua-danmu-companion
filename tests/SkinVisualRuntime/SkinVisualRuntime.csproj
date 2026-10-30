@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="../../desktop/NativeCommon.props" />
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>GlassMaterial.Tests</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../fixtures/SkinRuntimeProbe.cs" Link="SkinRuntimeProbe.cs" />
+  </ItemGroup>
+</Project>

@@ -59,7 +59,7 @@
 :root[data-skin=fluent] .mini-app .manual-source-link{color:#245f96}
 
 /* Skin-level materials and control geometry, not colour aliases. */
-:root[data-skin=glass]{--canvas:#eaf0f5;--surface:#f9fbfd;--ink:#203142;--muted:#526476;--line:#c8d3df;--accent:#1765ad;--accent-soft:#e2eef9;--focus:#155c9e}
+:root[data-skin=glass]{--canvas:#eaf0f5;--surface:#f9fbfd;--ink:#172735;--muted:#20303e;--line:#c8d3df;--accent:#155583;--accent-soft:#e2eef9;--focus:#0c426e}
 :root[data-skin=winui]{--canvas:#f3f3f3;--surface:#fff;--ink:#1d1d1d;--muted:#5a5a5a;--line:#d7d7d7;--accent:#005c9f;--accent-soft:#e4edf5;--focus:#00538f}
 :root[data-skin=studio]{--canvas:#202225;--surface:#282b2e;--ink:#edf0ef;--muted:#b0b7bc;--line:#42484d;--accent:#edc677;--accent-soft:#343a3d;--focus:#f1ce88}
 .skin-trigger{width:26px;height:26px;display:grid;place-items:center;flex-shrink:0;margin-left:auto;border-radius:5px;background:transparent;color:var(--muted);padding:4px}.skin-trigger svg{width:17px;height:17px}.skin-trigger:hover,.skin-trigger[aria-pressed=true]{color:var(--focus);background:var(--accent-soft)}:root .mini-toolbar{gap:12px}:root .mini-app .hide-panel{margin-left:0}:root .mini-app [hidden]{display:none}
@@ -92,7 +92,12 @@
 :root[data-skin=studio] .mini-app .toggle-row,:root[data-skin=studio] .mini-app .setting-line{min-height:35px}:root[data-skin=studio] .mini-app .setting-line select{background:#191d20;border-color:#525e67;border-radius:2px}:root[data-skin=studio] .mini-footer{background:#191c1e;border-top:2px solid #414c54;padding-top:8px}:root[data-skin=studio] .mini-app .timecode{background:#101315;color:#f4d28d;border:1px solid #434c53;border-radius:2px;padding:3px 5px;font-size:16px}:root[data-skin=studio] .mini-app .manual-source-link{color:#f2ce86}:root[data-skin=studio] .skin-trigger{border-radius:2px}:root[data-skin=studio] .skin-choice{border-radius:2px}:root[data-skin=studio] .skin-choice[aria-pressed=true] strong>span{color:#f2ce86}
 /* Desktop transparency is enabled only after a supported native host confirms it. */
 :root[data-backdrop=acrylic][data-transparency=regular] body,:root[data-backdrop=acrylic][data-transparency=regular] #root{background:transparent}
-:root[data-skin=glass][data-backdrop=acrylic][data-transparency=regular] .mini-app{background:#eff6fc5c}
+/* DWM supplies the desktop blur; these are only light coatings and edge reflections. */
+:root[data-skin=glass][data-backdrop=acrylic][data-transparency=regular] .mini-app{background:linear-gradient(140deg,#ffffff38 0%,#ffffff00 42%,#c9e8ff14 100%),#eff6fc38;box-shadow:inset 0 1px 0 #fff,inset 0 -1px 0 #ffffff66}
+:root[data-skin=glass][data-backdrop=acrylic][data-transparency=regular] .mini-toolbar{background:#ffffff80;border-color:#fffffff0;box-shadow:0 3px 12px #253c5210,inset 0 1px 0 #ffffffb3}
+:root[data-skin=glass][data-backdrop=acrylic][data-transparency=regular] .mini-footer{background:#ffffff8c;border-color:#ffffffed;box-shadow:0 3px 12px #253c5210,inset 0 1px 0 #ffffffb3}
+:root[data-skin=glass][data-backdrop=acrylic][data-transparency=regular] .mini-app .segments{background:#ffffff59;border:1px solid #ffffff80;padding:2px}
+:root[data-skin=glass][data-backdrop=acrylic][data-transparency=regular] .mini-app .api-entry .api-input{background:#ffffff80;border-color:#ffffffb3}
 :root[data-skin=winui][data-backdrop=acrylic][data-transparency=regular] .mini-app{background:#f3f3f3a6}
 :root[data-transparency=reduced] .mini-toolbar,:root[data-transparency=reduced] .mini-footer,:root[data-transparency=reduced] .panel-navigation{backdrop-filter:none}
 :root[data-skin=glass][data-transparency=reduced] .mini-toolbar,:root[data-skin=glass][data-transparency=reduced] .mini-footer{background:#fafcfe}

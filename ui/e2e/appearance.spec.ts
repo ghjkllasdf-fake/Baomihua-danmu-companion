@@ -3,8 +3,8 @@ import AxeBuilder from '@axe-core/playwright';
 import { defaultSettings } from '../src/model';
 import { defaultAppearanceSnapshot, type AppearanceSnapshot } from '../src/appearance';
 
-async function desktop(page: Page, failure: 'none' | 'reject' | 'lost-reply' = 'none') {
-  let appearance: AppearanceSnapshot = { ...defaultAppearanceSnapshot }, writes = 0;
+async function desktop(page: Page, failure: 'none' | 'reject' | 'lost-reply' = 'none', backdrop: AppearanceSnapshot['backdrop'] = 'solid') {
+  let appearance: AppearanceSnapshot = { ...defaultAppearanceSnapshot, backdrop }, writes = 0;
   await page.exposeFunction('appearanceTransport', (message: { type: string; id: string; payload: Record<string, unknown> }) => {
     let data: unknown, ok = true, code = '', error = '';
     if (message.type === 'hello') data = { settings: defaultSettings, settingsRevision: 0, stateSequence: 0, protocolVersion: 1,
@@ -110,4 +110,27 @@ test('touch skin controls preserve the existing large input targets and forced-c
     expect(await page.locator('.mini-toolbar').evaluate(node => getComputedStyle(node).backdropFilter)).toBe('none');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally { await context.close(); }
+});
+
+test('glass exposes the native material instead of repainting an opaque sheet, with explicit solid fallback', async ({ page }) => {
+  await page.setViewportSize({ width: 380, height: 540 });
+  await desktop(page, 'none', 'acrylic');
+  await page.goto('/');
+  await page.getByRole('button', { name: '切换皮肤', exact: true }).click();
+  await page.getByRole('button', { name: 'B · 流光玻璃', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-backdrop', 'acrylic');
+  const coating = await page.locator('.mini-app').evaluate(node => {
+    const style = getComputedStyle(node);
+    return { colour: style.backgroundColor, sheen: style.backgroundImage };
+  });
+  const alpha = Number(coating.colour.match(/[\d.]+/g)?.[3] ?? 1);
+  expect(alpha).toBeGreaterThan(0);
+  expect(alpha).toBeLessThanOrEqual(0.25);
+  expect(coating.sheen).toContain('linear-gradient');
+  expect(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  await page.getByRole('switch', { name: '减少透明效果', exact: true }).check();
+  await expect(page.locator('html')).toHaveAttribute('data-transparency', 'reduced');
+  expect(await page.locator('.mini-app').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(237, 243, 247)');
+  expect(await page.locator('.mini-app').evaluate(node => getComputedStyle(node).backgroundImage)).toBe('none');
+  expect(await page.locator('.mini-toolbar').evaluate(node => getComputedStyle(node).backdropFilter)).toBe('none');
 });

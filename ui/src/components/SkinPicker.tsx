@@ -22,6 +22,6 @@ export function SkinPicker({ snapshot, status, error, available, choose, reload 
       <strong>{skins[id].name}<span aria-hidden="true">{snapshot.skin === id ? '✓' : ''}</span></strong><small>{skins[id].description}</small>
     </button>)}</div>
     <label className="toggle-row skin-transparency"><span>减少透明效果<small>使用实色背景，优先保证文字清晰</small></span><input type="checkbox" role="switch" aria-label="减少透明效果" checked={snapshot.reduceTransparency} disabled={disabled} onChange={event => void choose({ skin: snapshot.skin, reduceTransparency: event.target.checked })} /></label>
-    {['glass', 'winui'].includes(snapshot.skin) && <p className="skin-material-note">{snapshot.reduceTransparency ? '已关闭透明材质。' : snapshot.backdrop === 'acrylic' && available ? '已请求 Windows 系统毛玻璃；系统透明、节能及高对比设置优先。' : '当前使用实色回退；需支持的 Windows 11 宿主且系统允许透明效果。'}{snapshot.skin === 'glass' ? ' 此皮肤借鉴 Liquid Glass，不是 Apple 原生组件。' : ''}</p>}
+    {['glass', 'winui'].includes(snapshot.skin) && <p className="skin-material-note">{snapshot.reduceTransparency ? '已关闭透明材质。' : snapshot.backdrop === 'acrylic' && available ? '已请求 Windows 桌面毛玻璃；失焦、节能或系统关闭透明时可回退实色。' : '当前使用实色回退；需支持的 Windows 11 宿主且系统允许透明效果。'}{snapshot.skin === 'glass' ? ' 纯色背景下变化较轻；借鉴 Liquid Glass，非 Apple 原生组件。' : ''}</p>}
   </section>;
 }
