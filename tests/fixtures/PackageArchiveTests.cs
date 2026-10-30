@@ -58,11 +58,14 @@ public static class PackageArchiveTests
             Reject(()=>Build(fixture.Where(p=>p.Path!=icon)),"required");
         Reject(()=>Build(fixture.Where(p=>p.Path!=".deps/webview2/runtimes/win-x64/native/WebView2Loader.dll")),"required");
         Console.WriteLine("PASS: synthetic manifest/hash roundtrip, deterministic ZIP bytes, no overwrite and required native/loader paths.");
+        string withIcon=Build(fixture.Append(PackageInput.Text("ui/dist/favicon.ico","synthetic browser icon")));
+        Check(PackageArchive.Verify(withIcon).Files==fixture.Count+1,"The optional browser ICO must roundtrip without invalidating older SVG packages.");
 
         foreach(string path in new[] {"../leak.txt","/absolute.txt","C:/leak.txt","desktop/../leak.cs","desktop\\native\\leak.cs",
             "desktop/native/CON.cs","desktop/native/Core.cs:stream","desktop/native/Core.cs.","desktop/native/Core.cs ",
             ".deps/pwsh/bad?.txt",".deps/pwsh/CONIN$.txt",
-            ".cache/app/preferences.json","DanmuCompanion.ps1","ui/node_modules/leak.js","ui/dist/assets/main.js.map"})
+            ".cache/app/preferences.json","DanmuCompanion.ps1","ui/node_modules/leak.js","ui/dist/assets/main.js.map",
+            "ui/dist/other.ico","ui/dist/favicon.exe"})
             Reject(()=>Build(fixture.Append(PackageInput.Text(path,"do not ship"))),"path");
         Reject(()=>Build(fixture.Append(PackageInput.Text("DESKTOP/native/Core.cs","collision"))),"duplicate");
         Reject(()=>PackageArchive.Create(source,NewPath(),"../bad",fixture.ToArray(),Array.Empty<string>()),"version");
