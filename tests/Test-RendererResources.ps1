@@ -2,7 +2,7 @@
 param([ValidateSet('Text','Lanes','Limits','Budget','Opacity','Cadence','Surface','EmptyLoad','Incremental','All')][string]$Group='All')
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-. (Join-Path $root 'desktop\Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 function Assert($condition,[string]$message){ if(-not $condition){ throw $message } }
 function Parse-Text([string]$text){
     $json=@{ comments=@(@{ p='1,1,16777215'; m=$text }) } | ConvertTo-Json -Depth 4 -Compress

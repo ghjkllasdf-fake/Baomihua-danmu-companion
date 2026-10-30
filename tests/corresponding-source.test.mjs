@@ -13,8 +13,8 @@ test('source build never silently succeeds without required arguments', () => {
   assert.notEqual(result.status, 0);
 });
 
-test('source paths reject executable material and secrets but allow historical source scripts', () => {
-  for (const path of ['desktop/Host.ps1', 'desktop/Verify-Package.bat', 'backend/entry.mjs', 'assets/app.ico'])
+test('source paths reject executable material and secrets but allow development test scripts', () => {
+  for (const path of ['tests/Import-NativeTypes.ps1', 'backend/entry.mjs', 'assets/app.ico'])
     assert.doesNotThrow(() => assertSourcePath(path));
   assert.doesNotThrow(() => assertSourcePath('config/.env.example', false, true));
   for (const path of ['upstream/original/config/.env.example', 'third-party/upstream/modified/config/.env.example'])

@@ -4,6 +4,9 @@ $root=Split-Path $PSScriptRoot -Parent
 $folder=Join-Path $root ('.cache\render-work-review-'+[guid]::NewGuid().ToString('N'))
 foreach($part in @('tests\fixtures','ui')){[void][IO.Directory]::CreateDirectory((Join-Path $folder $part))}
 Copy-Item -LiteralPath (Join-Path $root 'desktop') -Destination $folder -Recurse
+[void][IO.Directory]::CreateDirectory((Join-Path $folder 'tests'))
+Copy-Item -LiteralPath (Join-Path $root 'tests/Import-NativeTypes.ps1') -Destination (Join-Path $folder 'tests')
+Copy-Item -LiteralPath (Join-Path $root 'tests/New-NativeTestApplication.ps1') -Destination (Join-Path $folder 'tests')
 Copy-Item -LiteralPath (Join-Path $root 'ui\dist') -Destination (Join-Path $folder 'ui') -Recurse
 foreach($file in @('Test-RenderWorkQueue.ps1','Test-RendererResources.ps1')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination (Join-Path $folder 'tests')}
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'fixtures\RenderWorkQueueTests.cs.in') -Destination (Join-Path $folder 'tests\fixtures')

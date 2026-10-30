@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from './fixtures/preview-test';
+import { test, expect, type Locator, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 async function tabTo(page: Page, target: Locator) {
@@ -11,11 +11,6 @@ async function tabTo(page: Page, target: Locator) {
     await page.keyboard.press('Tab');
   }
   throw new Error('The control is not reachable by keyboard.');
-}
-
-async function expectMoving(target: Locator) {
-  const before = await target.evaluate(element => element.getBoundingClientRect().x);
-  await expect.poll(async () => Math.abs(await target.evaluate(element => element.getBoundingClientRect().x) - before)).toBeGreaterThan(1);
 }
 
 test('display controls and disclosures are keyboard-operable with visible focus', async ({ page }) => {
@@ -82,65 +77,4 @@ test('display controls and disclosures are keyboard-operable with visible focus'
   const violations = (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations;
   expect(violations.filter(value => ['critical', 'serious'].includes(value.impact ?? '')).map(value => value.id)).toEqual([]);
   expect(errors).toEqual([]);
-});
-
-test('isolated legacy preview remains keyboard-operable and responds to the master switch', async ({ page, previewUrl }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto(previewUrl);
-  const master = page.getByRole('switch', { name: '显示弹幕', exact: true });
-  await tabTo(page, master);
-  await page.keyboard.press('Space');
-  await expect(master).not.toBeChecked();
-  await expect(page.locator('.preview-area')).toBeHidden();
-  await page.keyboard.press('Space');
-  await expect(master).toBeChecked();
-  const demo = page.getByRole('region', { name: '弹幕演示预览' }).getByRole('button');
-  await expect(demo).toHaveAccessibleName('暂停演示预览');
-  await tabTo(page, demo);
-  const firstBullet = page.locator('.preview-bullet').first();
-  await expectMoving(firstBullet);
-  await page.keyboard.press('Space');
-  await expect(demo).toHaveAccessibleName('播放演示预览');
-  await expect(firstBullet).toHaveCSS('animation-play-state', 'paused');
-});
-
-test('isolated preview reduced motion is static and reacts to preference changes without losing a manual pause', async ({ page, previewUrl }) => {
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto(previewUrl);
-  const preview = page.locator('.preview');
-  const button = preview.getByRole('button');
-  const bullet = preview.locator('.preview-bullet').first();
-  await expect(button).toBeDisabled();
-  await expect(button).toHaveAccessibleName(/减少动态/);
-  await expect(preview.locator('.preview-note')).toContainText('静止');
-  await expect(bullet).toHaveCSS('animation-play-state', 'paused');
-  const left = await bullet.evaluate(element => getComputedStyle(element).left);
-  // Measure a stationary interval rather than waiting for navigation or element readiness.
-  await page.waitForTimeout(150);
-  expect(await bullet.evaluate(element => getComputedStyle(element).left)).toBe(left);
-
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await expect(button).toBeEnabled();
-  await expect(button).toHaveAccessibleName('暂停演示预览');
-  await expect(bullet).toHaveCSS('animation-play-state', 'running');
-  await expectMoving(bullet);
-  await tabTo(page, button);
-  await page.keyboard.press('Space');
-  await expect(button).toHaveAccessibleName('播放演示预览');
-  await expect(bullet).toHaveCSS('animation-play-state', 'paused');
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect(button).toBeDisabled();
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await expect(button).toBeEnabled();
-  await expect(button).toHaveAccessibleName('播放演示预览');
-  await expect(bullet).toHaveCSS('animation-play-state', 'paused');
-  await page.setViewportSize({ width: 320, height: 900 });
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect(button).toBeDisabled();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  const note = await preview.locator('.preview-note').boundingBox();
-  const control = await button.boundingBox();
-  if (!note || !control) throw new Error('Reduced-motion explanation and control must remain visible.');
-  expect(note.x + note.width).toBeLessThanOrEqual(control.x);
-  await page.screenshot({ path: '../artifacts/ui-reduced-motion-320.png', fullPage: true });
 });

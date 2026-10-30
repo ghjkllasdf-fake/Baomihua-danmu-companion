@@ -3,7 +3,7 @@
 param([ValidateSet('dwm','layered')][string]$ExpectedMode='dwm')
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-. (Join-Path $root 'desktop\Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 [void][System.Windows.Forms.Application]::SetHighDpiMode([System.Windows.Forms.HighDpiMode]::PerMonitorV2)
 Add-Type -TypeDefinition @'
 using System;

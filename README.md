@@ -176,6 +176,10 @@ includeAPI 版在“更多设置 → 选择弹幕来源”中调整来源。可�
 
 [安装、升级与卸载](docs/BETA-USER-GUIDE.md) · [includeAPI 使用指南](docs/INCLUDEAPI-USER-GUIDE.md) · [源码构建说明](docs/DEVELOPMENT.md)
 
+## 开发与历史版本
+
+当前主线使用原生 .NET 程序，构建入口和测试命令见 [源码构建说明](docs/DEVELOPMENT.md)。旧 PowerShell 预览版的 BAT、启动和打包流程已从主线移除，历史实现仍可在对应 Git 标签查看。源码清理不会替换已经发布的 Beta6 安装包。
+
 ## 开源与许可
 
 原创桌面客户端、图标与自制演示素材采用 [MIT License](LICENSE)。includeAPI 内的上游程序、本机适配器和补丁采用 AGPL-3.0，同版本 Release 提供 `corresponding-source.zip` 对应源码。其他组件的许可见 [第三方依赖说明](docs/THIRD-PARTY-NOTICES.md)。

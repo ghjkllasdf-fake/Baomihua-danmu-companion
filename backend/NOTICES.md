@@ -13,7 +13,7 @@ Upstream: huangxd-/danmu_api commit
 `patches/0001-node-brotli.json` changes the codec to use Node's native Brotli
 implementation in this Node-only build. The original source, exact patch,
 modified source, dependency source archives, and build/install controls are in
-the companion `DanmuCompanion-0.1.1-beta.3-corresponding-source.zip` release
+the companion `DanmuCompanion-VERSION-corresponding-source.zip` release
 asset. The runtime package.json and package-lock.json are the modified runtime
 profile, not the upstream original. The former brotli npm package is not shipped.
 
@@ -42,7 +42,7 @@ wrappers are not shipped. Additional unmodified license texts are
 text is in its README.md. `licenses/esbuild-MIT.txt` is retained as provenance
 for the original upstream build tool, which is not part of this runtime.
 
-Release source access: the corresponding-source ZIP is offered with this
-version's releases at https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.1.1-beta.3.
+Release source access: choose the corresponding-source ZIP from the same
+Release as the executable's manifest.json at https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases.
 The included software comes without warranty, as stated in the applicable
 licenses; recipients may convey and modify covered works under those licenses.

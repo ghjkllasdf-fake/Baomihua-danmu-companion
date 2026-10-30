@@ -4,7 +4,7 @@ $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 . (Join-Path $PSScriptRoot 'PlaybackBounds.ps1')
 [void][IO.Directory]::CreateDirectory((Join-Path $root 'artifacts'))
-. (Join-Path $root 'desktop\Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 [System.Windows.Forms.Application]::SetHighDpiMode([System.Windows.Forms.HighDpiMode]::PerMonitorV2) | Out-Null
 if(-not [Popcorn.NativeWindows]::FindPlayer()){ throw 'BaoMiHua is not running. Open a video before the real-player integration check.' }
 $probe=[Popcorn.PlayerProbe]::new($root)

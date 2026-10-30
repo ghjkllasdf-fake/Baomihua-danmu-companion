@@ -2,13 +2,14 @@
 param([Parameter(Mandatory)][string]$RunDirectory,[Parameter(Mandatory)][ValidatePattern('^latency-[a-f0-9]{12}$')][string]$Profile,[Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{32}$')][string]$OwnerNonce,[switch]$PlaybackLoad)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-. (Join-Path $root 'desktop\Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 $observerSource=Join-Path $PSScriptRoot 'fixtures\SettingsLatencyObserver.cs'
 Add-Type -Path $observerSource -ReferencedAssemblies ($references | Select-Object -Unique)
 $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS='--remote-debugging-port=9232 --remote-debugging-address=127.0.0.1'
 [System.Windows.Forms.Application]::SetHighDpiMode([System.Windows.Forms.HighDpiMode]::PerMonitorV2) | Out-Null
 [System.Windows.Forms.Application]::EnableVisualStyles()
-$window=[Popcorn.DesktopWindow]::new($root,'',$Profile)
+$testApp=& (Join-Path $PSScriptRoot 'New-NativeTestApplication.ps1')
+$window=[Popcorn.DesktopWindow]::new($testApp,'',$Profile,(Join-Path $root '.cache'))
 $comments=$null
 if($PlaybackLoad){
     $comments=[Popcorn.Comment[]]::new(50000)

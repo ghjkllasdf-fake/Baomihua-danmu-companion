@@ -2,6 +2,11 @@
 param([ValidateSet('all','player-sync','danmaku-renderer')][string]$Module='all')
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
+if($Module -eq 'all'){
+    $env:DOTNET_CLI_HOME=Join-Path $root '.deps/dotnet-home'
+    & (Join-Path $root '.deps/dotnet/dotnet.exe') run --project (Join-Path $root 'tests/NativeDistribution/NativeDistribution.csproj') -c Release
+    if($LASTEXITCODE -ne 0){throw 'Native distribution regressions failed.'}
+}
 & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-Core.ps1')
 if($LASTEXITCODE -ne 0){ throw 'Core regression failed.' }
 & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -File (Join-Path $root 'tests\Test-PlaybackBounds.ps1')
@@ -31,8 +36,6 @@ if($Module -in @('all','player-sync')){
 if($Module -eq 'all'){
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-AppIcons.ps1')
     if($LASTEXITCODE -ne 0){ throw 'Windows application/tray icon decoding regression failed.' }
-    & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-StartupRegistration.ps1')
-    if($LASTEXITCODE -ne 0){ throw 'Isolated startup shortcut regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-TrayLifecycle.ps1')
     if($LASTEXITCODE -ne 0){ throw 'Tray and hidden desktop lifecycle regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-OverlayFocusRuntime.ps1')
@@ -45,12 +48,6 @@ if($Module -eq 'all'){
     if($LASTEXITCODE -ne 0){ throw 'WebView2 Runtime recovery regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -File (Join-Path $root 'tests\Test-ApiTimeout.ps1')
     if($LASTEXITCODE -ne 0){ throw 'Whole-request API timeout regression failed.' }
-    foreach($test in @('Test-PackageArchive.ps1','Test-PackageVerification.ps1')){
-        & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -File (Join-Path $root ('tests\'+$test))
-        if($LASTEXITCODE -ne 0){ throw ('Package integrity regression failed: '+$test) }
-    }
-    & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -File (Join-Path $root 'tests\Test-DownloadedDeployment.ps1')
-    if($LASTEXITCODE -ne 0){ throw 'Downloaded deployment launch/probe regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-SettingsLatencyEvidence.ps1')
     if($LASTEXITCODE -ne 0){ throw 'Settings-latency evidence publication regression failed.' }
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -File (Join-Path $root 'tests\Test-SettingsLatencyOwnership.ps1')
@@ -81,7 +78,7 @@ if($Module -in @('all','danmaku-renderer')){
     & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests\Test-RendererResources.ps1')
     if($LASTEXITCODE -ne 0){ throw 'Offscreen renderer resource regression failed.' }
 }else{
-    & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'desktop\Host.ps1') -Check
+    & (Join-Path $root '.deps\pwsh\pwsh.exe') -NoProfile -STA -File (Join-Path $root 'tests/Import-NativeTypes.ps1')
     if($LASTEXITCODE -ne 0){ throw 'Desktop native compilation failed.' }
 }
 Write-Output 'Native synthetic/logic regressions and compilation passed. Real-player integration and visual/performance checks are separate gates.'

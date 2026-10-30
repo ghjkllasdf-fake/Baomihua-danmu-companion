@@ -4,6 +4,10 @@ $root=Split-Path $PSScriptRoot -Parent
 $folder=Join-Path $root ('.cache\renderer-reconfigure-'+[guid]::NewGuid().ToString('N'))
 foreach($part in @('scripts','tests\fixtures','ui\e2e','artifacts')){[void][IO.Directory]::CreateDirectory((Join-Path $folder $part))}
 Copy-Item -LiteralPath (Join-Path $root 'desktop') -Destination $folder -Recurse
+Copy-Item -LiteralPath (Join-Path $root 'assets') -Destination $folder -Recurse
+[void][IO.Directory]::CreateDirectory((Join-Path $folder 'tests'))
+Copy-Item -LiteralPath (Join-Path $root 'tests/Import-NativeTypes.ps1') -Destination (Join-Path $folder 'tests')
+Copy-Item -LiteralPath (Join-Path $root 'tests/New-NativeTestApplication.ps1') -Destination (Join-Path $folder 'tests')
 foreach($part in @('src','dist')){Copy-Item -LiteralPath (Join-Path $root ('ui\'+$part)) -Destination (Join-Path $folder 'ui') -Recurse}
 Copy-Item (Join-Path $root 'ui\package.json') (Join-Path $folder 'ui')
 foreach($name in @('SettingsLatency.mjs','Test-SettingsLatency.ps1')){Copy-Item (Join-Path $root ('scripts\'+$name)) (Join-Path $folder 'scripts')}

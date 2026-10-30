@@ -41,7 +41,6 @@ PERFORMANCE.md
 /docs/*
 !/docs/BETA-USER-GUIDE.md
 !/docs/INCLUDEAPI-USER-GUIDE.md
-!/docs/PREVIEW-USER-GUIDE.md
 !/docs/THIRD-PARTY-NOTICES.md
 !/docs/DEVELOPMENT.md
 !/docs/INCLUDEAPI-BUILD.md
@@ -50,8 +49,6 @@ PERFORMANCE.md
 !/docs/assets/app-icon.png
 !/docs/assets/tray-icon.png
 !/docs/assets/preview-playback.png
-!/docs/assets/preview-settings.png
-!/docs/assets/preview-workbench.png
 !/docs/assets/tray-panel.png
 !/docs/assets/tray-includeapi.png
 !/docs/assets/tray-more.png

@@ -66,7 +66,6 @@ internal static class DistributionTests
             NativeRuntimeTests.Run();
             NativeProcessImageTests.Run();
             SharedBrowserTests.Run();
-            NativeSandboxTests.Run();
             NativeInstanceTests.Run();
             NativeStartupTests.Run();
             NativePreferenceTests.Run();

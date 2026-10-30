@@ -26,12 +26,6 @@
     "source": "https://api.nuget.org/v3-flatcontainer/microsoft.windows.sdk.net.ref/10.0.26100.84/microsoft.windows.sdk.net.ref.10.0.26100.84.nupkg",
     "sha256": "2eff36accb9d76466d36e27e7199d375c662818d2c1376e65125d48ba4bd1c96"
   },
-  "webview2Runtime": {
-    "version": "156.0.4314.50",
-    "archive": ".deps/native-downloads/Microsoft.WebView2.FixedVersionRuntime.156.0.4314.50.x64.cab",
-    "source": "https://msedge.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/bd9305d7-a7d7-44fe-b8bf-aefad5d6cdb5/Microsoft.WebView2.FixedVersionRuntime.156.0.4314.50.x64.cab",
-    "sha256": "fcf0cd55f7c6e8efced05114372de8b8ffc9032c0296d16e060d260637dfe5f2"
-  },
   "inno": {
     "version": "7.1.1",
     "archive": ".deps/native-downloads/innosetup-7.1.1-x64.exe",

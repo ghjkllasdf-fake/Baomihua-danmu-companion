@@ -7,9 +7,9 @@ namespace Popcorn;
 
 public static class ProbeWorkerBoundaryTests
 {
-    public static async Task Run(string runtime,string script)
+    public static async Task Run(string executable,params string[] arguments)
     {
-        var child=new ProbeProcess(runtime,script);
+        var child=new ProbeProcess(executable,arguments);
         try
         {
             child.Start();
@@ -23,6 +23,6 @@ public static class ProbeWorkerBoundaryTests
             if (packet.Sample.Title!="worker-fixture" || packet.Sample.Detail!="MTA") throw new Exception("The actual bootstrap did not compile on MTA or produced invalid data.");
         }
         finally { if (!await child.StopAndReapAsync()) throw new Exception("Worker boundary fixture did not finish cleanup."); }
-        Console.WriteLine("PASS: actual PS7 worker bootstrap and source compilation reach a synthetic MTA emitter only after the actual startup gate.");
+        Console.WriteLine("PASS: actual native worker bootstrap reaches a synthetic MTA emitter only after the owned-parent gate.");
     }
 }

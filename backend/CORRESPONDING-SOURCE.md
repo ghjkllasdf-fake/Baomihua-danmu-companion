@@ -1,4 +1,4 @@
-# Corresponding source for includeAPI v0.1.1-beta.3
+# Corresponding source for includeAPI
 
 This tree accompanies the executable release. `upstream/original/` is the
 unchanged huangxd-/danmu_api commit 4d325e096bbbf0c1ff261a9bfa638f7c58784f60;
@@ -22,6 +22,9 @@ patch 0002. Its JS files are unmodified and replaceable with a compatible
 modified library build without signing keys. The two noted Git submodules are
 external conformance-test data, not needed to build or run the shipped worker;
 their pinned commits and omission are explicitly recorded in SOURCES.json.
+
+Read VERSION from the `<Version>` value in `project/desktop/NativeCommon.props`.
+The corresponding-source archive must be taken from the same Release as the executable.
 
 ## Rebuild and install a modified copy
 
@@ -72,7 +75,7 @@ The installed application's manifest checks file hashes, so editing its
 
        node scripts/prepare-includeapi.mjs --local-dan-any <built-library-root>
        node backend/tests/real-worker-health.mjs
-       node scripts/build-release.mjs --version 0.1.1-beta.3 --include-api --allow-dirty --output <new-empty-output-directory>
+       node scripts/build-release.mjs --version VERSION --include-api --allow-dirty --output <new-empty-output-directory>
 
 The replacement must retain the package name, version, LGPL license, required
 exports and the remaining locked runtime dependencies. The preparer drops the

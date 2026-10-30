@@ -1,7 +1,7 @@
 #requires -Version 7.6
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-. (Join-Path $root 'desktop/Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 $type=[Popcorn.OverlayHost].Assembly.GetType('Popcorn.OverlaySurface',$true)
 $surface=[Activator]::CreateInstance($type,$true)
 $output=Join-Path $root '.cache/readme-demo'

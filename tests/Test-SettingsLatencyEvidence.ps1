@@ -1,7 +1,7 @@
 #requires -Version 7.6
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-. (Join-Path $root 'desktop\Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 Add-Type -Path (Join-Path $PSScriptRoot 'fixtures\SettingsLatencyObserver.cs') -ReferencedAssemblies ($references | Select-Object -Unique)
 $heartbeatType='LatencyHeartbeat' -as [type]
 if($null -eq $heartbeatType){throw 'Settings measurement needs a distinct measured heartbeat phase that preserves warmup gaps.'}

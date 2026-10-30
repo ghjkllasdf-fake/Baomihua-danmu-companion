@@ -3,7 +3,7 @@ param([int]$Seconds=60,[int]$Width=1920,[int]$Height=1080,[int]$Comments=50000,[
 $ErrorActionPreference='Stop'
 if($Seconds -lt 3 -or $Seconds -gt 180){ throw 'Duration must be 3-180 seconds.' }
 $root=Split-Path $PSScriptRoot -Parent
-. (Join-Path $root 'desktop\Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 [System.Windows.Forms.Application]::SetHighDpiMode([System.Windows.Forms.HighDpiMode]::PerMonitorV2) | Out-Null
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $form=[System.Windows.Forms.Form]::new()

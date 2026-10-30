@@ -1,4 +1,4 @@
-import { test, expect, type Page } from './fixtures/preview-test';
+import { test, expect, type Page } from '@playwright/test';
 import { defaultSettings } from '../src/model';
 
 async function desktop(page: Page, failWrite = false) {
@@ -34,11 +34,6 @@ test('fresh compact panel shows requested display defaults and never enables Win
   await expect(page.getByLabel('滚动速度', { exact: true })).toHaveValue('0.8');
   await expect(page.getByRole('switch', { name: '随视频窗口等比缩放', exact: false })).not.toBeChecked();
   await expect(page.getByRole('switch', { name: '开机自动启动', exact: true })).toBeDisabled();
-});
-
-test('isolated legacy preview reflects the zero-outline default', async ({ page, previewUrl }) => {
-  await page.goto(previewUrl);
-  await expect(page.locator('.preview-bullet').first()).toHaveCSS('text-shadow', 'none');
 });
 
 test('startup is opt-in and only changes after confirmed user actions', async ({ page }) => {

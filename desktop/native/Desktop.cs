@@ -181,7 +181,7 @@ public sealed class DesktopWindow : Form
         settings.IsPasswordAutosaveEnabled=false;
     }
     private static string DescribeInitializationFailure(Exception error) => error is WebView2RuntimeNotFoundException
-        ? "包内 WebView2 运行环境缺失或不可用。\r\n请完整解压或重新安装本版本，无需另外安装 PowerShell 或 .NET。"
+        ? "Microsoft WebView2 Runtime 不可用。\r\n请运行包内 MicrosoftEdgeWebview2Setup.exe 安装或修复系统共享运行库，完成后重新打开。"
         : "桌面界面初始化失败："+error.Message+"\r\n请检查发行包是否完整解压，或重新安装本版本。";
     private void ApplyAutomaticMatch(AutomaticMatchResult result)
     {

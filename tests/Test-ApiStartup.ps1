@@ -1,14 +1,14 @@
 #requires -Version 7.6
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-. (Join-Path $root 'desktop/Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 function Assert($condition,[string]$message){if(-not $condition){throw $message}}
 $profile='api-restore-'+[Guid]::NewGuid().ToString('N')
 $path=Join-Path $root ('.cache/'+$profile+'/api.dat')
 [Popcorn.ApiPreferences]::Save($path,'https://danmu.example.com/EXAMPLE_ONLY')
 $flags=[Reflection.BindingFlags]'Instance,NonPublic'
 foreach($initial in @('','https://danmu.example.com/ENVIRONMENT_EXAMPLE')){
-    $window=[Popcorn.DesktopWindow]::new($root,$initial,$profile)
+    $window=[Popcorn.DesktopWindow]::new($root,$initial,$profile,(Join-Path $root '.cache'))
     try{
         $active=$window.GetType().GetField('apiBase',$flags).GetValue($window)
         $saved=$window.GetType().GetField('savedApiBase',$flags).GetValue($window)

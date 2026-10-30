@@ -5,7 +5,7 @@ $root=Split-Path $PSScriptRoot -Parent
 $report=Join-Path $root 'artifacts/skin-native-runtime.json'
 [void][IO.Directory]::CreateDirectory((Split-Path $report -Parent))
 @{result='RUNNING';requireDesktopVisual=$RequireDesktopVisual.IsPresent}|ConvertTo-Json|Set-Content $report
-. (Join-Path $root 'desktop/Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 [void][System.Windows.Forms.Application]::SetHighDpiMode([System.Windows.Forms.HighDpiMode]::PerMonitorV2)
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $drawing=$references+@('System.Private.Windows.GdiPlus.dll','System.Private.Windows.Core.dll'|ForEach-Object {Join-Path $PSHOME $_})

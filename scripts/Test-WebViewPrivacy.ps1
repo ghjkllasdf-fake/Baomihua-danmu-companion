@@ -36,12 +36,13 @@ if($Phase -eq 'Both'){
     'Retained privacy evidence: '+$run
     return
 }
-. (Join-Path $root 'desktop\Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 [System.Windows.Forms.Application]::SetHighDpiMode([System.Windows.Forms.HighDpiMode]::PerMonitorV2) | Out-Null
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $data=Join-Path $root ('.cache\'+$Profile)
 $flags=[Reflection.BindingFlags]'Instance,NonPublic'
-$window=[Popcorn.DesktopWindow]::new($root,'',$Profile)
+$testApp=& (Join-Path $root 'tests/New-NativeTestApplication.ps1')
+$window=[Popcorn.DesktopWindow]::new($testApp,'',$Profile,(Join-Path $root '.cache'))
     $created=$window.Handle
     try {
         $initialize=$window.GetType().GetMethod('InitializeAsync',$flags)

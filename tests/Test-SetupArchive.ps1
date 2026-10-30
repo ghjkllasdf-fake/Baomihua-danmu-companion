@@ -29,8 +29,11 @@ if(-not (Test-Path -LiteralPath $core) -or (Get-FileHash -LiteralPath $core).Has
     throw 'Actual Setup did not reproduce the modern WebView2 Core DLL from the package.'
 }
 Copy-Item -LiteralPath (Join-Path $root 'desktop') -Destination $folder -Recurse
+[void][IO.Directory]::CreateDirectory((Join-Path $folder 'tests'))
+Copy-Item -LiteralPath (Join-Path $root 'tests/Import-NativeTypes.ps1') -Destination (Join-Path $folder 'tests')
+Copy-Item -LiteralPath (Join-Path $root 'tests/New-NativeTestApplication.ps1') -Destination (Join-Path $folder 'tests')
 [void][IO.Directory]::CreateDirectory((Join-Path $folder 'ui'))
 Copy-Item -LiteralPath (Join-Path $root 'ui\dist') -Destination (Join-Path $folder 'ui') -Recurse
-& (Join-Path $runtime 'pwsh.exe') -NoProfile -STA -File (Join-Path $folder 'desktop\Host.ps1') -Check
+& (Join-Path $runtime 'pwsh.exe') -NoProfile -STA -File (Join-Path $folder 'tests/Import-NativeTypes.ps1')
 if($LASTEXITCODE -ne 0){ throw 'The actual Host rejected the cold-extracted SDKs.' }
 'PASS: unchanged Setup creates lib_manual and both SDKs; actual Host compiles with cold-extracted DLLs. Runtime reused, network mocked.'

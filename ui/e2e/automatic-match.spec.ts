@@ -1,4 +1,4 @@
-import { test, expect, type Page } from './fixtures/preview-test';
+import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { defaultSettings, emptyPlayer } from '../src/model';
 import type { AutomaticMatchStatus } from '../src/automatic-match';
@@ -163,17 +163,4 @@ test('required manual search keeps a large touch target', async ({ browser }) =>
     expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally { await context.close(); }
-});
-
-test('all isolated preview source types use rolling entry without fixed rows', async ({ page, previewUrl }) => {
-  await page.goto(previewUrl);
-  await page.getByRole('checkbox', { name: '滚动', exact: true }).uncheck();
-  await expect(page.locator('.preview-bullet')).toHaveCount(3);
-  await expect(page.locator('.preview-fixed')).toHaveCount(0);
-  for (const bullet of await page.locator('.preview-bullet').all()) {
-    const before = await bullet.evaluate(e => e.getBoundingClientRect().left);
-    await page.waitForTimeout(100);
-    const after = await bullet.evaluate(e => e.getBoundingClientRect().left);
-    expect(after).toBeLessThan(before);
-  }
 });

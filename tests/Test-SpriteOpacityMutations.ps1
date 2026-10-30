@@ -4,6 +4,9 @@ $root=Split-Path $PSScriptRoot -Parent
 $folder=Join-Path $root ('.cache\sprite-opacity-review-'+[guid]::NewGuid().ToString('N'))
 foreach($part in @('tests','ui')){[void][IO.Directory]::CreateDirectory((Join-Path $folder $part))}
 Copy-Item -LiteralPath (Join-Path $root 'desktop') -Destination $folder -Recurse
+[void][IO.Directory]::CreateDirectory((Join-Path $folder 'tests'))
+Copy-Item -LiteralPath (Join-Path $root 'tests/Import-NativeTypes.ps1') -Destination (Join-Path $folder 'tests')
+Copy-Item -LiteralPath (Join-Path $root 'tests/New-NativeTestApplication.ps1') -Destination (Join-Path $folder 'tests')
 Copy-Item -LiteralPath (Join-Path $root 'ui\dist') -Destination (Join-Path $folder 'ui') -Recurse
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Test-RendererResources.ps1') -Destination (Join-Path $folder 'tests')
 $null=New-Item -ItemType Junction -Path (Join-Path $folder '.deps') -Target (Join-Path $root '.deps')

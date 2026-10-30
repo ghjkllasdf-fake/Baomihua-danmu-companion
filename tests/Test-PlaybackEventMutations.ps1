@@ -4,6 +4,9 @@ $root=Split-Path $PSScriptRoot -Parent
 $folder=Join-Path $root ('.cache\playback-event-review-'+[guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory((Join-Path $folder 'tests\fixtures'))
 Copy-Item -LiteralPath (Join-Path $root 'desktop') -Destination $folder -Recurse
+[void][IO.Directory]::CreateDirectory((Join-Path $folder 'tests'))
+Copy-Item -LiteralPath (Join-Path $root 'tests/Import-NativeTypes.ps1') -Destination (Join-Path $folder 'tests')
+Copy-Item -LiteralPath (Join-Path $root 'tests/New-NativeTestApplication.ps1') -Destination (Join-Path $folder 'tests')
 foreach($name in @('Test-PlaybackEvents.ps1','Test-PlayerSamplerBoundary.ps1')){
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $folder 'tests')
 }

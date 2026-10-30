@@ -3,9 +3,13 @@ param([string]$ApplicationRoot,[switch]$OpenImmediately)
 $ErrorActionPreference='Stop'
 $evidenceRoot=Split-Path $PSScriptRoot -Parent
 $root=if($ApplicationRoot){[IO.Path]::GetFullPath($ApplicationRoot)}else{$evidenceRoot}
-. (Join-Path $root 'desktop/Host.ps1') -Check
+. (Join-Path $PSScriptRoot 'Import-NativeTypes.ps1') -ApplicationRoot $ApplicationRoot
+$testApp=if($ApplicationRoot){$root}else{& (Join-Path $PSScriptRoot 'New-NativeTestApplication.ps1')}
+[void][System.Windows.Forms.Application]::SetHighDpiMode([System.Windows.Forms.HighDpiMode]::PerMonitorV2)
+[System.Windows.Forms.Application]::EnableVisualStyles()
 $paintReferences=$references+@('System.Private.Windows.GdiPlus.dll','System.Private.Windows.Core.dll'|ForEach-Object {Join-Path $PSHOME $_})
 Add-Type -Path (Join-Path $PSScriptRoot 'fixtures/TrayContentProbe.cs') -ReferencedAssemblies ($paintReferences|Select-Object -Unique)
+[TrayContentProbe]::AssertBlankFramesRejected()
 function Assert($condition,[string]$message){if(-not $condition){throw $message}}
 $flags=[Reflection.BindingFlags]'Static,NonPublic'
 $trayType=[Popcorn.DesktopWindow].Assembly.GetType('Popcorn.DesktopTray')
@@ -18,19 +22,24 @@ $text=[string]$tooltip.Invoke($null,@('',0,'旧来源',12345))
 Assert ($text.Contains('等待爆米花播放') -and $text.Contains('0 条') -and -not $text.Contains('旧来源')) 'Unknown playback must not show a stale source or count.'
 $text=[string]$tooltip.Invoke($null,@("示例`r`n剧",1,"来源`n标签",12))
 Assert (($text.ToCharArray()|Where-Object {$_ -eq "`n"}|Measure-Object).Count -eq 2) 'External labels must not inject extra tooltip rows.'
-$window=[Popcorn.DesktopWindow]::new($root,'',('tray-test-'+[Guid]::NewGuid().ToString('N')))
+$window=[Popcorn.DesktopWindow]::new($testApp,'',('tray-test-'+[Guid]::NewGuid().ToString('N')),(Join-Path $evidenceRoot '.cache'))
+$window.GetType().GetProperty('SuppressErrorDialogs',[Reflection.BindingFlags]'Instance,NonPublic').SetValue($window,$true)
 $controllerField=$window.GetType().GetField('controller',[Reflection.BindingFlags]'Instance,NonPublic')
 $script:trayTestPhase=0
 $script:trayTestFailure=$null
 $script:trayPaintTask=$null
+$script:trayTickRunning=$false
+$script:trayReentrantTicks=0
 $paintFolder=Join-Path $root ('.cache/tray-paint-'+[Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($paintFolder)
 $watch=[Diagnostics.Stopwatch]::StartNew()
 $timer=[Windows.Forms.Timer]::new()
 $timer.Interval=200
 $timer.add_Tick({
+    if($script:trayTickRunning){$script:trayReentrantTicks++;return}
+    $script:trayTickRunning=$true
     try {
-        if($watch.Elapsed.TotalSeconds -gt 40){throw 'Hidden startup handshake timed out.'}
+        if($watch.Elapsed.TotalSeconds -gt 40){throw ('Hidden startup handshake timed out. '+$window.Failure)}
         if(-not $window.Ready){return}
         switch($script:trayTestPhase){
             0 {
@@ -66,13 +75,16 @@ $timer.add_Tick({
             4 {
                 Assert (-not $controllerField.GetValue($window).IsVisible) 'Minimizing must hide the browser controller.'
                 $window.OpenWorkbench();$script:trayTestPhase=5
+                $fly=$window.GetType().GetField('flyout',[Reflection.BindingFlags]'Instance,NonPublic').GetValue($window)
+                $script:restoreImmediate="visible=$($window.Visible), state=$($window.WindowState), controller=$($controllerField.GetValue($window).IsVisible), active=$([Popcorn.NativeWindows]::GetForegroundWindow()), host=$($window.Handle), closing=$($window.GetType().GetField('closing',[Reflection.BindingFlags]'Instance,NonPublic').GetValue($window)), flyoutDisposed=$($fly.GetType().GetField('disposed',[Reflection.BindingFlags]'Instance,NonPublic').GetValue($fly)), reentries=$script:trayReentrantTicks"
             }
             5 {
-                Assert ($controllerField.GetValue($window).IsVisible) 'Restoring from minimized must display browser content.'
+                Assert ($controllerField.GetValue($window).IsVisible) ("Restoring from minimized must display browser content. immediate: "+$script:restoreImmediate+"; current: visible=$($window.Visible), state=$($window.WindowState), active=$([Popcorn.NativeWindows]::GetForegroundWindow()), host=$($window.Handle)")
                 $timer.Stop();$window.RequestExit();$script:trayTestPhase=6
             }
         }
     } catch {$script:trayTestFailure=$_;$timer.Stop();$window.RequestExit()}
+    finally {$script:trayTickRunning=$false}
 })
 try {
     if($OpenImmediately){$window.OpenWorkbench()}
@@ -81,10 +93,10 @@ try {
     if($script:trayTestFailure){throw $script:trayTestFailure}
     Assert ($script:trayTestPhase -eq 6 -and $null -ne $script:trayTestIcon -and -not $script:trayTestIcon.Visible) 'Explicit exit must close the workbench and remove its tray icon.'
 } finally {$timer.Dispose();$window.Dispose()}
-$unstarted=[Popcorn.DesktopWindow]::new($root,'',('tray-test-'+[Guid]::NewGuid().ToString('N')))
+$unstarted=[Popcorn.DesktopWindow]::new($testApp,'',('tray-test-'+[Guid]::NewGuid().ToString('N')),(Join-Path $evidenceRoot '.cache'))
 $unstartedTray=$unstarted.GetType().GetField('tray',[Reflection.BindingFlags]'Instance,NonPublic').GetValue($unstarted)
 $unstartedIcon=$unstartedTray.GetType().GetField('icon',[Reflection.BindingFlags]'Instance,NonPublic').GetValue($unstartedTray)
 $unstarted.Dispose()
 Assert (-not $unstartedIcon.Visible) 'Disposing before the message loop starts must not leave a ghost tray icon.'
-[ordered]@{first=$script:trayFirstPaint;reopen=$script:trayReopenPaint;directory=$paintFolder;applicationRoot=$root}|ConvertTo-Json -Depth 4|Set-Content (Join-Path $evidenceRoot 'artifacts/tray-paint-evidence.json')
+[ordered]@{first=$script:trayFirstPaint;reopen=$script:trayReopenPaint;directory=$paintFolder;applicationRoot=$testApp;reentrantTicks=$script:trayReentrantTicks}|ConvertTo-Json -Depth 4|Set-Content (Join-Path $evidenceRoot 'artifacts/tray-paint-evidence.json')
 'PASS: actual controller visibility, visible DOM and nonblank browser frames on first open/reopen, minimize/restore, tray lifetime and explicit exit.'

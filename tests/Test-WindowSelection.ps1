@@ -1,6 +1,6 @@
 #requires -Version 7.6
 $ErrorActionPreference='Stop'
-. (Join-Path $PSScriptRoot '..\desktop\Host.ps1') -Check
+. (Join-Path $PSScriptRoot 'Import-NativeTypes.ps1')
 function Assert($condition,[string]$message){ if(-not $condition){ throw $message } }
 $library=[Popcorn.VideoWindow]::new([IntPtr]1,'网易爆米花',0,0,3200,1400)
 $video=[Popcorn.VideoWindow]::new([IntPtr]2,'示例电视剧 第17集',200,200,1280,720)

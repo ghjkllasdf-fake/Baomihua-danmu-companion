@@ -1,7 +1,7 @@
 #requires -Version 7.6
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-. (Join-Path $root 'desktop\Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 [System.Windows.Forms.Application]::SetHighDpiMode([System.Windows.Forms.HighDpiMode]::PerMonitorV2) | Out-Null
 $form=[System.Windows.Forms.Form]::new()
 $form.Text='Popcorn renderer regression - synthetic target'

@@ -5,7 +5,7 @@ $root=Split-Path $PSScriptRoot -Parent
 [void][IO.Directory]::CreateDirectory((Join-Path $root '.cache'))
 $runLock=[IO.File]::Open((Join-Path $root '.cache\settings-latency.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
 function Get-SourceHashes {
-    $files=@('ui/dist/index.html','ui/package.json','desktop/Host.ps1','desktop/ProbeWorker.ps1','scripts/SettingsLatency.mjs','scripts/Test-SettingsLatency.ps1','tests/Run-SettingsLatencyHost.ps1','tests/fixtures/SettingsLatencyObserver.cs','tests/Test-SettingsLatencyEvidence.ps1','tests/Test-SettingsLatencyOwnership.ps1','tests/settings-latency.test.mjs','ui/e2e/settings-latency.mjs')
+    $files=@('ui/dist/index.html','ui/package.json','tests/Import-NativeTypes.ps1','tests/New-NativeTestApplication.ps1','desktop/NativeProbe/Program.cs','scripts/SettingsLatency.mjs','scripts/Test-SettingsLatency.ps1','tests/Run-SettingsLatencyHost.ps1','tests/fixtures/SettingsLatencyObserver.cs','tests/Test-SettingsLatencyEvidence.ps1','tests/Test-SettingsLatencyOwnership.ps1','tests/settings-latency.test.mjs','ui/e2e/settings-latency.mjs')
     foreach($directory in @('desktop/native','ui/src','ui/dist/assets')){ $files+=@(Get-ChildItem -LiteralPath (Join-Path $root $directory) -File -Recurse | ForEach-Object FullName) }
     @($files|ForEach-Object { $path=if([IO.Path]::IsPathRooted($_)){ $_ }else{ Join-Path $root $_ }; $file=Get-Item -LiteralPath $path; [pscustomobject]@{path=[IO.Path]::GetRelativePath($root,$file.FullName).Replace('\','/');sha256=(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()} } | Sort-Object path -Unique)
 }

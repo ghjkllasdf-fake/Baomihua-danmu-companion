@@ -1,61 +1,16 @@
 import { createRequire } from 'node:module';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { defaultSettings } from '../ui/src/model.ts';
-
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+import { resolve } from 'node:path';
+const root = resolve(import.meta.dirname, '..');
 const require = createRequire(resolve(root, 'ui/package.json'));
 const { chromium, expect } = require('@playwright/test');
-const output = resolve(root, 'docs/assets');
-const demo = resolve(root, '.cache/readme-demo');
-await mkdir(output, { recursive: true });
-await mkdir(demo, { recursive: true });
+const args = process.argv.slice(2);
+if (args.length && (args.length !== 2 || args[0] !== '--out' || !args[1])) throw new Error('Usage: node scripts/Capture-PlaybackScreenshot.mjs [--out DIRECTORY]');
+const output = args.length ? resolve(args[1]) : resolve(root, 'docs/assets'), demo = resolve(root, '.cache/readme-demo');
+await mkdir(output, { recursive: true }); await mkdir(demo, { recursive: true });
 const overlay = (await readFile(resolve(demo, 'overlay.png'))).toString('base64');
-const server = spawn(process.execPath, [resolve(root, 'ui/node_modules/vite/bin/vite.js'), 'preview', '--host', '127.0.0.1', '--port', '5177', '--strictPort'], { cwd: resolve(root, 'ui'), windowsHide: true, stdio: 'pipe' });
-let browser;
+const browser = await chromium.launch({ channel: 'msedge', headless: true });
 try {
-  for (let attempt = 0; ; attempt++) {
-    try { if ((await fetch('http://127.0.0.1:5177')).ok) break; } catch { /* Wait for this owned preview server. */ }
-    if (attempt > 80 || server.exitCode !== null) throw new Error('The isolated README preview server failed to start.');
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  browser = await chromium.launch({ channel: 'msedge', headless: true });
-  const page = await browser.newPage({ viewport: { width: 1200, height: 1000 }, deviceScaleFactor: 1 });
-  await page.addInitScript(initial => {
-    const callbacks = [];
-    let settings = initial, settingsRevision = 0, apiBase = '', apiSaved = false;
-    Object.defineProperty(window, 'chrome', { configurable: true, value: { webview: {
-      addEventListener: (_, callback) => callbacks.push(callback),
-      postMessage: message => {
-        let data;
-        if (message.type === 'hello') data = { apiBase, apiSaved, apiNotice: '', settings, settingsRevision, stateSequence: 0, protocolVersion: 1,
-          capabilities: ['media-context-v1', 'automatic-match-v1', 'desktop-lifecycle-v1', 'api-persistence-v1'] };
-        else if (message.type === 'save-api') { apiBase = message.payload.apiBase; apiSaved = Boolean(apiBase); data = { apiBase, saved: apiSaved }; }
-        else if (message.type === 'get-settings') data = { settings, settingsRevision };
-        else if (message.type === 'update-settings') { settings = message.payload.settings; settingsRevision++; data = settings; }
-        else if (message.type === 'get-startup') data = { enabled: false };
-        else throw new Error('Unexpected README fixture command.');
-        setTimeout(() => callbacks.forEach(callback => callback({ data: { type: 'response', id: message.id, ok: true, data, settingsRevision } })), 10);
-      },
-    } } });
-  }, defaultSettings);
-  await page.goto('http://127.0.0.1:5177');
-  await page.getByLabel('API 地址', { exact: true }).fill('https://danmu.example.com/EXAMPLE_ONLY');
-  await page.getByRole('button', { name: '保存地址', exact: true }).click();
-  await expect(page.getByRole('button', { name: '已保存', exact: true })).toBeDisabled();
-  await page.evaluate(() => {
-    const banner = document.createElement('div');
-    banner.textContent = '界面演示 · 示例地址与数据 · 不含真实服务或观看记录';
-    banner.style.cssText = 'background:#ffe56b;color:#2d2438;padding:9px 32px;font:12px "Microsoft YaHei",sans-serif';
-    document.body.prepend(banner);
-  });
-  await page.screenshot({ path: resolve(output, 'preview-workbench.png') });
-  await page.locator('.advanced summary').click();
-  await page.locator('.main-controls').screenshot({ path: resolve(output, 'preview-settings.png') });
-
   // Record an original animated scene into a real video, then play it for the effect screenshot.
   const film = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   await film.setContent('<canvas width="1280" height="720"></canvas>');
@@ -115,8 +70,5 @@ try {
   });
   await expect(film.locator('.danmu')).toHaveJSProperty('complete', true);
   await film.screenshot({ path: resolve(output, 'preview-playback.png') });
-  console.log('Captured three labelled README previews: real React UI with fixture data, display settings, and original video plus actual native-renderer example comments.');
-} finally {
-  if (browser) await browser.close();
-  if (server.exitCode === null) { const exited = once(server, 'exit'); server.kill(); await exited; }
-}
+  console.log('Captured the labelled original-video and native-renderer demonstration; no player, API or user profile accessed.');
+} finally { await browser.close(); }

@@ -1,7 +1,7 @@
 #requires -Version 7.6
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
-. (Join-Path $root 'desktop\Host.ps1') -Check
+. (Join-Path $root 'tests/Import-NativeTypes.ps1')
 function Assert([bool]$value,[string]$message){ if(-not $value){ throw $message } }
 $describe=[Popcorn.DesktopWindow].GetMethod('DescribeInitializationFailure',[Reflection.BindingFlags]'Static,NonPublic')
 Assert ($null -ne $describe) 'The desktop needs an actionable WebView2 startup recovery message.'
@@ -30,13 +30,13 @@ try {
     $failureDescription=if($null -eq $failure){'no exception'}else{$failure.GetType().FullName+' / '+$failure.HResult+' / '+$failure.Message}
     Assert ($failure -is [Microsoft.Web.WebView2.Core.WebView2RuntimeNotFoundException]) ('An absent fixed Runtime must reproduce the real SDK runtime-not-found failure; observed '+$failureDescription)
     $message=[string]$describe.Invoke($null,@($failure))
-    foreach($part in @('Microsoft Edge WebView2 Runtime','微软官方网站','Evergreen','x64','https://developer.microsoft.com/microsoft-edge/webview2/','重新打开')){
+    foreach($part in @('Microsoft WebView2 Runtime','MicrosoftEdgeWebview2Setup.exe','重新打开')){
         Assert ($message.Contains($part)) ('Missing Runtime recovery must explain: '+$part)
     }
-    Assert ($message.Contains('保留的旧版文件夹') -and $message.Contains('启动弹幕助手.bat')) 'Missing Runtime recovery must identify the retained legacy folder and entry.'
+    Assert ($message.Contains('系统共享运行库')) 'Missing Runtime recovery must describe the shared browser distribution.'
     Assert (-not $message.Contains($missing)) 'Runtime recovery must not expose the test/profile path.'
     $generic=[string]$describe.Invoke($null,@([IO.IOException]::new('controlled generic failure')))
-    Assert ($generic.Contains('controlled generic failure') -and $generic.Contains('检查文件.bat')) 'Other startup failures need their original detail and package recovery.'
+    Assert ($generic.Contains('controlled generic failure') -and $generic.Contains('重新安装')) 'Other startup failures need their original detail and package recovery.'
     Assert (-not $generic.Contains('Evergreen')) 'Other startup failures must not be mislabeled as missing Runtime.'
     [pscustomobject]@{exceptionType=$failure.GetType().FullName;runtimeMessage=$message;genericMessage=$generic;scope='Actual SDK missing fixed Runtime; no visible dialog or installed Runtime removal.'} |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $run 'result.json')

@@ -1,6 +1,6 @@
 #requires -Version 7.6
 $ErrorActionPreference='Stop'
-. (Join-Path $PSScriptRoot '..\desktop\Host.ps1') -Check
+. (Join-Path $PSScriptRoot 'Import-NativeTypes.ps1')
 foreach($uri in @('https://danmu.local/','https://danmu.local:443/index.html')){
     if(-not [Popcorn.DesktopWindow]::IsAppSource($uri)){ throw 'Valid local origin rejected.' }
 }
