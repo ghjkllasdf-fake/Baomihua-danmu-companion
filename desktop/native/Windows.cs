@@ -53,6 +53,7 @@ public static class NativeWindows
     }
     internal static void DestroyOverlay(IntPtr window)=>DestroyWindow(window);
     internal static void ShowOverlay(IntPtr window)=>ShowWindow(window,4);
+    internal static void RestoreWindow(IntPtr window)=>ShowWindow(window,9);
     internal static void HideOverlay(IntPtr window)=>ShowWindow(window,0);
     internal static void ResizeOverlayChild(IntPtr window,int width,int height)=>SetWindowPos(window,IntPtr.Zero,0,0,width,height,0x10|0x4);
     public static void ClickThrough(IntPtr window) => SetWindowLongPtr(window,-20,new IntPtr(GetWindowLongPtr(window,-20).ToInt64()|0x20|0x08000000|0x80));

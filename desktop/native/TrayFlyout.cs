@@ -61,6 +61,9 @@ internal sealed class TrayFlyout : IDisposable
         if(GetDpiForMonitor(monitor,0,out uint dpi,out _)==0 && dpi>0)scale=dpi/96.0;
         placement=TrayPlacement.Compute(screen.Bounds,screen.WorkingArea,anchor,new Size((int)Math.Round(380*scale),(int)Math.Round(540*scale)),(int)Math.Round(8*scale));
         bool animate=animations() && !form.Visible;
+        // Restore the actual HWND before WinForms applies placement; changing the
+        // managed WindowState alone can leave a borderless HWND minimized.
+        if(form.IsHandleCreated && NativeWindows.IsIconic(form.Handle))NativeWindows.RestoreWindow(form.Handle);
         form.WindowState=FormWindowState.Normal;
         form.Bounds=animate ? new Rectangle(placement.SlideFrom,placement.Bounds.Size) : placement.Bounds;
         form.TopMost=true;form.Show();form.Activate();

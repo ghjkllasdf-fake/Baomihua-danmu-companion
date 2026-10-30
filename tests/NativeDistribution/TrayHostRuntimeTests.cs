@@ -61,6 +61,12 @@ internal static class TrayHostRuntimeTests
                 Check(dom.GetProperty("panel").GetBoolean() && dom.GetProperty("toggles").GetInt32()==2 && dom.GetProperty("preview").GetInt32()==0 && dom.GetProperty("width").GetInt32()>=300,"The native host must paint the compact two-toggle UI without a preview.");
                 using(var file=File.Create(Path.Combine(evidence,"actual-native-panel.png")))await controller.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png,file);
 
+                host.WindowState=FormWindowState.Minimized;await Task.Delay(150);
+                Check(!controller.IsVisible,"A minimized host must hide the real browser controller.");
+                host.OpenWorkbench();await Task.Delay(250);
+                Check(host.WindowState==FormWindowState.Normal && host.Visible && controller.IsVisible,
+                    "Tray restore must retain normal state after placement and show browser content.");
+
                 using(var stillWindow=new Form {Owner=host,ShowInTaskbar=false,FormBorderStyle=FormBorderStyle.None})
                 using(var stillFlyout=new TrayFlyout(stillWindow,()=>false,()=>false))
                 {
