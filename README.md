@@ -10,7 +10,7 @@
 
 **[下载 Beta4](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.1.1-beta.4)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
 
-当前代码已加入 `0.1.1-beta.5` 多季剧修复，用于本机试用；上面的链接仍对应已公开发布的 Beta4。
+当前代码已加入 `0.1.1-beta.6` 直接选集识季和跳转缓冲修复，用于本机试用；上面的链接仍对应已公开发布的 Beta4。
 
 ## 能做什么
 

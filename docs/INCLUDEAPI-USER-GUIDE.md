@@ -1,10 +1,10 @@
-# 爆米花弹幕伴侣 0.1.1-beta.5 includeAPI
+# 爆米花弹幕伴侣 0.1.1-beta.6 includeAPI
 
 这是额外提供的 Windows x64 测试版本：包含本机弹幕 API、私有 Node 运行库和自包含 .NET。启动伴侣时自动启动后台 API，并自动连接；不需要手动安装 Node、npm、PowerShell 或填写 API 地址。它不包含网易爆米花播放器、影视资源或离线弹幕库。
 
 ## 安装和运行
 
-运行 `DanmuCompanion-0.1.1-beta.5-win-x64-includeAPI-setup.exe`，选择当前用户可写的本地专用空目录。开始菜单条目为“爆米花弹幕伴侣 includeAPI”。它使用独立安装登记，不覆盖普通安装版。Portable 则完整解压对应的 `includeAPI-portable.zip` 后运行 `DanmuCompanion.exe`，不要只复制单个 EXE。
+运行 `DanmuCompanion-0.1.1-beta.6-win-x64-includeAPI-setup.exe`，选择当前用户可写的本地专用空目录。开始菜单条目为“爆米花弹幕伴侣 includeAPI”。它使用独立安装登记，不覆盖普通安装版。Portable 则完整解压对应的 `includeAPI-portable.zip` 后运行 `DanmuCompanion.exe`，不要只复制单个 EXE。
 
 仍然复用系统稳定版 WebView2（最低 124）。如缺少或过旧，安装器使用包内微软安装引导程序联网补装；Portable 用户先运行同目录 `MicrosoftEdgeWebview2Setup.exe`。不捆绑私有浏览器，也不保证缺少 WebView2 时完全离线启动。
 

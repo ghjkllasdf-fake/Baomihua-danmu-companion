@@ -4,7 +4,7 @@
 
 ## 原生 Beta 构建（当前）
 
-`0.1.1-beta.5` 从 preview.15 的 C# 和 React 功能构建，入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`。用户运行、采样、自启动、WebView2 前置环境安装和卸载无需 PowerShell。本文后半的 PS 命令仅保留为历史预览版开发参考，不能用于生成 Beta。
+`0.1.1-beta.6` 从 preview.15 的 C# 和 React 功能构建，入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`。用户运行、采样、自启动、WebView2 前置环境安装和卸载无需 PowerShell。本文后半的 PS 命令仅保留为历史预览版开发参考，不能用于生成 Beta。
 
 本地工具由 `native-toolchain.json` 固定：.NET SDK 10.0.403／运行时 10.0.14、WebView2 SDK 1.0.4314.35、Windows 投影 10.0.26100.84、微软 Evergreen Bootstrapper 1.3.307.15、Inno Setup 7.1.1。Fixed Runtime 归档记录仅用于历史 beta.1，不再参与精简版 payload。按清单的官方来源准备 `.deps` 原始归档及对应解压目录；构建器校验归档、投影 DLL、引导程序和编译器，不修改全局 SDK。Node/npm 与 UI 依赖见下表和 `ui/package-lock.json`。
 
@@ -16,11 +16,11 @@ npm.cmd --prefix ui run test:e2e
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release
 node --test tests/release-package.test.mjs tests/native-archive.test.mjs tests/installer-guard.test.mjs tests/browser-prerequisite.test.mjs tests/source-state.test.mjs
 node scripts/check-release-mutation.mjs
-node scripts/build-release.mjs --version 0.1.1-beta.5
-node scripts/test-release.mjs --version 0.1.1-beta.5
+node scripts/build-release.mjs --version 0.1.1-beta.6
+node scripts/test-release.mjs --version 0.1.1-beta.6
 ```
 
-运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.1.1-beta.5/`，两个版本来自同一 manifest payload；应用文件不得超过 210 MiB，且白名单拒绝私有浏览器目录。
+运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.1.1-beta.6/`，两个版本来自同一 manifest payload；应用文件不得超过 210 MiB，且白名单拒绝私有浏览器目录。
 
 `test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝孤立旧安装、原位重装、卸载和外来文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
 
@@ -30,14 +30,19 @@ node scripts/test-release.mjs --version 0.1.1-beta.5
 
 ### 多季匹配回归
 
-`SeriesIdentity` 将已知季数归一为“片名 第N季”，沿用现有采样协议、媒体版本、旧请求隔离和来源绑定链路，不增加不兼容的消息字段。`CachedSeasonReader` 只解析当前用户爆米花既有首页缓存中的最近播放项，核对片名、集数、分集名、文件名季号和时长；跳过非首页端点，拒绝过期、损坏、矛盾和超预算数据。`LibrarySeasonReader` 可从同一播放器进程的详情页补足证据，并在同窗连续下一集时沿用已确认季数。两者不写入播放器文件或持久化观看记录。只有季数明确后才将候选交给数量比较／抽样；未知而存在多个季时拒绝猜测。
+`SeriesIdentity` 将已知季数归一为“片名 第N季”，沿用现有采样协议、媒体版本、旧请求隔离和来源绑定链路，不增加不兼容的消息字段。`CachedSeasonReader` 只解析当前用户爆米花既有首页缓存中的最近播放项，核对片名、集数、分集名、文件名季号和时长；跳过非首页端点，拒绝过期、损坏、矛盾和超预算数据。`LibrarySeasonReader` 可从同一播放器进程的详情页补足证据，并在同窗连续下一集时沿用已确认季数。详情页省略秒数的分钟值、以 `:00` 结束的列表时长按截断的分钟区间校验；其他时长继续使用两秒误差。此规则仍须唯一同名季标题、同季文件名及当前集完整分集名共同成立，不放宽首页缓存或矛盾证据。两者不写入播放器文件或持久化观看记录。只有季数明确后才将候选交给数量比较／抽样；未知而存在多个季时拒绝猜测。
 
 ```text
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release -- --season-match-tests
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release -- --season-identity-tests
+.deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release -- --seek-recovery-tests
 ```
 
 完整原生套件包含这些检查。`--season-live-sampler N` 为显式只读播放器检查；`--season-live-api ABS_INCLUDEAPI_PAYLOAD N` 另外启动自有临时服务并实际联网匹配，仅记录当前片名、来源和数量，不记录地址、令牌、路径或缓存。真实播放检查与模拟回归分开，不以演示数据代替真实结果。
+
+跳转回归覆盖大幅前后跳转、SMTC 仍报告播放而精确进度停住、播放状态短暂缺失、缓冲恢复及原生弹幕位置连续性。时钟按采样区间内实际位置变化判断跳转，不把推算时钟与停顿媒体的差值当作重复跳转；缓冲恢复不反向移动已有场景。
+
+显式诊断 `--seek-live-sampler SECONDS` 只读输出当前播放器与时钟状态；`--packaged-playback ABS_INCLUDEAPI_PAYLOAD SECONDS` 在隔离配置中实际加载指定成品的主程序 DLL、采样器和内置服务，并记录渲染状态。后者需要当前播放器保持可见且允许实际联网；会短暂显示真实弹幕，不操作视频。输出仅保存在忽略的 `artifacts`，含当前片名与弹幕文本，不应原样公开。
 
 ## 历史预览版开发参考
 
