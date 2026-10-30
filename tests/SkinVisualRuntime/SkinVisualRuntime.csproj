@@ -6,5 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../fixtures/SkinRuntimeProbe.cs" Link="SkinRuntimeProbe.cs" />
+    <Compile Include="../fixtures/ColdGlassProbe.cs" Link="ColdGlassProbe.cs" />
+    <Compile Include="../fixtures/ExternalGlassProbe.cs" Link="ExternalGlassProbe.cs" />
   </ItemGroup>
 </Project>

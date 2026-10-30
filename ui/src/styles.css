@@ -81,6 +81,9 @@ input[role=switch]:checked::after { left: 17px; }
 .local-sources { margin-top: 8px; font-size: 12px; }
 .local-sources summary { font-weight: 600; }
 .local-sources summary span { font-weight: 400; }
+.local-source-bulk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.local-source-bulk-actions .secondary { padding: 4px 10px; font-weight: 500; }
+.local-sources .local-source-empty { color: var(--ink); }
 .local-source-list { list-style: none; padding: 0; margin: 10px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 5px 12px; }
 .local-source-list li { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--line); padding: 3px 0; }
 .local-source-list label { min-width: 0; display: flex; align-items: center; gap: 7px; overflow-wrap: anywhere; }

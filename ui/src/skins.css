@@ -73,7 +73,11 @@
 :root[data-skin=glass] .mini-app .segments{padding:3px;border-radius:999px;background:#d9e3ed;gap:0}:root[data-skin=glass] .mini-app .segments button{border:0;border-radius:999px;background:transparent;min-height:26px;color:#455d74}:root[data-skin=glass] .mini-app .segments button[aria-pressed=true]{background:#fff;color:#175d9e;box-shadow:0 1px 5px #354c6520}:root[data-skin=glass] .region-icon{display:none}
 :root[data-skin=glass] .mini-app .range-control{min-height:32px}:root[data-skin=glass] input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:10px;background:#b9cad9}:root[data-skin=glass] input[type=range]::-webkit-slider-thumb{height:13px;width:23px;margin-top:-4px;border:1px solid #a6b8ca;border-radius:999px;background:#fff;box-shadow:0 2px 3px #29415b18}:root[data-skin=glass] input[type=range]:active::-webkit-slider-thumb{width:26px}
 :root[data-skin=glass] input[role=switch]{background:#b4c3ce}:root[data-skin=glass] input[role=switch]:checked{background:#277b56}:root[data-skin=glass] .mini-app .setting-line select{border-radius:999px;border:0;background:#ffffffcb}
-:root[data-skin=glass] .mini-footer{margin:0 8px 8px;padding:8px 10px 7px;border-radius:16px;border:1px solid #fff;background:#ffffffc2;backdrop-filter:blur(24px) saturate(1.25);box-shadow:0 3px 12px #253c5210}:root[data-skin=glass] .panel-navigation{background:#eff5f9ed;backdrop-filter:blur(16px)}
+:root[data-skin=glass] .mini-footer{margin:0 8px 8px;padding:8px 10px 7px;border-radius:16px;border:1px solid #fff;background:#ffffffc2;backdrop-filter:blur(24px) saturate(1.25);box-shadow:0 3px 12px #253c5210}
+/* Isolate scrolling from transparent navigation, reserving 4px for focus rings. */
+:root:is([data-skin=glass],[data-skin=winui]) .panel-main:has(>.panel-navigation){display:flex;flex-direction:column;overflow:hidden}
+:root:is([data-skin=glass],[data-skin=winui]) .panel-navigation{position:static;flex-shrink:0;background:transparent;backdrop-filter:none}
+:root:is([data-skin=glass],[data-skin=winui]) .panel-main:has(>.panel-navigation)>div:not([hidden]){min-height:0;margin:-4px;padding:4px;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin}
 /* C: WinUI-style setting groups, underline selection and keyboard focus edges. */
 :root[data-skin=winui] .mini-app{border-radius:8px;border-color:#c8c8c8}:root[data-skin=winui] .mini-toolbar{min-height:44px;background:#fafafa;border-bottom-color:#ddd}:root[data-skin=winui] .mini-heading{font-weight:600}
 :root[data-skin=winui] .mini-app .api-entry .api-input{border-radius:4px;border:1px solid #d0d0d0;border-bottom:2px solid #858585}:root[data-skin=winui] .mini-app .api-entry .api-input:focus-within{border-bottom-color:#005c9f}:root[data-skin=winui] .mini-app .api-save{border-radius:4px}
@@ -109,3 +113,12 @@
 
 
 @media(pointer:coarse){:root[data-skin] .mini-app input[type=range]{height:40px}:root[data-skin] .mini-app .range-control{min-height:44px}:root .skin-trigger{min-width:44px;min-height:44px}}
+
+/* A terminal match failure promotes the next action, not every progress update. */
+:root .mini-app .manual-source-link.needs-attention{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:4px 8px;border:1px solid transparent;border-radius:6px;background:var(--accent);color:#fff;font-weight:600;white-space:nowrap}
+.manual-source-prompt{border-left:1px solid currentColor;padding-left:6px;font-size:11px;font-weight:400}
+:root[data-skin=glass] .mini-app .manual-source-link.needs-attention{border-radius:999px}
+:root[data-skin=winui] .mini-app .manual-source-link.needs-attention{border-radius:4px}
+:root[data-skin=studio] .mini-app .manual-source-link.needs-attention{border-radius:2px;color:var(--canvas)}
+@media(pointer:coarse){:root .mini-app .manual-source-link.needs-attention{min-height:44px}}
+@media(forced-colors:active){:root[data-skin] .mini-app .manual-source-link.needs-attention{background:Highlight;color:HighlightText;border-color:Highlight}}

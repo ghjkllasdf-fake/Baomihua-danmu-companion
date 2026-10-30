@@ -36,8 +36,13 @@ export function LocalApiConnection({ localApi, available, onApply }: { localApi:
     <div className="api-heading"><h2 id="local-api-heading">本地弹幕服务</h2><p>自动连接，无需填写地址。</p></div>
     <div>
       <p className={localApi.state === 'failed' ? 'local-api-status error' : 'local-api-status'} role="status">{safeLocalApiText(localApi.message, status)}</p>
-      <details className="local-sources"><summary>选择弹幕来源 <span>已启用 {draft.length} 个</span></summary>
+      <details className="local-sources"><summary>选择弹幕来源 <span>已选 {draft.length} 个</span></summary>
         <p className="muted">按顺序启用来源；实际可用性取决于来源服务。</p>
+        <div className="local-source-bulk-actions" role="group" aria-label="批量选择弹幕来源">
+          <button type="button" className="secondary" disabled={!available || busy || draft.length === listed.length} onClick={() => { setDraft(listed); setError(''); }}>全选</button>
+          <button type="button" className="secondary" disabled={!available || busy || draft.length === 0} onClick={() => { setDraft([]); setError(''); }}>全不选</button>
+        </div>
+        {!draft.length && <p className="api-status error local-source-empty" role="status">请至少启用一个来源。</p>}
         <ul className="local-source-list">{listed.map(id => {
           const label = labels.get(id) || id, index = draft.indexOf(id), selected = index !== -1;
           return <li key={id}><label><input type="checkbox" aria-label={`启用 ${label}`} checked={selected} disabled={!available || busy} onChange={() => toggle(id)} /><span>{label}</span></label>
@@ -46,7 +51,6 @@ export function LocalApiConnection({ localApi, available, onApply }: { localApi:
         })}</ul>
         <div className="local-source-actions"><button type="button" className="secondary" disabled={!available || busy || defaults.length === 0} onClick={() => { setDraft(defaults); setError(''); }}>恢复默认</button>
           <button type="button" className="primary api-save" disabled={!available || busy || !draft.length || (!dirty && !retry)} onClick={() => void apply()}>{busy ? '应用中…' : retry ? '重试启动' : dirty ? '应用来源' : '已应用'}</button></div>
-        {!draft.length && <p className="api-status error" role="status">请至少启用一个来源。</p>}
         {error && <p className="api-status error" role="alert">{error}</p>}
       </details>
     </div>

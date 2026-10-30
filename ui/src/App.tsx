@@ -72,7 +72,9 @@ export function App() {
       if (state.settings !== undefined) session.observe(data);
       if (state.player !== undefined) {
         const incoming = state.player, valid = validPlayer(incoming);
+        const previousEpoch = latestPlayback.current.identityEpoch;
         latestPlayback.current = observePlayer(latestPlayback.current, valid ? incoming : emptyPlayer);
+        if (latestPlayback.current.identityEpoch !== previousEpoch) setAutomaticMatch(undefined);
         setPlayback(latestPlayback.current);
         if (!valid) setError('播放器状态消息无效，已停止显示自动同步。');
       }
@@ -124,6 +126,8 @@ export function App() {
   const shownError = connectionError || settingsError || error;
   const matchNotice = automaticMatch?.state === 'loaded' ? `已自动匹配${automaticMatch.sourceTitle ? ` · 来源：${automaticMatch.sourceTitle}` : ''}` :
     automaticMatch && !['waiting', 'manual'].includes(automaticMatch.state) ? automaticMatch.message : '';
+  const manualSearchRequired = connected && automaticMatching && automaticMatch?.state === 'failed' &&
+    Boolean(player.title.trim() && apiBase.trim()) && (!localApi || localApi.state === 'ready');
   async function hide() {
     if (!canHide) return;
     try { await request('hide'); } catch { setError('面板收起失败，请重试。'); }
@@ -138,7 +142,7 @@ export function App() {
     <header className="mini-toolbar">
       <div className="master-switch"><h1 className="mini-heading" ref={mainHeading} tabIndex={-1} aria-label="爆米花弹幕面板"><label htmlFor="master-enabled">弹幕</label></h1><input id="master-enabled" aria-label="显示弹幕" type="checkbox" role="switch" checked={settings.enabled} onChange={e => update({ enabled: e.target.checked })} /></div>
       <StartupOptions available={connected && desktopLifecycle} />
-      <button className="skin-trigger" aria-label="切换皮肤" title="切换皮肤" aria-pressed={view === 'appearance'} onClick={() => navigate(view === 'appearance' ? 'display' : 'appearance')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 4 6 6-7 7-6-6zM14 4l2-2 6 6-2 2M7 11l-2 2 6 6 2-2M6 17c-4 0-5 2-4 5 3 1 5 0 5-4" /></svg></button>
+      <button className="skin-trigger" aria-label="切换皮肤" title="切换皮肤" aria-pressed={view === 'appearance'} onClick={() => navigate(view === 'appearance' ? 'display' : 'appearance')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 3a4 4 0 0 0 8 0l6 4-3 4-2-1v10H7V10l-2 1-3-4z" /></svg></button>
       <button className="hide-panel text-button" aria-label="收起面板" disabled={!canHide} onClick={() => void hide()}>收起</button>
     </header>
     {!inDesktop && <div className="preview-banner" role="status">浏览器预览模式：未连接桌面宿主或播放器。</div>}
@@ -160,8 +164,8 @@ export function App() {
     </main>
     <footer className="mini-footer">
       <section className="playback-strip" aria-label="播放器连接状态"><div className="playback-title"><strong>{player.title || '等待爆米花开始播放'}</strong>{player.title && <small>{playbackStatus(player)}{player.episodeNumber ? ` · 第 ${player.episodeNumber} 集` : ''}</small>}</div>{player.positionMs !== null && <span className="timecode">{formatTime(player.positionMs)}</span>}</section>
-      <p className="match-status" role="status">{matchNotice}</p>
-      <div className="footer-actions"><button className="more-link" onClick={() => navigate('more')}>更多设置 <span aria-hidden="true">›</span></button><button className="manual-source-link" onClick={() => navigate(view === 'sources' ? 'display' : 'sources')}>手动搜索 / 换源</button></div>
+      <p id="match-status" className="match-status" role="status">{matchNotice}</p>
+      <div className="footer-actions"><button className="more-link" onClick={() => navigate('more')}>更多设置 <span aria-hidden="true">›</span></button><button className={`manual-source-link${manualSearchRequired ? ' needs-attention' : ''}`} aria-label="手动搜索 / 换源" aria-describedby={manualSearchRequired ? 'match-status' : undefined} onClick={() => navigate(view === 'sources' ? 'display' : 'sources')}>手动搜索 / 换源{manualSearchRequired && <span className="manual-source-prompt" aria-hidden="true">需处理</span>}</button></div>
       <div className="footer-meta"><span className="footer-status">{connected ? '桌面宿主已连接' : inDesktop ? connectionStatus === 'failed' ? '宿主连接不可用' : '正在连接桌面宿主…' : '仅界面预览'}</span><span>{count ? `${count.toLocaleString()} 条弹幕已准备` : settingsStatusText[settingsStatus]}</span></div>
       {settingsStatus === 'unknown' && <button className="text-button" onClick={() => settingsSession.current?.retryRecovery()}>重新同步设置</button>}
     </footer>
