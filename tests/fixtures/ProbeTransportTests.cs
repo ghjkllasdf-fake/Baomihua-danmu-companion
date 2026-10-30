@@ -26,6 +26,9 @@ public static class ProbeTransportTests
             var roundtrip=ProbeProtocol.Decode(bytes,0,1200);
             Check(roundtrip.Sequence==1 && roundtrip.Sample==sample,"A nonzero full-width HWND, nullable metadata and negative coordinates did not roundtrip.");
             Check(roundtrip.Sample.Window.ProcessId==1234,"The sampled video process identity was not preserved across the worker boundary.");
+            var seasoned=sample with{Title="示例剧 第2季"};
+            Check(ProbeProtocol.Decode(ProbeProtocol.Encode(seasoned,1),0,1200).Sample==seasoned,
+                "The season-qualified identity must survive the actual worker protocol unchanged.");
             var missing=new PlayerSample(null,"",0,null,null,1000,"missing","unavailable");
             Check(ProbeProtocol.Decode(ProbeProtocol.Encode(missing,2),1,1200).Sample==missing,"An unavailable player gained invented data.");
             var aged=ProbeProtocol.Decode(bytes,0,2600).Sample;

@@ -10,9 +10,12 @@
 
 **[下载 Beta4](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.1.1-beta.4)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
 
+当前代码已加入 `0.1.1-beta.5` 多季剧修复，用于本机试用；上面的链接仍对应已公开发布的 Beta4。
+
 ## 能做什么
 
 - **自动找弹幕**：识别当前作品和集数，加载弹幕；同一部剧换集时优先沿用已选来源。
+- **多季剧分别匹配**：核对当前季数后搜索，兼容“第二季”“第2季”“S02E02”等写法；不同季分别绑定来源，其他季的弹幕不会因为数量更多而被选中。
 - **跟随视频播放**：响应播放、暂停和进度跳转。弹幕只显示在视频窗口上，视频最小化后一起隐藏，其他窗口也能盖住它。
 - **随手调整显示**：区域、字号、速度、不透明度、描边、缩放和密度都在托盘面板里。
 - **手动搜索、换源**：自动匹配不合适时，自己选择作品、来源和分集。
@@ -144,6 +147,7 @@ https://danmu.example.com/YOUR_TOKEN/api/v2
 - 普通版的 API 地址使用当前 Windows 用户的加密保护，保存在 `%LOCALAPPDATA%\BaomihuaDanmuCompanion\api.dat`。换电脑或 Windows 账户后需要重新填写。
 - 显示设置保存在 `%LOCALAPPDATA%\BaomihuaDanmuCompanion\app\preferences.json`，普通版和 includeAPI 版共用。
 - 搜索片名和获取弹幕的请求会发送到你配置的服务，或 includeAPI 中启用的来源。本机服务也需要联网获取弹幕，请使用自己信任的服务。
+- 为补足播放窗口省略的季数，开发版会只读核对爆米花已有的首页缓存或详情页中的当前季、集、文件名和时长。不会修改播放器缓存，不解析凭据端点、不解密数据库，也不上传文件路径或缓存。信息不足或冲突时会提示处理，不默认猜第一季。
 
 ## 更多说明
 

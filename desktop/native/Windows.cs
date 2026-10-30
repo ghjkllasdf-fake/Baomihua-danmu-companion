@@ -112,6 +112,26 @@ public static class NativeWindows
         },IntPtr.Zero);
         return SelectPlayer(candidates,GetForegroundWindow(),preferredTitle);
     }
+    internal static VideoWindow[] FindLibraries(VideoWindow video)
+    {
+        uint process=ProcessId(video.Handle);
+        if(process==0 || video.ProcessId!=0 && process!=video.ProcessId)return Array.Empty<VideoWindow>();
+        var libraries=new List<VideoWindow>();
+        EnumWindows((window,_)=>{
+            if(window==video.Handle || ProcessId(window)!=process || !IsWindowVisible(window))return true;
+            var candidate=Read(window);
+            if(candidate!=null && candidate.Title is "网易爆米花" or "爆米花")libraries.Add(candidate);
+            return true;
+        },IntPtr.Zero);
+        return libraries.ToArray();
+    }
+    internal static bool IsPlayerProcess(VideoWindow video)
+    {
+        uint id=ProcessId(video.Handle);
+        if(id==0 || video.ProcessId!=0 && video.ProcessId!=id)return false;
+        try{using var process=Process.GetProcessById((int)id);return process.ProcessName.Equals("BaoMiHua",StringComparison.OrdinalIgnoreCase);}
+        catch(ArgumentException){return false;}
+    }
     // Keep an independent no-activate HWND adjacent to the video. Cross-process
     // parenting would also couple the lifetime of the WPF presentation source.
     // https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-setwindowpos

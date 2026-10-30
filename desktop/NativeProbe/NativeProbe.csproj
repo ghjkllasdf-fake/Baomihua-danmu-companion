@@ -7,6 +7,7 @@
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../native/SeriesIdentity.cs;../native/LibrarySeasonReader.cs;../native/CachedSeasonReader.cs" Link="Native/%(Filename)%(Extension)" />
     <Compile Include="../native/Core.cs;../native/PlaybackModels.cs;../native/ProbeGate.cs;../native/ProbeTransport.cs;../native/ProbeOperation.cs;../native/PlaybackEventSignal.cs;../native/MediaSession.cs;../native/Windows.cs;../native/PlayerControlCache.cs;../native/UiaPlayerControls.cs;../native/PlayerSampler.cs;../native/ProbeCadence.cs;../native/ProbeWorkerRuntime.cs;../native/NativeRuntime.cs;../native/ApplicationPaths.cs" Link="Native/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

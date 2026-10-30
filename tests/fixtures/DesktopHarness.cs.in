@@ -150,6 +150,14 @@ public static class DesktopStateTests
         void Test(string name,Action body) { try { body(); Console.WriteLine("PASS: "+name); } catch (Exception ex) { errors.Add(name+": "+ex.Message); } }
         if (group is "Requests" or "All")
         {
+            Test("season-qualified playback changes invalidate the same episode number",()=>{
+                using var host=new DesktopHarness();host.Observe("示例剧 第1季",2);
+                long first=host.mediaRevision;
+                host.Message("season-one","comments",new {apiBase=host.apiBase,value="s1e2",expectedMediaRevision=first});
+                host.Observe("示例剧 第2季",2);host.api.Complete(0);
+                Check(host.mediaRevision>first && !host.Reply("season-one").GetProperty("ok").GetBoolean() &&
+                    host.CommentCount==0 && host.overlay.Comments.Length==0,"A late earlier-season download committed into the new season's same episode number.");
+            });
             Test("hide is a strict tray action, never an exit or generic window command",()=>{
                 using var host=new DesktopHarness();
                 host.Message("hide","hide",new {});

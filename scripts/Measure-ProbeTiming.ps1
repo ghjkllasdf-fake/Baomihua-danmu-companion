@@ -10,7 +10,7 @@ $OutputPath=[IO.Path]::GetFullPath($OutputPath)
 if(-not $Worker){
     if(Test-Path -LiteralPath $OutputPath){ throw 'Choose a new diagnostic output file.' }
     [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($OutputPath))
-    $paths=@('Core.cs','PlaybackModels.cs','ProbeTransport.cs','ProbeOperation.cs','PlaybackEventSignal.cs','MediaSession.cs','Windows.cs','PlayerControlCache.cs','UiaPlayerControls.cs','PlayerSampler.cs','ProbeCadence.cs') |
+    $paths=@('Core.cs','PlaybackModels.cs','SeriesIdentity.cs','LibrarySeasonReader.cs','CachedSeasonReader.cs','ProbeTransport.cs','ProbeOperation.cs','PlaybackEventSignal.cs','MediaSession.cs','Windows.cs','PlayerControlCache.cs','UiaPlayerControls.cs','PlayerSampler.cs','ProbeCadence.cs') |
         ForEach-Object {Join-Path $root ('desktop\native\'+$_)}
     $paths+=@($PSCommandPath)
     $before=@($paths | ForEach-Object {[pscustomobject]@{path=[IO.Path]::GetRelativePath($root,$_);sha256=(Get-FileHash -LiteralPath $_).Hash}})
@@ -47,7 +47,7 @@ Add-Type -LiteralPath (Join-Path $sdk 'WinRT.Runtime.dll')
 Add-Type -LiteralPath (Join-Path $sdk 'Microsoft.Windows.SDK.NET.dll')
 $references=@(Get-ChildItem -LiteralPath (Join-Path $PSHOME 'ref') -Filter '*.dll'|ForEach-Object FullName)
 $references+=@(Get-ChildItem -LiteralPath $PSHOME -Filter '*.dll'|Where-Object {$_.Name -match '^(WindowsBase|UIAutomation|System\.Windows)'}|ForEach-Object FullName)
-$paths=@('Core.cs','PlaybackModels.cs','ProbeTransport.cs','ProbeOperation.cs','PlaybackEventSignal.cs','MediaSession.cs','Windows.cs','PlayerControlCache.cs','UiaPlayerControls.cs','PlayerSampler.cs','ProbeCadence.cs') |
+$paths=@('Core.cs','PlaybackModels.cs','SeriesIdentity.cs','LibrarySeasonReader.cs','CachedSeasonReader.cs','ProbeTransport.cs','ProbeOperation.cs','PlaybackEventSignal.cs','MediaSession.cs','Windows.cs','PlayerControlCache.cs','UiaPlayerControls.cs','PlayerSampler.cs','ProbeCadence.cs') |
     ForEach-Object {Join-Path $root ('desktop\native\'+$_)}
 $fixture=@'
 using System;

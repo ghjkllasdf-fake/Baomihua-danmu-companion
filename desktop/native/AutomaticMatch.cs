@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -16,6 +17,8 @@ public sealed record AutomaticMatchResult(long MediaRevision,string Title,int Ep
 public sealed class AutomaticMatcher : IDisposable
 {
     private sealed record SourceBinding(string Api,string Title,string Id,string SourceTitle);
+    private sealed record SeasonSource(string Id,string Title,int Season,int Rank);
+    private sealed class SeasonAmbiguityException : Exception {}
     private readonly Func<string,string,string,CancellationToken,Task<JsonObject>> fetch;
     private readonly Action<AutomaticMatchResult> loaded;
     private readonly Action<AutomaticMatchStatus> changed;
@@ -104,6 +107,7 @@ public sealed class AutomaticMatcher : IDisposable
                 try {if(await MatchRound(apiBase,title,episode,revision,owner,stop))return;}
                 catch(OperationCanceledException){throw;}
                 catch(Exception error) when(error is ApiRateLimitException or ApiAuthenticationException){throw;}
+                catch(SeasonAmbiguityException){Check(owner,stop);failure="已找到多季弹幕，但当前视频没有可靠季数；请在爆米花中打开对应季的详情，或在托盘面板手动选择。";}
                 catch {Check(owner,stop);failure="弹幕服务读取失败，请检查网络或打开托盘面板手动搜索。";}
                 if(round<3)
                 {
@@ -145,18 +149,32 @@ public sealed class AutomaticMatcher : IDisposable
                 catch {Check(owner,stop);readFailed=true;}
                 unavailableSource=preferred.Id;binding=null;
             }
-            var search=await fetch(apiBase,"search",title.Trim(),stop);Check(owner,stop);
-            var sources=(search["animes"] as JsonArray ?? new JsonArray()).OfType<JsonObject>()
-                .Select(s=>new {Id=s["animeId"]?.ToString()??"",Title=s["animeTitle"]?.ToString()??""})
-                .Where(s=>s.Id.Length>0 && s.Id.Length<=500 && s.Id!=unavailableSource && Rank(title,s.Title)>=0)
-                .OrderBy(s=>Rank(title,s.Title)).DistinctBy(s=>s.Id).ToArray();
+            var identity=SeriesIdentity.Parse(title);
+            var found=new List<SeasonSource>();
+            foreach(string query in identity.SearchQueries())
+            {
+                var search=await fetch(apiBase,"search",query,stop);Check(owner,stop);
+                foreach(var item in (search["animes"] as JsonArray ?? new JsonArray()).OfType<JsonObject>())
+                {
+                    var source=Source(identity,item["animeId"]?.ToString()??"",item["animeTitle"]?.ToString()??"",episode>0);
+                    if(source!=null && source.Id!=unavailableSource)found.Add(source);
+                }
+            }
+            var sources=found.OrderBy(s=>s.Rank).DistinctBy(s=>s.Id).ToArray();
+            if(identity.Season==0 && sources.Any(s=>s.Season>1))throw new SeasonAmbiguityException();
             if(sources.Length==0)
             {
                 if(readFailed)throw new InvalidOperationException("弹幕服务读取失败。");
                 return false;
             }
             AutomaticMatchResult best=null;
-            var candidates=Candidates(sources,remaining);
+            // Dedicated season sources take priority over a plain title which still needs
+            // per-episode season proof. Wrong seasons never consume the sampled budget.
+            var direct=sources.Where(s=>identity.Season<2 || s.Season==identity.Season).ToArray();
+            var candidates=Candidates(direct,remaining);
+            if(candidateLimit==0)candidates=sources;
+            else if(candidates.Length<remaining)
+                candidates=candidates.Concat(Candidates(sources.Where(s=>!direct.Contains(s)).ToArray(),remaining-candidates.Length)).ToArray();
             int compared=0;
             foreach(var source in candidates)
             {
@@ -172,6 +190,7 @@ public sealed class AutomaticMatcher : IDisposable
                 }
                 catch(OperationCanceledException){throw;}
                 catch(Exception error) when(error is ApiRateLimitException or ApiAuthenticationException){throw;}
+                catch(SeasonAmbiguityException){throw;}
                 catch {Check(owner,stop);readFailed=true;} // Still compare other matching sources.
             }
             Check(owner,stop);
@@ -195,28 +214,45 @@ public sealed class AutomaticMatcher : IDisposable
     private async Task<AutomaticMatchResult> ReadSource(string apiBase,string title,int episode,long revision,string sourceId,string source,
         JsonArray episodes,long owner,CancellationToken stop)
     {
-        var choices=episodes.OfType<JsonObject>().ToArray();
-        var selected=episode>0 ? choices.FirstOrDefault(e=>int.TryParse(e["episodeNumber"]?.ToString(),
-            NumberStyles.Integer,CultureInfo.InvariantCulture,out int number) && number==episode)
+        var target=SeriesIdentity.Parse(title);
+        var origin=Source(target,sourceId,source,episode>0);
+        if(origin==null)return null;
+        var all=episodes.OfType<JsonObject>().Select(e=>new {Node=e,Identity=SeriesIdentity.Parse(e["episodeTitle"]?.ToString()??"")}).ToArray();
+        if(target.Season==0 && origin.Season==0 && all.Any(e=>e.Identity.Season>1))throw new SeasonAmbiguityException();
+        var choices=all.Where(e=>
+            (e.Identity.Season==0 || target.Season==0 || e.Identity.Season==target.Season) &&
+            (e.Identity.Season==0 || origin.Season==0 || e.Identity.Season==origin.Season) &&
+            (target.Season<2 || origin.Season>0 || e.Identity.Season==target.Season)).ToArray();
+        var selected=episode>0 ? choices.FirstOrDefault(e=>
+            (e.Identity.Season>0 && e.Identity.Episode>0 ? e.Identity.Episode :
+                int.TryParse(e.Node["episodeNumber"]?.ToString(),NumberStyles.Integer,CultureInfo.InvariantCulture,out int number) ? number : e.Identity.Episode)==episode)
             : choices.Length==1 ? choices[0] : null;
-        string id=selected?["episodeId"]?.ToString()??"";
+        string id=selected?.Node["episodeId"]?.ToString()??"";
         if(id.Length is <1 or >500)return null;
         Set(new("loading","已发现弹幕，进行装载"));
         var body=await fetch(apiBase,"comments",id,stop);Check(owner,stop);
         var comments=await Task.Run(()=>ApiClient.ParseComments(body),stop);Check(owner,stop);
         return comments.Length==0 ? null : new(revision,title,episode,sourceId,source,id,comments);
     }
-    private static string TitleKey(string text)
+    private static SeasonSource Source(SeriesIdentity target,string id,string candidate,bool episodic)
     {
-        text=Regex.Replace(text??"", @"[（(](?:19|20)\d{2}[)）].*$","");
-        return Regex.Replace(text.Normalize(NormalizationForm.FormKC),@"[\s\p{P}\p{S}]","").ToUpperInvariant();
-    }
-    private static int Rank(string title,string candidate)
-    {
-        if(TitleKey(title)!=TitleKey(candidate))return -1;
-        var year=Regex.Match(title,@"[（(]((?:19|20)\d{2})[)）]");
-        if(year.Success && !candidate.Contains(year.Groups[1].Value,StringComparison.Ordinal))return -1;
-        return string.Equals(title.Trim(),candidate.Trim(),StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+        if(id.Length is <1 or >500 || candidate.Length>500)return null;
+        var actual=SeriesIdentity.Parse(candidate);
+        string wanted=SeriesIdentity.TitleKey(target.Title),key=SeriesIdentity.TitleKey(actual.Title);
+        int season=actual.Season;
+        if(wanted!=key)
+        {
+            if((target.Season>0 || episodic) && season==0 && wanted.Length>0 && key.StartsWith(wanted,StringComparison.Ordinal) &&
+                int.TryParse(key[wanted.Length..],NumberStyles.None,CultureInfo.InvariantCulture,out int sequel) && sequel is >0 and <=999)season=sequel;
+            else return null;
+        }
+        if(target.Season>0 && season>0 && target.Season!=season)return null;
+        var year=Regex.Match(target.Title,@"[（(]((?:19|20)\d{2})[)）]");
+        // A series' original year is not necessarily the release year of a later season.
+        if(target.Season==0 && year.Success && !candidate.Contains(year.Groups[1].Value,StringComparison.Ordinal))return null;
+        int rank=target.Season>0 ? target.Season==season ? 0 : 1 :
+            string.Equals(target.Title.Trim(),candidate.Trim(),StringComparison.OrdinalIgnoreCase) ? 0 : 1;
+        return new(id,candidate,season,rank);
     }
     public void Dispose() {if(disposed)return;disposed=true;Cancel();}
 }

@@ -25,6 +25,11 @@ internal static class DistributionTests
             if(args.Length>0 && args[0]=="--video-companion-target")return VideoCompanionTests.RunTarget();
             if(args.Length>0 && args[0]=="--video-companion-tests"){VideoCompanionTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--retry-match-tests"){RetryMatchTests.Run().GetAwaiter().GetResult();return 0;}
+            if(args.Length>0 && args[0]=="--season-match-tests"){SeasonMatchTests.Run().GetAwaiter().GetResult();return 0;}
+            if(args.Length>0 && args[0]=="--season-identity-tests"){SeriesIdentityTests.Run();return 0;}
+            if(args.Length==2 && args[0]=="--season-live-sampler"){SeasonLiveEvidence.RunSampler(int.Parse(args[1]));return 0;}
+            if(args.Length==3 && args[0]=="--season-live-api"){SeasonLiveEvidence.RunApi(args[1],int.Parse(args[2])).GetAwaiter().GetResult();return 0;}
+            if(args.Length==3 && args[0]=="--season-live-catalog"){SeasonLiveEvidence.RunCatalog(args[1],args[2]).GetAwaiter().GetResult();return 0;}
             if(args.Length>0 && args[0]=="--video-notice-tests"){VideoNoticeTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--video-notice-runtime"){VideoNoticeTests.RunRuntime();return 0;}
             if(args.Length>0 && args[0]=="--tray-placement-tests"){TrayPlacementTests.Run();return 0;}
@@ -68,6 +73,8 @@ internal static class DistributionTests
             NativeChildTests.Run().GetAwaiter().GetResult();
             ProbeSupervisorTests.Run(Environment.ProcessPath,"--fixture","unused").GetAwaiter().GetResult();
             AutomaticMatchTests.Run().GetAwaiter().GetResult();
+            SeasonMatchTests.Run().GetAwaiter().GetResult();
+            SeriesIdentityTests.Run();
             SampledMatchTests.Run().GetAwaiter().GetResult();
             MatchingDeadlineTests.Run().GetAwaiter().GetResult();
             RetryMatchTests.Run().GetAwaiter().GetResult();

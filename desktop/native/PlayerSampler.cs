@@ -11,9 +11,12 @@ internal sealed class PlayerSampler : IDisposable
     private readonly PlaybackEventSignal changes=new();
     private readonly MediaSessionReader media;
     private readonly PlayerControlCache<AutomationElement> controls;
+    private readonly LibrarySeasonReader seasons;
+    internal string SeasonEvidence=>seasons.LastReason;
     public PlayerSampler(CancellationToken stop,PlayerControlCache<AutomationElement> controlCache=null)
     {
         media=new(stop,changes);
+        seasons=new(stop);
         controls=controlCache??new(window=>UiaPlayerControls.Discover(window,stop),UiaPlayerControls.Read,()=>Monotonic.Now,stop);
     }
     public void WaitForNext(int delay)=>changes.Wait(delay);
@@ -35,13 +38,9 @@ internal sealed class PlayerSampler : IDisposable
     }
     private PlayerSample Read(VideoWindow window)
     {
-        string title=window.Title.Trim(); int episode=0; double? position=null, sliderValue=null, sliderMaximum=null, duration=null; bool? playing=null;
+        var identity=SeriesIdentity.Parse(window.Title);
+        string title=identity.Title; int episode=identity.Episode; double? position=null, sliderValue=null, sliderMaximum=null, duration=null; bool? playing=null;
         double sampleStamp=Monotonic.Now;
-        var titleMatch=Regex.Match(title,@"^(?<title>.+?)\s*第\s*(?<ep>\d+)\s*集");
-        if (!titleMatch.Success) titleMatch=Regex.Match(title,@"^(?<title>.+?)\s*[-–—]\s*S\d{1,2}E(?<ep>\d+)\b",RegexOptions.IgnoreCase);
-        if (titleMatch.Success) { title=titleMatch.Groups["title"].Value.Trim(); int.TryParse(titleMatch.Groups["ep"].Value,out episode); }
-        else title=Regex.Replace(title,@"\.(mkv|mp4|avi|mov|webm|m4v|ts)$","",RegexOptions.IgnoreCase);
-        title=Regex.Replace(title,@"\s*[-|]\s*网易爆米花$","");
         if (title is "网易爆米花" or "爆米花") title="";
         foreach(var current in controls.Read(window))
         {
@@ -82,6 +81,8 @@ internal sealed class PlayerSampler : IDisposable
             duration=session.DurationMs;
             source=source=="uia-seekbar-ms" ? "uia-seekbar-ms+smtc" : "smtc";
         }
+        int season=title.Length>0 ? seasons.Read(window,identity with{Episode=episode},duration) : 0;
+        if(season>0)title=(identity with{Title=title,Season=season}).QualifiedTitle;
         return new(window,title,episode,position,playing,precise ? sampleStamp : Monotonic.Now,
             position.HasValue && playing.HasValue ? "Windows 媒体会话 + 可访问性 · 窗口客户区" : position.HasValue ? "已读到真实进度，播放/暂停状态尚未确认" : "已识别窗口客户区，但尚未读到完整播放状态/进度",
             source,precise ? 200 : 1000,duration);
