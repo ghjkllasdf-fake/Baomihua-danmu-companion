@@ -1,0 +1,106 @@
+/* Shared controls retain A; the other skins change material and geometry. */
+:root[data-skin=fluent]{--canvas:#eff4f9;--surface:#fff;--ink:#24333e;--muted:#5e6c77;--line:#dce5ed;--accent:#2f73b3;--accent-soft:#e5f0fa;--focus:#245f96}
+:root body{background:var(--canvas)}
+:root .mini-app{background-image:none;width:100%;max-width:380px;height:min(100dvh,540px);font-size:13px;border-radius:8px;overflow:hidden;font-family:"Microsoft YaHei UI","Microsoft YaHei",sans-serif}
+:root .mini-toolbar{min-height:48px;gap:17px;padding:10px 15px;border-bottom-color:var(--line)}
+:root .mini-heading{font-size:14px;font-weight:600}
+:root .mini-toolbar .compact-startup .toggle-row{font-size:12px}
+:root .panel-main{padding:8px 15px 8px}
+:root .mini-app .range-control{min-height:36px;font-size:13px;grid-template-columns:72px minmax(0,1fr) 44px}
+:root .mini-app .range-control output{font-size:13px;font-family:Bahnschrift,"Microsoft YaHei UI",sans-serif;font-variant-numeric:tabular-nums;color:var(--ink)}
+:root .mini-app input[type=range]{accent-color:var(--accent);appearance:none;height:20px;background:transparent}
+:root input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:4px;background:var(--line)}
+:root input[type=range]::-webkit-slider-thumb{appearance:none;width:12px;height:12px;margin-top:-4.5px;border:2px solid var(--surface);background:var(--accent);border-radius:50%;box-shadow:none}
+:root .mini-app .api-connection{padding:3px 0 8px;margin-bottom:5px;border-color:var(--line)}
+:root .mini-app .api-entry .api-input{border-color:var(--line);border-radius:5px;background:var(--surface)}
+:root .mini-app .api-entry input{font-size:12px;padding:6px;min-height:30px}
+:root .mini-app .api-save{min-width:55px;min-height:32px;font-size:12px;padding:6px 7px;border-radius:5px;background:var(--accent);color:#fff}
+:root .mini-app .api-save:disabled{background:var(--line);color:var(--muted)}
+:root .mini-app .api-status{font-size:11px;line-height:1.6;margin-top:3px}
+:root .mini-app .segments button{border-color:var(--line);font-size:12px;min-height:31px;border-radius:5px;color:var(--muted);background:var(--surface)}
+:root .mini-app .segments button[aria-pressed=true]{color:var(--focus);border-color:var(--accent);background:var(--accent-soft)}
+:root .region-icon{background:transparent;border-color:currentColor;position:relative;overflow:hidden;width:12px;height:11px;border-radius:2px}
+:root .region-icon:before{content:"";position:absolute;inset:0 0 auto;height:var(--fill);background:currentColor;opacity:.5}
+:root input[role=switch]{background:var(--line)}
+:root input[role=switch]:checked{background:var(--accent)}
+:root .mini-app .toggle-row{font-size:13px}
+:root .mini-app .setting-line select{font-size:12px;padding:5px 7px;border-color:var(--line);border-radius:5px;background:var(--surface)}
+:root .mini-footer{padding:8px 15px 8px;border-color:var(--line)}
+:root .mini-app .playback-title strong{font-size:14px;font-weight:600;line-height:1.4}
+:root .mini-app .playback-title small{font-size:11px;line-height:1.5}
+:root .mini-app .timecode{font-size:14px;font-family:Bahnschrift,"Microsoft YaHei UI",sans-serif;font-variant-numeric:tabular-nums}
+:root .mini-app .match-status{font-size:11px;line-height:1.5;margin-top:3px}
+:root .footer-actions{gap:10px;margin-top:0}
+:root .mini-app .footer-actions .more-link,:root .mini-app .manual-source-link{font-size:12px;min-height:28px;text-decoration:none}
+:root .mini-app .manual-source-link:hover{text-decoration:underline}
+:root .footer-meta{font-size:11px;line-height:1.7}
+:root .panel-navigation{background:var(--canvas)}
+:root .mini-app .source-panel .result-item{border-color:var(--line)}
+:root .mini-app .result-item.selected{background:var(--accent-soft)}
+:root .selection-dot{border-color:var(--muted)}
+:root .selected .selection-dot{border-color:var(--accent)}
+:root .mini-app .primary{background:var(--accent);color:#fff}
+:root .mini-app button:disabled{background:var(--line);color:var(--muted)}
+:root .mini-app .hide-panel:disabled{background:transparent}
+:root :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+:root button:not(:disabled){transition:background-color .12s,color .12s}
+:root .mini-app .api-input .text-button{font-size:11px}
+/* A: tinted shell and one inset settings sheet. */
+:root[data-skin=fluent] .mini-app{border-color:#cddae5}
+:root[data-skin=fluent] .mini-toolbar{background:#e8f0f7}
+:root[data-skin=fluent] .display-settings{background:#fff;border:1px solid #e0e8ef;border-radius:8px;padding:2px 9px 5px}
+:root[data-skin=fluent] .mini-app .region-control legend{width:63px;font-size:12px}
+:root[data-skin=fluent] .mini-app .segments{margin-left:69px;gap:3px}
+:root[data-skin=fluent] .mini-app .segments button{gap:4px;padding:5px 3px}
+:root[data-skin=fluent] .mini-app .region-icon{width:10px;height:10px}
+:root[data-skin=fluent] .mini-app .range-control{grid-template-columns:68px minmax(0,1fr) 40px;min-height:34px}
+:root[data-skin=fluent] .mini-app .setting-line{min-height:37px}
+:root[data-skin=fluent] .mini-footer{background:#f8fafc}
+:root[data-skin=fluent] .mini-app .manual-source-link{color:#245f96}
+
+/* Skin-level materials and control geometry, not colour aliases. */
+:root[data-skin=glass]{--canvas:#eaf0f5;--surface:#f9fbfd;--ink:#203142;--muted:#526476;--line:#c8d3df;--accent:#1765ad;--accent-soft:#e2eef9;--focus:#155c9e}
+:root[data-skin=winui]{--canvas:#f3f3f3;--surface:#fff;--ink:#1d1d1d;--muted:#5a5a5a;--line:#d7d7d7;--accent:#005c9f;--accent-soft:#e4edf5;--focus:#00538f}
+:root[data-skin=studio]{--canvas:#202225;--surface:#282b2e;--ink:#edf0ef;--muted:#b0b7bc;--line:#42484d;--accent:#edc677;--accent-soft:#343a3d;--focus:#f1ce88}
+.skin-trigger{width:26px;height:26px;display:grid;place-items:center;flex-shrink:0;margin-left:auto;border-radius:5px;background:transparent;color:var(--muted);padding:4px}.skin-trigger svg{width:17px;height:17px}.skin-trigger:hover,.skin-trigger[aria-pressed=true]{color:var(--focus);background:var(--accent-soft)}:root .mini-toolbar{gap:12px}:root .mini-app .hide-panel{margin-left:0}:root .mini-app [hidden]{display:none}
+.skin-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.skin-choice{padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);text-align:left;min-width:0}.skin-choice[aria-pressed=true]{border:2px solid var(--accent);padding:8px}.skin-choice:not(:disabled):hover{background:var(--accent-soft)}.skin-choice strong{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin:9px 0 4px;gap:4px;font-weight:600;white-space:nowrap}.skin-choice strong>span{font-size:12px;color:var(--focus);min-width:10px}.skin-choice small{font-size:11px;line-height:1.6;display:block;color:var(--muted)}.skin-swatch{display:block;height:34px;padding:5px;position:relative;overflow:hidden;border-radius:4px;background:#eaf0f7;color:#3879b5}.skin-swatch i{display:block}.swatch-toolbar{height:5px;background:#d6e5f2;border-radius:2px;margin-bottom:3px}.swatch-segment{height:4px;width:33%;margin-left:30%;border-radius:2px;background:#95b9d8}.swatch-track{position:relative;height:2px;background:#c3d4e4;margin-top:5px;margin-right:20px}.swatch-track b{display:block;position:absolute;left:36%;top:-2px;border-radius:50%;height:7px;width:7px;background:currentColor}.swatch-track:nth-of-type(4) b{left:68%}.swatch-footer{position:absolute;bottom:0;left:0;right:0;height:6px;background:#fff}.skin-swatch-glass{background:#e5eef5;border-radius:13px;border:1px solid #fff;color:#5a7f9f}.skin-swatch-glass .swatch-toolbar{background:#ffffffdb;border:1px solid white;border-radius:999px;height:11px;margin-top:-3px}.skin-swatch-glass .swatch-segment{border-radius:999px;background:#fff}.skin-swatch-glass .swatch-track b{background:#fff;border:1px solid #aebdcb;width:11px;border-radius:6px}.skin-swatch-glass .swatch-footer{left:5px;right:5px;bottom:3px;background:#fff9;border-radius:4px;height:8px}.skin-swatch-winui{background:#f1f1f1;border-radius:3px;color:#005c9f}.skin-swatch-winui .swatch-toolbar{background:#fff;border-radius:0}.skin-swatch-winui .swatch-segment{background:#fff;border-bottom:2px solid #005c9f;border-radius:0}.skin-swatch-winui .swatch-track{background:#d3d3d3;height:2px}.skin-swatch-studio{background:#25282b;color:#edc677;border-radius:1px}.skin-swatch-studio .swatch-toolbar{background:#3a4146;border-radius:0}.skin-swatch-studio .swatch-segment{background:#434a4e;border-top:1px solid #edc677;border-radius:0}.skin-swatch-studio .swatch-track{background:#111416;border-top:1px solid #596168;height:4px}.skin-swatch-studio .swatch-track b{border-radius:1px;width:5px;height:9px;top:-3px;background:#d0d7d9}.skin-swatch-studio .swatch-footer{background:#151719}
+:root .mini-app .skin-transparency{margin-top:12px;min-height:44px}.skin-transparency small{display:block!important;line-height:1.7;font-size:11px!important;color:var(--muted)}.appearance-status,.skin-notice,.skin-error,.skin-material-note{font-size:11px;line-height:1.8;margin:6px 0;color:var(--muted)}.skin-error{color:#a93534}:root[data-skin=studio] .skin-error{color:#ffb5ad}.skin-notice{color:var(--focus)}.skin-material-note{padding:9px 0 5px}
+/* B: regular translucent material, floating functional layers and capsule controls. */
+:root[data-skin=glass] .mini-app{border-radius:22px;border:1px solid #ffffffd9;background:#edf3f7}
+:root[data-skin=glass] .mini-toolbar{margin:8px 8px 0;padding:7px 12px;min-height:40px;border-radius:999px;background:#ffffffb8;border:1px solid #fff;box-shadow:0 3px 12px #253c5210;backdrop-filter:blur(20px) saturate(1.3)}
+:root[data-skin=glass] .mini-heading{font-weight:500;font-size:14px}:root[data-skin=glass] .compact-startup .toggle-row{font-size:12px}:root[data-skin=glass] .skin-trigger{border-radius:50%}
+:root[data-skin=glass] .panel-main{padding:9px 16px 8px}:root[data-skin=glass] .mini-app .api-entry .api-input{border:1px solid #c1cedc;border-radius:9px;background:#ffffffa8}:root[data-skin=glass] .mini-app .api-save{border-radius:9px}
+:root[data-skin=glass] .mini-app .segments{padding:3px;border-radius:999px;background:#d9e3ed;gap:0}:root[data-skin=glass] .mini-app .segments button{border:0;border-radius:999px;background:transparent;min-height:26px;color:#455d74}:root[data-skin=glass] .mini-app .segments button[aria-pressed=true]{background:#fff;color:#175d9e;box-shadow:0 1px 5px #354c6520}:root[data-skin=glass] .region-icon{display:none}
+:root[data-skin=glass] .mini-app .range-control{min-height:32px}:root[data-skin=glass] input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:10px;background:#b9cad9}:root[data-skin=glass] input[type=range]::-webkit-slider-thumb{height:13px;width:23px;margin-top:-4px;border:1px solid #a6b8ca;border-radius:999px;background:#fff;box-shadow:0 2px 3px #29415b18}:root[data-skin=glass] input[type=range]:active::-webkit-slider-thumb{width:26px}
+:root[data-skin=glass] input[role=switch]{background:#b4c3ce}:root[data-skin=glass] input[role=switch]:checked{background:#277b56}:root[data-skin=glass] .mini-app .setting-line select{border-radius:999px;border:0;background:#ffffffcb}
+:root[data-skin=glass] .mini-footer{margin:0 8px 8px;padding:8px 10px 7px;border-radius:16px;border:1px solid #fff;background:#ffffffc2;backdrop-filter:blur(24px) saturate(1.25);box-shadow:0 3px 12px #253c5210}:root[data-skin=glass] .panel-navigation{background:#eff5f9ed;backdrop-filter:blur(16px)}
+/* C: WinUI-style setting groups, underline selection and keyboard focus edges. */
+:root[data-skin=winui] .mini-app{border-radius:8px;border-color:#c8c8c8}:root[data-skin=winui] .mini-toolbar{min-height:44px;background:#fafafa;border-bottom-color:#ddd}:root[data-skin=winui] .mini-heading{font-weight:600}
+:root[data-skin=winui] .mini-app .api-entry .api-input{border-radius:4px;border:1px solid #d0d0d0;border-bottom:2px solid #858585}:root[data-skin=winui] .mini-app .api-entry .api-input:focus-within{border-bottom-color:#005c9f}:root[data-skin=winui] .mini-app .api-save{border-radius:4px}
+:root[data-skin=winui] .mini-app .range-grid{border:1px solid #ddd;border-radius:5px;overflow:hidden;margin:3px 0 4px}:root[data-skin=winui] .mini-app .range-control{min-height:34px;padding:0 9px;border-bottom:1px solid #e8e8e8;background:#ffffffde;grid-template-columns:66px minmax(0,1fr) 42px}:root[data-skin=winui] .mini-app .range-control:last-child{border-bottom:0}
+:root[data-skin=winui] .mini-app .segments{gap:3px}:root[data-skin=winui] .mini-app .segments button{border:0;border-radius:3px;background:#e9e9e9;position:relative;color:#4b4b4b}:root[data-skin=winui] .mini-app .segments button[aria-pressed=true]{color:#00538f;background:#fff}:root[data-skin=winui] .mini-app .segments button[aria-pressed=true]:after{content:"";position:absolute;height:2px;bottom:0;left:9px;right:9px;background:#0067b8;border-radius:1px}:root[data-skin=winui] .region-icon{display:none}
+:root[data-skin=winui] input[type=range]::-webkit-slider-runnable-track{height:3px;background:#c3c3c3}:root[data-skin=winui] input[type=range]::-webkit-slider-thumb{background:#0067b8;width:14px;height:14px;border:4px solid #fff;box-shadow:0 0 0 1px #999;margin-top:-5.5px}:root[data-skin=winui] input[type=range]:hover::-webkit-slider-thumb{border-width:3px}
+:root[data-skin=winui] input[role=switch]{background:#efefef;border:1px solid #777}:root[data-skin=winui] input[role=switch]:after{background:#5b5b5b;top:2px;left:2px}:root[data-skin=winui] input[role=switch]:checked{border-color:#005c9f;background:#005c9f}:root[data-skin=winui] input[role=switch]:checked:after{background:#fff}
+:root[data-skin=winui] .mini-footer{background:#eaeaeabf;border-top-color:#d0d0d0}:root[data-skin=winui] .mini-app .setting-line select{border-radius:4px;border-bottom:2px solid #939393}:root[data-skin=winui] .skin-choice{border-radius:4px}
+/* D: inset faders, square hardware-like toggles and separate numerical readouts. */
+:root[data-skin=studio] .mini-app{border-radius:3px;border:2px solid #444b51}:root[data-skin=studio] .mini-toolbar{background:#2b2f33;border-bottom:2px solid #131619;min-height:44px;padding-top:8px;padding-bottom:8px}:root[data-skin=studio] .mini-heading{font-size:13px;letter-spacing:1px}
+:root[data-skin=studio] .mini-app .api-entry .api-input{border-radius:2px;border-color:#495157;background:#141719}:root[data-skin=studio] .mini-app .api-save{border-radius:2px;background:#edc677;color:#242322}:root[data-skin=studio] .mini-app .api-save:disabled{background:#383e43;color:#b9c1c7}:root[data-skin=studio] .mini-app .primary{color:#242322}
+:root[data-skin=studio] .mini-app .segments{gap:3px}:root[data-skin=studio] .mini-app .segments button{background:#2c3237;border-radius:2px;border:1px solid #4d555b;color:#c4cbd0}:root[data-skin=studio] .mini-app .segments button[aria-pressed=true]{background:#343a3d;color:#f4d18c;border-top:2px solid #edc677;border-bottom:1px solid #4d555b}:root[data-skin=studio] .region-icon{display:none}
+:root[data-skin=studio] .mini-app .range-grid{gap:4px;margin:3px 0 5px}:root[data-skin=studio] .mini-app .range-control{padding:0 7px;min-height:31px;border:1px solid #3e474e;border-radius:2px;background:#191c1f;grid-template-columns:68px minmax(0,1fr) 45px}:root[data-skin=studio] .mini-app .range-control output{background:#101315;color:#f1ce86;border:1px solid #3c444b;border-radius:1px;padding:2px 3px;font-size:12px}
+:root[data-skin=studio] input[type=range]::-webkit-slider-runnable-track{height:4px;background:#5a646b;border-top:1px solid #0e1114;border-radius:0}:root[data-skin=studio] input[type=range]::-webkit-slider-thumb{width:10px;height:18px;margin-top:-8px;border-radius:1px;border:1px solid #aebbc4;background:#bcc7ce;box-shadow:inset 0 -4px 0 #57636b}
+:root[data-skin=studio] input[role=switch]{border-radius:3px;background:#525d66;border:1px solid #6f7a82}:root[data-skin=studio] input[role=switch]:after{border-radius:1px;background:#d6dde1;top:2px;left:2px}:root[data-skin=studio] input[role=switch]:checked{background:#a77b32;border-color:#e4bd70}:root[data-skin=studio] input[role=switch]:checked:after{background:#ffe5b1}
+:root[data-skin=studio] .mini-app .toggle-row,:root[data-skin=studio] .mini-app .setting-line{min-height:35px}:root[data-skin=studio] .mini-app .setting-line select{background:#191d20;border-color:#525e67;border-radius:2px}:root[data-skin=studio] .mini-footer{background:#191c1e;border-top:2px solid #414c54;padding-top:8px}:root[data-skin=studio] .mini-app .timecode{background:#101315;color:#f4d28d;border:1px solid #434c53;border-radius:2px;padding:3px 5px;font-size:16px}:root[data-skin=studio] .mini-app .manual-source-link{color:#f2ce86}:root[data-skin=studio] .skin-trigger{border-radius:2px}:root[data-skin=studio] .skin-choice{border-radius:2px}:root[data-skin=studio] .skin-choice[aria-pressed=true] strong>span{color:#f2ce86}
+/* Desktop transparency is enabled only after a supported native host confirms it. */
+:root[data-backdrop=acrylic][data-transparency=regular] body,:root[data-backdrop=acrylic][data-transparency=regular] #root{background:transparent}
+:root[data-skin=glass][data-backdrop=acrylic][data-transparency=regular] .mini-app{background:#eff6fc5c}
+:root[data-skin=winui][data-backdrop=acrylic][data-transparency=regular] .mini-app{background:#f3f3f3a6}
+:root[data-transparency=reduced] .mini-toolbar,:root[data-transparency=reduced] .mini-footer,:root[data-transparency=reduced] .panel-navigation{backdrop-filter:none}
+:root[data-skin=glass][data-transparency=reduced] .mini-toolbar,:root[data-skin=glass][data-transparency=reduced] .mini-footer{background:#fafcfe}
+@media(prefers-reduced-motion:reduce){:root *{transition:none!important;animation:none!important}}
+@media(forced-colors:active){:root[data-skin] .mini-app,:root[data-skin] .mini-toolbar,:root[data-skin] .mini-footer,:root[data-skin] .mini-app .range-control,:root[data-skin] .skin-choice{background:Canvas;color:CanvasText;border-color:CanvasText;box-shadow:none;backdrop-filter:none}:root[data-skin] .skin-choice[aria-pressed=true],:root[data-skin] .mini-app .segments button[aria-pressed=true]{border:2px solid Highlight}:root[data-skin] .mini-app .range-control output{color:CanvasText;background:Canvas;border-color:CanvasText}}
+@media(max-width:340px){:root .mini-toolbar{gap:7px;padding-left:10px;padding-right:10px}:root .compact-startup .toggle-row{font-size:11px}:root .mini-app .range-control{grid-template-columns:64px minmax(0,1fr) 40px}:root[data-skin=glass] .mini-toolbar{padding-left:9px;padding-right:9px;gap:6px}:root .skin-trigger{width:23px;height:25px}:root .skin-choices{gap:7px}:root .skin-choice{padding:7px}:root .skin-choice[aria-pressed=true]{padding:6px}:root .skin-choice strong{font-size:11px}}
+:root .mini-app .advanced .range-control{grid-template-columns:90px minmax(0,1fr) 58px}
+:root .mini-app .preview-banner{background:var(--accent-soft);color:var(--ink)}
+
+
+@media(pointer:coarse){:root[data-skin] .mini-app input[type=range]{height:40px}:root[data-skin] .mini-app .range-control{min-height:44px}:root .skin-trigger{min-width:44px;min-height:44px}}
