@@ -149,7 +149,7 @@ try {
   if (passed) {
     const parent = await realpath(qaParent), target = await realpath(qa);
     assert.ok(target.toLowerCase().startsWith((parent + sep).toLowerCase()) && target.endsWith(`beta-${id}`));
-    await rm(target, { recursive: true, force: true });
+    await rm(target, { recursive: true, force: true, maxRetries: 20, retryDelay: 200 });
     if (existsSync(menu)) {
       assert.equal((await realpath(menu)).toLowerCase(), resolve(menu).toLowerCase());
       await rmdir(menu);
