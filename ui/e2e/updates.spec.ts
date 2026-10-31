@@ -54,6 +54,85 @@ async function openUpdates(page: Page) {
   await expect(panel).toHaveAttribute('open', '');
 }
 
+for (const skin of skinIds) for (const distribution of ['portable', 'installer'] as const) {
+  test(`${skin}/${distribution}: ready and failed repair guidance matches the distribution`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 380, height: 540 });
+    await connect(page, skin, { ...fixture, distribution, state: 'ready', downloadedBytes: 100, canInstall: true, notes: '' });
+    await page.getByRole('button', { name: /^更多设置/ }).click();
+    await openUpdates(page);
+    const repairText = distribution === 'installer'
+      ? '安装版：仅在覆盖失败或新版未正常启动时，才需用同版本完整安装器原位修复。'
+      : '便携版：仅在覆盖失败或新版未正常启动时，才需用同版本完整 ZIP 解压到新空目录运行；不要混合覆盖外来文件。';
+    for (const width of [380, 320]) {
+      await page.setViewportSize({ width, height: 540 });
+      await page.getByRole('button', { name: '重启并更新', exact: true }).click();
+      const confirmation = page.getByRole('group', { name: '确认更新安装' });
+      await expect(confirmation).toContainText('原位覆盖，不备份旧版本；个人设置保留。');
+      const guidance = confirmation.getByText(repairText, { exact: true });
+      await expect(guidance).toBeInViewport({ ratio: 1 });
+      await expect(page.getByRole('button', { name: '确认重启并更新', exact: true })).toBeInViewport({ ratio: 1 });
+      await expect(confirmation).not.toContainText(distribution === 'portable' ? '安装器' : 'ZIP');
+      await expect(confirmation).not.toContainText('若有外来文件冲突');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.locator('.mini-app').screenshot({ path: testInfo.outputPath(`repair-ready-${width}-${skin}-${distribution}.png`) });
+      await page.getByRole('button', { name: '暂不更新', exact: true }).click();
+    }
+    expect((await commands(page)).includes('install-update')).toBe(false);
+    await emit(page, { ...fixture, distribution, state: 'failed', downloadedBytes: 100, canInstall: false,
+      message: '新版健康检查未通过，更新未完成。', notes: '', revision: 2 });
+    await expect(page.getByRole('group', { name: '确认更新安装' })).toHaveCount(0);
+    for (const width of [380, 320]) {
+      await page.setViewportSize({ width, height: 540 });
+      const guidance = page.locator('.update-panel').getByText(repairText, { exact: true });
+      await guidance.scrollIntoViewIfNeeded();
+      await expect(guidance).toBeInViewport({ ratio: 1 });
+      await expect(page.getByRole('alert')).toContainText('新版健康检查未通过');
+      await expect(page.locator('.update-panel')).not.toContainText('已回滚');
+      await expect(page.locator('.update-panel')).not.toContainText('Recover-Danmu');
+      await expect(page.getByRole('button', { name: '重启并更新', exact: true })).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.locator('.mini-app').screenshot({ path: testInfo.outputPath(`repair-failed-${width}-${skin}-${distribution}.png`) });
+    }
+    const violations = (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations;
+    expect(violations).toEqual([]);
+  });
+}
+
+for (const distribution of ['portable', 'installer'] as const) for (const failure of ['check', 'download'] as const) {
+  test(`${distribution}/${failure}: pre-write network failure retains retry without requiring repair`, async ({ page }, testInfo) => {
+    const message = failure === 'check' ? '检查更新失败：网络连接不可用，请重试。' : '下载更新失败：连接中断，请重新下载。';
+    await page.setViewportSize({ width: 380, height: 540 });
+    await connect(page, 'fluent', { ...fixture, distribution, state: 'failed', message, notes: '',
+      availableVersion: failure === 'check' ? '' : fixture.availableVersion,
+      downloadedBytes: failure === 'check' ? 0 : 12, totalBytes: failure === 'check' ? 0 : 100, canInstall: false });
+    await page.getByRole('button', { name: /^更多设置/ }).click();
+    await openUpdates(page);
+    await expect(page.getByRole('alert')).toHaveText(message);
+    await expect(page.getByRole('status').filter({ hasText: '更新未完成，请重试' })).toBeVisible();
+    const guidance = page.locator('.update-panel .update-muted').filter({ hasText: /同版本完整/ });
+    await expect(guidance).toContainText('仅在覆盖失败或新版未正常启动时，才需');
+    await expect(guidance).not.toContainText('如更新失败，请');
+    await expect(guidance).not.toContainText(distribution === 'portable' ? '安装器' : 'ZIP');
+    const retry = page.getByRole('button', { name: failure === 'check' ? '检查更新' : '下载更新', exact: true });
+    for (const width of [380, 320]) {
+      await page.setViewportSize({ width, height: 540 });
+      await page.locator('.update-panel > .update-body > .update-actions').scrollIntoViewIfNeeded();
+      await page.locator('.mini-app').screenshot({ path: testInfo.outputPath(`network-${failure}-${width}-${distribution}.png`) });
+      await expect(guidance).toBeInViewport({ ratio: 1 });
+      await expect(page.getByRole('alert')).toBeInViewport({ ratio: 1 });
+      await expect(retry).toBeEnabled();
+      await expect(retry).toBeInViewport({ ratio: 1 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await expect(page.getByRole('group', { name: '确认更新安装' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '重启并更新', exact: true })).toHaveCount(0);
+    expect((await commands(page)).some(type => ['download-update', 'install-update'].includes(type))).toBe(false);
+    await retry.click();
+    await expect.poll(async () => (await commands(page)).filter(type => type === (failure === 'check' ? 'check-update' : 'download-update')).length).toBe(1);
+    expect((await commands(page)).includes('install-update')).toBe(false);
+  });
+}
+
 for (const skin of skinIds) test(`${skin}: update module is last, independently collapsed and echoes the home corner badge`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 380, height: 540 });
   await connect(page, skin);
@@ -174,7 +253,7 @@ test('opening settings never downloads; opt-in settings and two-step install rem
   expect((await commands(page)).includes('install-update')).toBe(false);
   await expect(page.getByRole('group', { name: '确认更新安装' })).toContainText('播放器不受控制');
   await expect(page.getByRole('group', { name: '确认更新安装' })).toContainText('不备份旧版本');
-  await expect(page.getByRole('group', { name: '确认更新安装' })).toContainText('请勿全部覆盖');
+  await expect(page.getByRole('group', { name: '确认更新安装' })).toContainText('不要混合覆盖外来文件');
   await expect(page.getByRole('group', { name: '确认更新安装' })).not.toContainText('Recover-Danmu');
   await expect(page.getByRole('button', { name: '确认重启并更新', exact: true })).toBeInViewport({ ratio: 1 });
   await page.getByRole('button', { name: '返回', exact: true }).click();

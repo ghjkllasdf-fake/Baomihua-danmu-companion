@@ -27,6 +27,9 @@ export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
   const frequencySupported = state.checkIntervalHours !== undefined;
   const preferences = { autoCheck: state.autoCheck, autoDownload: state.autoDownload, channel: state.channel,
     ...(frequencySupported ? { checkIntervalHours: state.checkIntervalHours } : {}) };
+  const repairGuidance = state.distribution === 'installer'
+    ? '安装版：仅在覆盖失败或新版未正常启动时，才需用同版本完整安装器原位修复。'
+    : '便携版：仅在覆盖失败或新版未正常启动时，才需用同版本完整 ZIP 解压到新空目录运行；不要混合覆盖外来文件。';
   const phaseText = { unavailable: '此运行方式不支持自动更新', idle: '尚未检查更新', checking: '正在检查 GitHub 版本…', current: '当前已是最新可用版本',
     available: `发现新版本 ${state.availableVersion}`, downloading: '正在下载更新…', verifying: '正在校验更新文件…', ready: '更新已准备好', applying: '正在准备退出并安装更新…', failed: '更新未完成，请重试' }[state.state];
   const percent = state.totalBytes > 0 ? Math.min(100, Math.floor(state.downloadedBytes / state.totalBytes * 100)) : null;
@@ -53,6 +56,7 @@ export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
     {(state.state === 'downloading' || state.state === 'verifying') && <div className="update-progress"><progress max="100" value={percent ?? undefined} aria-label="更新下载进度" /><span>{percent === null ? '大小未知' : `${percent}%`}</span></div>}
     {state.checkedAt && <p className="update-muted">上次检查：{new Date(state.checkedAt).toLocaleString('zh-CN')}</p>}
     {(error || state.message) && <p className="update-message" role={error || state.state === 'failed' ? 'alert' : 'status'}>{error || state.message}</p>}
+    {state.state === 'failed' && <p className="update-muted">{repairGuidance}</p>}
     {state.lastResult && <p className="update-muted">{state.lastResult}</p>}
     {state.notes && <details className="update-notes"><summary>更新内容</summary><pre>{state.notes}</pre></details>}
     <div className="update-actions">
@@ -62,7 +66,7 @@ export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
       {['checking', 'downloading', 'verifying'].includes(state.state) && <button type="button" className="text-button" onClick={() => void cancel()}>取消</button>}
       <button type="button" className="text-button" disabled={busy} onClick={() => void openRelease()}>打开 GitHub Release</button>
     </div>
-    {confirm && state.state === 'ready' && <div ref={confirmation} className="update-confirm" role="group" aria-label="确认更新安装"><p>更新至 {state.availableVersion}？弹幕伴侣会退出并重新启动，播放器不受控制。</p><p className="update-muted">原位覆盖，不备份旧版本。失败时用同版本安装器修复；Portable 若有外来文件冲突，请勿全部覆盖，可解压到新的空目录运行。个人设置保留。</p><div className="update-actions"><button type="button" className="primary" disabled={busy || !state.canInstall} onClick={() => void install(state.availableVersion)}>确认重启并更新</button><button type="button" className="text-button" onClick={() => setConfirm(false)}>暂不更新</button></div></div>}
+    {confirm && state.state === 'ready' && <div ref={confirmation} className="update-confirm" role="group" aria-label="确认更新安装"><p>更新至 {state.availableVersion}？弹幕伴侣会退出并重新启动，播放器不受控制。</p><p className="update-muted">原位覆盖，不备份旧版本；个人设置保留。</p><p className="update-muted">{repairGuidance}</p><div className="update-actions"><button type="button" className="primary" disabled={busy || !state.canInstall} onClick={() => void install(state.availableVersion)}>确认重启并更新</button><button type="button" className="text-button" onClick={() => setConfirm(false)}>暂不更新</button></div></div>}
     </div>
   </details>;
 }
