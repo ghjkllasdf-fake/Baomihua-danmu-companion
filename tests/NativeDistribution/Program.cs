@@ -23,6 +23,7 @@ internal static class DistributionTests
         try
         {
             if(args.Length>0 && args[0]=="--video-companion-target")return VideoCompanionTests.RunTarget();
+            if(args.Length==1 && args[0]=="--update-tests"){UpdateTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--video-companion-tests"){VideoCompanionTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--retry-match-tests"){RetryMatchTests.Run().GetAwaiter().GetResult();return 0;}
             if(args.Length>0 && args[0]=="--season-match-tests"){SeasonMatchTests.Run().GetAwaiter().GetResult();return 0;}
@@ -64,6 +65,7 @@ internal static class DistributionTests
             Reject(()=>new ApplicationPaths("relative-path","app",data),"Relative executable roots must be rejected.");
             Reject(()=>new ApplicationPaths(root,"app","relative-data"),"Relative data roots must be rejected.");
             NativeRuntimeTests.Run();
+            UpdateTests.Run();
             NativeProcessImageTests.Run();
             SharedBrowserTests.Run();
             NativeInstanceTests.Run();
