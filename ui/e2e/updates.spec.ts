@@ -30,27 +30,85 @@ async function connect(page: Page, skin = 'fluent', state = fixture) {
     } } });
   }, { settings: defaultSettings, skin, state });
   await page.goto('/');
-  await expect(page.locator('.update-indicator')).toBeVisible();
+  await expect(page.locator('.mini-app')).toBeVisible();
+  if (state.availableVersion) await expect(page.locator('.footer-actions .update-indicator')).toBeVisible();
+  else await expect(page.locator('.footer-actions .update-indicator')).toHaveCount(0);
 }
 async function commands(page: Page) { return page.evaluate(() => (window as unknown as { updateFixture: { commands: string[] } }).updateFixture.commands); }
 async function emit(page: Page, value: unknown) { await page.evaluate(value => (window as unknown as { updateFixture: { emit: (value: unknown) => void } }).updateFixture.emit(value), value); }
+async function openUpdates(page: Page) {
+  const panel = page.locator('.update-panel');
+  if (await panel.getAttribute('open') === null) await panel.locator(':scope > summary').click();
+  await expect(panel).toHaveAttribute('open', '');
+}
 
-for (const skin of skinIds) test(`${skin}: compact More Settings uses an aligned SVG update badge without changing footer height`, async ({ page }, testInfo) => {
+for (const skin of skinIds) test(`${skin}: update module is last, independently collapsed and echoes the home corner badge`, async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 380, height: 540 });
+  await connect(page, skin);
+  const homeBadge = await page.locator('.footer-actions .update-indicator').evaluate(element => {
+    const style = getComputedStyle(element);
+    return { color: style.color, background: style.backgroundColor, text: element.textContent };
+  });
+  await page.getByRole('button', { name: /^更多设置/ }).click();
+  const panel = page.locator('details.update-panel'), summary = panel.locator(':scope > summary');
+  await expect(panel).toHaveCount(1);
+  expect(await panel.getAttribute('open')).toBeNull();
+  await expect(page.locator('#more-settings > :last-child')).toHaveClass('update-panel');
+  await expect(summary).toHaveAccessibleName('软件更新，有新版本 0.1.1-beta.10');
+  await expect(summary).toBeInViewport({ ratio: 1 });
+  expect((await summary.boundingBox())!.height).toBeLessThanOrEqual(40);
+  expect((await panel.boundingBox())!.y).toBeGreaterThan((await page.locator('.manual-sync').boundingBox())!.y);
+  await expect(page.getByRole('switch', { name: '自动检查更新', includeHidden: true })).toBeHidden();
+  await expect(page.locator('.update-title .update-indicator')).toHaveText('新');
+  expect(await page.locator('.update-title .update-indicator').evaluate(element => {
+    const style = getComputedStyle(element);
+    return { color: style.color, background: style.backgroundColor, text: element.textContent };
+  })).toEqual(homeBadge);
+  await page.locator('.mini-app').screenshot({ path: testInfo.outputPath(`module-collapsed-${skin}.png`) });
+  await summary.focus();
+  await summary.press('Enter');
+  await expect(panel).toHaveAttribute('open', '');
+  await expect(page.getByRole('switch', { name: '自动检查更新' })).toBeVisible();
+  await page.locator('.mini-app').screenshot({ path: testInfo.outputPath(`module-expanded-${skin}.png`) });
+  expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]);
+  await summary.press('Space');
+  expect(await panel.getAttribute('open')).toBeNull();
+  await expect(summary).toBeFocused();
+  await expect(panel.locator('.update-indicator')).toBeVisible();
+  await page.getByRole('button', { name: '返回', exact: true }).click();
+  await page.getByRole('button', { name: /^更多设置/ }).click();
+  expect(await panel.getAttribute('open')).toBeNull();
+  await page.setViewportSize({ width: 320, height: 340 });
+  await summary.scrollIntoViewIfNeeded();
+  await expect(summary).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole('button', { name: '返回', exact: true })).toBeInViewport({ ratio: 1 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await emit(page, { ...fixture, state: 'current', availableVersion: '', revision: 2 });
+  await expect(summary).toHaveAccessibleName('软件更新');
+  await expect(page.locator('.update-indicator')).toHaveCount(0);
+  expect((await commands(page)).filter(type => ['download-update', 'install-update'].includes(type))).toEqual([]);
+});
+
+for (const skin of skinIds) test(`${skin}: compact More Settings uses a legible New corner badge without changing footer height`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 380, height: 560 });
   await connect(page, skin);
   for (const width of [320, 380, 768]) {
     await page.setViewportSize({ width, height: 560 });
     await expect(page.locator('.more-label')).toHaveCSS('font-size', '12px');
     await expect(page.locator('.more-label')).toHaveCSS('font-weight', '400');
-    const label = (await page.locator('.more-label').boundingBox())!, badge = (await page.locator('.update-indicator').boundingBox())!;
-    expect(Math.abs(badge.y + badge.height / 2 - label.y - label.height / 2)).toBeLessThanOrEqual(1);
+    const indicator = page.locator('.footer-actions .update-indicator');
+    const label = (await page.locator('.more-label').boundingBox())!, badge = (await indicator.boundingBox())!;
+    expect(badge.y).toBeLessThan(label.y);
     expect(badge.x).toBeGreaterThan(label.x);
     expect(badge.x + badge.width).toBeLessThanOrEqual(label.x + label.width);
     expect(badge.width).toBeLessThanOrEqual(16);
     expect(badge.height).toBeLessThanOrEqual(16);
-    await expect(page.locator('.update-indicator')).toHaveCSS('color', skin === 'studio' ? 'rgb(255, 105, 113)' : 'rgb(196, 36, 42)');
-    await expect(page.locator('.update-indicator svg')).toHaveCount(1);
-    await expect(page.locator('.update-indicator')).toHaveAttribute('aria-hidden', 'true');
+    await expect(indicator).toHaveCSS('background-color', skin === 'studio' ? 'rgb(255, 105, 113)' : 'rgb(196, 36, 42)');
+    await expect(indicator).toHaveCSS('color', skin === 'studio' ? 'rgb(32, 30, 30)' : 'rgb(255, 255, 255)');
+    await expect(indicator).toHaveCSS('font-size', '11px');
+    await expect(indicator).toHaveText('新');
+    await expect(indicator.locator('svg')).toHaveCount(0);
+    await expect(indicator).toHaveAttribute('aria-hidden', 'true');
     await expect(page.locator('.more-chevron')).toHaveCount(1);
     expect((await page.locator('.more-chevron').boundingBox())!.width).toBeLessThanOrEqual(12);
     await expect(page.getByRole('button', { name: '更多设置，有新版本 0.1.1-beta.10', exact: true })).toBeInViewport({ ratio: 1 });
@@ -63,7 +121,7 @@ for (const skin of skinIds) test(`${skin}: compact More Settings uses an aligned
   const violations = (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations;
   expect(violations).toEqual([]);
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
-  await expect(page.locator('.update-indicator svg')).toBeVisible();
+  await expect(page.locator('.footer-actions .update-indicator')).toBeVisible();
   await expect(page.locator('.more-chevron')).toBeVisible();
   await page.locator('.mini-app').screenshot({ path: testInfo.outputPath(`forced-colors-${skin}.png`) });
   await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'no-preference' });
@@ -90,10 +148,11 @@ test('opening settings never downloads; opt-in settings and two-step install rem
   await page.getByRole('button', { name: /^更多设置/ }).click();
   await expect(page.getByRole('heading', { name: '更多设置', exact: true })).toBeFocused();
   await expect(page.getByRole('button', { name: '返回', exact: true })).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.locator('.update-indicator')).toHaveCount(0);
+  await expect(page.locator('.update-title .update-indicator')).toBeVisible();
   await page.getByRole('button', { name: '返回', exact: true }).click();
-  await expect(page.locator('.update-indicator')).toHaveCount(1);
+  await expect(page.locator('.footer-actions .update-indicator')).toBeVisible();
   await page.getByRole('button', { name: /^更多设置/ }).click();
+  await openUpdates(page);
   expect((await commands(page)).filter(type => ['download-update', 'install-update'].includes(type))).toEqual([]);
   await expect(page.getByRole('switch', { name: '自动下载更新' })).not.toBeChecked();
   await page.getByRole('switch', { name: '自动检查更新' }).click();
@@ -105,6 +164,7 @@ test('opening settings never downloads; opt-in settings and two-step install rem
   await expect(page.getByRole('button', { name: '确认重启并更新', exact: true })).toBeInViewport({ ratio: 1 });
   await page.getByRole('button', { name: '返回', exact: true }).click();
   await page.getByRole('button', { name: /^更多设置/ }).click();
+  await openUpdates(page);
   await page.getByRole('button', { name: '重启并更新', exact: true }).click();
   await expect(page.getByRole('button', { name: '确认重启并更新', exact: true })).toBeInViewport({ ratio: 1 });
   expect((await commands(page)).includes('install-update')).toBe(false);
@@ -117,6 +177,7 @@ test('opening settings never downloads; opt-in settings and two-step install rem
 
 test('stale and forged snapshots cannot revoke newer readiness or create an install action', async ({ page }) => {
   await connect(page); await page.getByRole('button', { name: /^更多设置/ }).click();
+  await openUpdates(page);
   await emit(page, { ...fixture, state: 'ready', downloadedBytes: 100, canInstall: true, revision: 5 });
   await expect(page.getByRole('button', { name: '重启并更新', exact: true })).toBeEnabled();
   await emit(page, { ...fixture, state: 'current', availableVersion: '', revision: 2 });
@@ -126,4 +187,36 @@ test('stale and forged snapshots cannot revoke newer readiness or create an inst
   await emit(page, { ...fixture, state: 'downloading', downloadedBytes: 50, revision: 7 });
   await expect(page.getByRole('progressbar', { name: '更新下载进度' })).toHaveAttribute('value', '50');
   await expect(page.getByRole('button', { name: '重启并更新', exact: true })).toHaveCount(0);
+});
+
+test('an unavailable updater stays in a collapsed last module without falsely lighting a badge', async ({ page }) => {
+  await connect(page, 'fluent', { ...fixture, state: 'unavailable', availableVersion: '', supported: false, totalBytes: 0 });
+  await page.getByRole('button', { name: '更多设置', exact: true }).click();
+  const panel = page.locator('.update-panel');
+  expect(await panel.getAttribute('open')).toBeNull();
+  await expect(page.locator('#more-settings > :last-child')).toHaveClass('update-panel');
+  await expect(page.locator('.update-indicator')).toHaveCount(0);
+  await openUpdates(page);
+  await expect(page.getByRole('switch', { name: '自动检查更新' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '检查更新', exact: true })).toBeDisabled();
+  await expect(panel).toContainText('不支持自动更新');
+});
+
+test('the collapsed updater remains a large touch target and its shared badge survives forced colours', async ({ browser }, testInfo) => {
+  const context = await browser.newContext({ viewport: { width: 320, height: 540 }, isMobile: true, hasTouch: true });
+  try {
+    const page = await context.newPage();
+    await connect(page, 'studio');
+    expect((await page.locator('.more-link').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await page.getByRole('button', { name: /^更多设置/ }).click();
+    const summary = page.locator('.update-panel > summary');
+    expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await summary.scrollIntoViewIfNeeded();
+    await expect(summary).toBeInViewport({ ratio: 1 });
+    await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+    await expect(summary.locator('.update-indicator')).toBeVisible();
+    await expect(summary.locator('.update-indicator')).toHaveText('新');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.locator('.mini-app').screenshot({ path: testInfo.outputPath('module-touch-forced-colors.png') });
+  } finally { await context.close(); }
 });

@@ -14,6 +14,7 @@ import { useAppearance } from './use-appearance';
 import { SkinPicker } from './components/SkinPicker';
 import { useUpdates } from './use-updates';
 import { UpdatePanel } from './components/UpdatePanel';
+import { UpdateBadge } from './components/UpdateBadge';
 import './update.css';
 
 export function App() {
@@ -133,6 +134,7 @@ export function App() {
     automaticMatch && !['waiting', 'manual'].includes(automaticMatch.state) ? automaticMatch.message : '';
   const manualSearchRequired = connected && automaticMatching && automaticMatch?.state === 'failed' &&
     Boolean(player.title.trim() && apiBase.trim()) && (!localApi || localApi.state === 'ready');
+  const footerHasUpdate = view !== 'more' && updates.available;
   async function hide() {
     if (!canHide) return;
     try { await request('hide'); } catch { setError('面板收起失败，请重试。'); }
@@ -166,10 +168,10 @@ export function App() {
       <div hidden={view !== 'sources'} className="source-view"><SourcePanel apiBase={localApi && localApi.state !== 'ready' ? '' : apiBase} connected={connected && (!localApi || localApi.state === 'ready')} playback={playback} getPlayback={() => latestPlayback.current} onLoaded={setCount} automaticMatching={automaticMatching} automaticStatus={automaticMatch} active={view === 'sources'} /></div>
       <div id="more-settings" hidden={view !== 'more'} className="more-view">
         {view === 'more' && <h2 className="sr-only" ref={viewHeading} tabIndex={-1}>更多设置</h2>}
-        <UpdatePanel {...updates} />
         <DisplaySettings settings={settings} update={update} view="advanced" />
         {localApi && <LocalApiConnection localApi={localApi} available={connected} onApply={applyLocalSources} />}
         <details className="manual-sync"><summary>手动时间校准 <span>{auto ? '自动同步中，无需手动校准' : '播放器未公开时间时使用'}</span></summary><div className="manual-controls"><label htmlFor="manual-time">视频当前时间</label><input id="manual-time" value={manual} onChange={e => setManual(e.target.value)} disabled={auto} /><button className="secondary" disabled={!connected || auto} onClick={() => void manualClock(true)}>校时并播放</button><button className="text-button" disabled={!connected || auto} onClick={() => void manualClock(false)}>校时并暂停</button></div></details>
+        <UpdatePanel {...updates} />
       </div>
     </main>
     <footer className="mini-footer">
@@ -177,11 +179,7 @@ export function App() {
       <p id="match-status" className="match-status" role="status">{matchNotice}</p>
       <div className="footer-actions">
         <button className="more-link" aria-controls="more-settings" aria-expanded={view === 'more'} aria-label={view === 'more' ? '返回' : updates.available ? `更多设置，有新版本 ${updates.snapshot?.availableVersion}` : '更多设置'} onClick={() => navigate(view === 'more' ? 'display' : 'more')}>
-          <span className="more-label">{view === 'more' ? '返回' : '更多设置'}{view !== 'more' && updates.available &&
-            <span className="update-indicator" data-update-indicator aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" focusable="false"><path d="m8 8 4-4 4 4M12 4v11M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5" /></svg>
-            </span>}
-          </span>
+          <span className={`more-label update-label${footerHasUpdate ? ' has-update' : ''}`}>{view === 'more' ? '返回' : '更多设置'}{footerHasUpdate && <UpdateBadge />}</span>
           <svg className="more-chevron" data-direction={view === 'more' ? 'back' : 'forward'} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="m4.5 2.5 3.5 3.5-3.5 3.5" /></svg>
         </button>
         <button className={`manual-source-link${manualSearchRequired ? ' needs-attention' : ''}`} aria-label="手动搜索 / 换源" aria-describedby={manualSearchRequired ? 'match-status' : undefined} onClick={() => navigate(view === 'sources' ? 'display' : 'sources')}>手动搜索 / 换源{manualSearchRequired && <span className="manual-source-prompt" aria-hidden="true">需处理</span>}</button>
