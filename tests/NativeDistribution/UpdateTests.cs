@@ -27,6 +27,7 @@ internal static class UpdateTests
         Check(UpdateCatalog.Select(Feed("0.1.2-preview.1"),"0.1.1-beta.9","beta",false,"portable")==null,"Preview must not leak into beta channel.");
         string name=UpdateCatalog.ArtifactName("0.1.1-beta.10",true,"installer");
         Check(name=="DanmuCompanion-0.1.1-beta.10-win-x64-includeAPI-setup.exe","Installer naming must preserve includeAPI.");
+        Check(UpdateCatalog.InventoryName("0.1.1-beta.10",true)=="DanmuCompanion-0.1.1-beta.10-win-x64-includeAPI-manifest.json","Incoming installed ownership must use the edition-specific release inventory.");
         string hash=new string('a',64);
         Check(UpdateCatalog.Checksum(hash+"  "+name+"\n",name)==hash,"Expected checksum must be selected by exact filename.");
         foreach(string text in new[]{hash+"  other.exe",hash+"  "+name+"\n"+hash+"  "+name,"wrong  "+name})
@@ -39,5 +40,8 @@ internal static class UpdateTests
         UpdateTransportTests.Run().GetAwaiter().GetResult();
         UpdateServiceTests.Run().GetAwaiter().GetResult();
         UpdateTransactionTests.Run();
+        UpdateInstallerTests.Run();
+        UpdatePipeTests.Run().GetAwaiter().GetResult();
+        UpdateMaintenanceTests.Run();
     }
 }

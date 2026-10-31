@@ -10,7 +10,7 @@ internal static class NativeHost
     [STAThread]
     private static int Main(string[] args)
     {
-        int smoke=0,debugPort=0;string profile="app",dataRoot=null,result=null;bool check=false,open=false,removeStartup=false;
+        int smoke=0,debugPort=0,updateParent=0;string profile="app",dataRoot=null,result=null,updateHandshake=null;bool check=false,open=false,removeStartup=false;
         try
         {
             for(int i=0;i<args.Length;i++)
@@ -26,12 +26,26 @@ internal static class NativeHost
                     case "--profile":profile=Value();break;
                     case "--data-root":dataRoot=Value();break;
                     case "--result":result=Value();if(!Path.IsPathFullyQualified(result))throw new ArgumentException("Result path must be absolute.");break;
+                    case "--update-handshake":updateHandshake=Value();if(!Guid.TryParseExact(updateHandshake,"N",out _))throw new ArgumentException("Invalid update operation.");break;
+                    case "--update-parent":updateParent=int.Parse(Value());if(updateParent<=0)throw new ArgumentException("Invalid update process.");break;
                     default:throw new ArgumentException("Unknown application option.");
                 }
             }
             if(!OperatingSystem.IsWindows() || !Environment.Is64BitProcess)throw new PlatformNotSupportedException("Windows x64 is required.");
+            if((updateHandshake==null)!=(updateParent==0))throw new ArgumentException("Incomplete update handshake.");
             var paths=new ApplicationPaths(AppContext.BaseDirectory,profile,dataRoot);
             if(removeStartup){new StartupRegistration(paths.Root).RemoveOwnedNative();return 0;}
+            if(smoke==0 && !check && updateHandshake==null)
+            {
+                string recovery=UpdateMaintenance.FindRecovery(paths);
+                if(recovery!=null)
+                {
+                    if(MessageBox.Show("检测到未完成的更新。是否打开恢复组件？\r\n"+recovery,"爆米花弹幕伴侣",MessageBoxButtons.YesNo,MessageBoxIcon.Warning)==DialogResult.Yes)
+                    {System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(recovery){UseShellExecute=false,CreateNoWindow=true,WindowStyle=System.Diagnostics.ProcessWindowStyle.Hidden});return 0;}
+                }
+            }
+            using var rootLock=new UpdateRootLock(paths.Root);
+            if(!rootLock.Acquired)throw new InvalidOperationException("此目录中的弹幕伴侣正在运行或恢复更新，请先退出该实例。");
             NativeRuntime.ValidateApplication(paths);
             NativeRuntime.LoadMediaProjection(paths.Root);
             if(check){Console.WriteLine("PASS: native executable payload and projection dependencies.");return 0;}
@@ -43,8 +57,13 @@ internal static class NativeHost
             Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);Application.EnableVisualStyles();
             string api=EmbeddedApiService.IsPackaged(paths) ? "" : Environment.GetEnvironmentVariable("DANMU_API_BASE");
             api=string.IsNullOrWhiteSpace(api) ? "" : ApiClient.NormalizeBase(api);
-            using var window=new DesktopWindow(paths.Root,api,profile,paths.DataRoot){SuppressErrorDialogs=smoke>0};
+            using var window=new DesktopWindow(paths.Root,api,profile,paths.DataRoot){SuppressErrorDialogs=smoke>0 || updateHandshake!=null};
             using var timer=new System.Windows.Forms.Timer();
+            using var updateTimer=new System.Windows.Forms.Timer{Interval=250};
+            if(updateHandshake!=null)
+            {
+                updateTimer.Tick+=async (_,_)=>{if(!window.UpdateHealthReady)return;updateTimer.Stop();try{await UpdateWorker.WriteStartedAsync(paths,updateHandshake,updateParent);}catch{window.RequestExit();}};updateTimer.Start();
+            }
             if(smoke>0){timer.Interval=smoke*1000;timer.Tick+=(_,_)=>{timer.Stop();window.RequestExit();};timer.Start();}
             if(open)window.OpenWorkbench();
             Application.Run(window);
@@ -64,7 +83,7 @@ internal static class NativeHost
                 File.WriteAllText(result,JsonSerializer.Serialize(new{Ready=false,Failure=error.Message}));
             }
             Console.Error.WriteLine("Native startup failed: "+error.Message);
-            if(smoke==0 && !check && !removeStartup)MessageBox.Show("启动失败："+error.Message+"\r\n请完整解压或重新安装本版本，不要从压缩软件中直接运行。", "爆米花弹幕伴侣",MessageBoxButtons.OK,MessageBoxIcon.Error);
+            if(smoke==0 && !check && !removeStartup && updateHandshake==null)MessageBox.Show("启动失败："+error.Message+"\r\n请完整解压或重新安装本版本，不要从压缩软件中直接运行。", "爆米花弹幕伴侣",MessageBoxButtons.OK,MessageBoxIcon.Error);
             return 1;
         }
     }

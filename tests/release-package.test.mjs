@@ -7,6 +7,11 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory } from '../scripts/release-lib.mjs';
 
+test('native updater shares the manifest payload and only its exact executable/config names are admitted', () => {
+  for (const path of ['DanmuCompanion.Updater.exe', 'DanmuCompanion.Updater.deps.json', 'DanmuCompanion.Updater.runtimeconfig.json']) assert.equal(allowedEntry(path), true);
+  for (const path of ['Updater.exe', 'DanmuCompanion.Updater.cmd', 'update.ps1', 'DanmuCompanion.Updater.exe:stream']) assert.equal(allowedEntry(path), false);
+});
+
 test('runtime payload keeps the actual ICO entries and excludes source artwork and the retired SVG favicon', () => {
   assert.equal(allowedEntry('ui/dist/favicon.ico'), true);
   assert.equal(allowedEntry('assets/app.ico'), true);

@@ -41,12 +41,13 @@ internal sealed class UpdateVersion : IComparable<UpdateVersion>
 }
 
 internal sealed record UpdateAsset(string Name,Uri Url,long Size,string Digest);
-internal sealed record UpdateRelease(string Version,string Tag,string Notes,UpdateAsset Artifact,UpdateAsset Checksums);
+internal sealed record UpdateRelease(string Version,string Tag,string Notes,UpdateAsset Artifact,UpdateAsset Checksums,UpdateAsset Inventory=null,UpdateAsset Archive=null);
 
 internal static class UpdateCatalog
 {
     public const string Repository="ghjkllasdf-fake/Baomihua-danmu-companion";
     public const long MaxDownload=512L*1024*1024;
+    public static string InventoryName(string version,bool includeApi)=>ArtifactName(version,includeApi,"portable").Replace("-portable.zip","-manifest.json",StringComparison.Ordinal);
     public static string ArtifactName(string version,bool includeApi,string distribution)
     {
         if(!UpdateVersion.TryParse(version,out var parsed) || parsed.Text!=version || distribution is not ("portable" or "installer"))
@@ -72,9 +73,11 @@ internal static class UpdateCatalog
             var assets=release.GetProperty("assets");
             if(assets.ValueKind!=JsonValueKind.Array || assets.GetArrayLength()>100)throw new InvalidDataException("GitHub 附件列表无效。");
             UpdateAsset artifact=FindAsset(assets,name,tag,MaxDownload),checksums=FindAsset(assets,"SHA256SUMS.txt",tag,65536);
-            if(artifact==null || checksums==null)continue;
+            UpdateAsset inventory=distribution=="installer" ? FindAsset(assets,InventoryName(version.Text,includeApi),tag,4*1024*1024) : null;
+            UpdateAsset archive=distribution=="installer" ? FindAsset(assets,ArtifactName(version.Text,includeApi,"portable"),tag,MaxDownload) : null;
+            if(artifact==null || checksums==null || distribution=="installer" && (inventory==null || archive==null))continue;
             string notes=release.TryGetProperty("body",out var body) && body.ValueKind==JsonValueKind.String ? body.GetString() : "";
-            selected=new UpdateRelease(version.Text,tag,(notes??"")[..Math.Min(notes?.Length??0,16000)],artifact,checksums);
+            selected=new UpdateRelease(version.Text,tag,(notes??"")[..Math.Min(notes?.Length??0,16000)],artifact,checksums,inventory,archive);
         }
         return selected;
     }

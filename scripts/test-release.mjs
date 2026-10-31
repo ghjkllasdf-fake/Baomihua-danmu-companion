@@ -55,7 +55,7 @@ await mkdir(evidence, { recursive: true });await mkdir(qa, { recursive: true });
 let passed = false;
 try {
   const sums = await readFile(join(directory, 'SHA256SUMS.txt'), 'utf8');
-  for (const file of [names.portable, names.installer]) {
+  for (const file of [names.portable, names.installer, names.inventory]) {
     const path = join(directory, file), sha256 = await fileHash(path);
     assert.ok(sums.includes(`${sha256}  ${file}`), 'Artifact checksum mismatch.');
     artifacts.push({ name: file, sha256, bytes: (await stat(path)).size });

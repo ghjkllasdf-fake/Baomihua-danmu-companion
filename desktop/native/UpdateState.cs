@@ -32,19 +32,22 @@ internal sealed record UpdateIdentity(string Version,string Variant,string Distr
             UpdatePackage.Check(package.Files.Any(f=>f.Path=="DanmuCompanion.Updater.exe") && File.Exists(Path.Combine(paths.Root,"DanmuCompanion.Updater.exe")),"当前包缺少原生更新组件。");
             return new UpdateIdentity(version,variant,DistributionFor(paths.Root,variant),true);
         }
-        catch(Exception error) when(error is InvalidDataException or IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException)
+        catch(Exception error) when(UpdateStorage.MetadataError(error))
         {return new UpdateIdentity(version,variant,"portable",false);}
     }
 }
 
 internal sealed record UpdatePreferences(bool AutoCheck,bool AutoDownload,string Channel,string CheckedAt);
 internal sealed record UpdateSnapshot(string State,string CurrentVersion,string AvailableVersion,string Variant,string Distribution,string Channel,
-    bool AutoCheck,bool AutoDownload,string CheckedAt,long DownloadedBytes,long TotalBytes,string Notes,string Message,long Revision,bool Supported,bool CanInstall);
-internal sealed record UpdateDownload(string File,string Checksum,long Size,string Version,string Variant,string Distribution,string Operation);
+    bool AutoCheck,bool AutoDownload,string CheckedAt,long DownloadedBytes,long TotalBytes,string Notes,string Message,long Revision,bool Supported,bool CanInstall,string LastResult="");
+internal sealed record UpdateDownload(string File,string Checksum,long Size,string Version,string Variant,string Distribution,string Operation,string InventoryChecksum="",string ArchiveChecksum="",long ArchiveSize=0);
 
 internal static class UpdateStorage
 {
+    internal static bool MetadataError(Exception error)=>error is InvalidDataException or IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException or System.Collections.Generic.KeyNotFoundException or FormatException or OverflowException;
     internal static readonly JsonSerializerOptions Json=new(){PropertyNamingPolicy=JsonNamingPolicy.CamelCase};
+    internal static JsonDocument ReadJson(string path,int limit)
+    {using var input=File.OpenRead(path);var doc=JsonDocument.Parse(UpdatePackage.ReadLimited(input,limit));try{UpdatePackage.Unique(doc.RootElement);return doc;}catch{doc.Dispose();throw;}}
     internal static void Atomic(string path,byte[] bytes)
     {
         UpdatePackage.SafeRoot(Path.GetDirectoryName(path));Directory.CreateDirectory(Path.GetDirectoryName(path));string temporary=path+"."+Guid.NewGuid().ToString("N")+".tmp";
@@ -67,7 +70,7 @@ internal static class UpdateStorage
             return new(root.GetProperty("autoCheck").GetBoolean(),root.GetProperty("autoDownload").GetBoolean(),savedChannel,stamp);
         }
         catch(Exception error) when(error is FileNotFoundException or DirectoryNotFoundException){return new(true,false,channel,"");}
-        catch(Exception error) when(error is InvalidDataException or IOException or UnauthorizedAccessException or JsonException or ArgumentException or InvalidOperationException)
+        catch(Exception error) when(MetadataError(error))
         {notice="更新设置无法读取，自动检查已停止，请重新保存设置。";return new(false,false,channel,"");}
     }
     internal static string CreateOperation(string parent,string purpose)
@@ -86,7 +89,7 @@ internal static class UpdateStorage
             using var input=File.OpenRead(Path.Combine(directory,"owner.json"));using var doc=JsonDocument.Parse(UpdatePackage.ReadLimited(input,4096));var record=doc.RootElement;UpdatePackage.Unique(record);
             return record.GetProperty("schemaVersion").GetInt32()==1 && record.GetProperty("component").GetString()=="github-updater" && record.GetProperty("id").GetString()==Path.GetFileName(directory);
         }
-        catch(Exception error) when(error is InvalidDataException or IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException){return false;}
+        catch(Exception error) when(MetadataError(error)){return false;}
     }
     internal static void RemoveOwned(string parent,string directory)
     {
@@ -94,7 +97,9 @@ internal static class UpdateStorage
         void Remove(string root,int depth)
         {
             UpdatePackage.Check(depth<64,"更新清理目录过深。");UpdatePackage.SafeRoot(root);
-            foreach(string entry in Directory.EnumerateFileSystemEntries(root))
+            string[] entries=Directory.EnumerateFileSystemEntries(root).ToArray();
+            string[] metadata={"owner.json","journal.json","next-manifest.json","original-files.json","registration.json","recovery.json","complete.json"};
+            foreach(string entry in entries.OrderBy(entry=>depth==0 && metadata.Contains(Path.GetFileName(entry)) ? Path.GetFileName(entry)=="owner.json" ? 2 : 1 : 0))
             {
                 var attributes=File.GetAttributes(entry);UpdatePackage.Check((attributes&FileAttributes.ReparsePoint)==0,"更新清理拒绝链接。");
                 if((attributes&FileAttributes.Directory)!=0)Remove(entry,depth+1);else File.Delete(entry);

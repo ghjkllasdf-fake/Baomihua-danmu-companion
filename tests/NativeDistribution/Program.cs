@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 
 namespace Popcorn;
 
@@ -20,10 +21,15 @@ internal static class DistributionTests
     [STAThread]
     private static int Main(string[] args)
     {
+        Console.OutputEncoding=System.Text.Encoding.UTF8;
         try
         {
             if(args.Length>0 && args[0]=="--video-companion-target")return VideoCompanionTests.RunTarget();
             if(args.Length==1 && args[0]=="--update-tests"){UpdateTests.Run();return 0;}
+            if(args.Length>0 && args[0]=="--installer-update-fixture")return UpdateInstallerTests.Fixture(args);
+            if(args.Length==2 && args[0]=="--update-parent-fixture")return UpdateRuntimeParent.Run(args[1]).GetAwaiter().GetResult();
+            if(args.Contains("--update-handshake"))return UpdateRuntimeParent.Health(args);
+            if(args.Length==2 && args[0]=="--update-fixture-stop")return UpdateRuntimeParent.Stop(args[1]);
             if(args.Length>0 && args[0]=="--video-companion-tests"){VideoCompanionTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--retry-match-tests"){RetryMatchTests.Run().GetAwaiter().GetResult();return 0;}
             if(args.Length>0 && args[0]=="--season-match-tests"){SeasonMatchTests.Run().GetAwaiter().GetResult();return 0;}

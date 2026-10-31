@@ -61,7 +61,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "创建桌面快捷方式"; Flags: unchecked
 
 [Files]
-Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#PayloadDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: AdmitUpdateFile
 Source: "{#PayloadDir}\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
 
 [Icons]
@@ -77,13 +77,26 @@ Filename: "{app}\DanmuCompanion.exe"; Parameters: "--remove-startup"; Flags: run
 [Code]
 #include "DestinationGuard.iss"
 #include "WebView2Prerequisite.iss"
+#include "UpdateJournal.iss"
 #include PayloadFileList
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var Allowed: TStringList;
+begin
+  if CurUninstallStep <> usPostUninstall then Exit;
+  Allowed := TStringList.Create;
+  try
+    AddIncomingPayloadFiles(Allowed); UpdateDeleteOwnedFiles(Allowed);
+  finally Allowed.Free; end;
+end;
 
 function DestinationProblem: String;
 var
   Registered: String;
   Incoming: TStringList;
+  Index: Integer;
 begin
+  PrepareUpdateJournal;
   Registered := '';
   if RegKeyExists(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#UninstallKey}') and
     (not RegQueryStringValue(HKCU64,
@@ -101,6 +114,8 @@ begin
     Incoming := TStringList.Create;
     try
       AddIncomingPayloadFiles(Incoming);
+      if UpdateDirectory <> '' then for Index := Incoming.Count - 1 downto 0 do
+        if (PathComponentProblem(AddBackslash(WizardDirValue) + Incoming[Index]) = '') and UpdateOwnsNewFile(Incoming[Index]) then Incoming.Delete(Index);
       Result := PayloadCollisionProblem(WizardDirValue, Incoming);
     finally
       Incoming.Free;

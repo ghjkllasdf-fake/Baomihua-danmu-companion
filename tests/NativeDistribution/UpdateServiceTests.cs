@@ -44,6 +44,11 @@ internal static class UpdateServiceTests
             var ready=await service.DownloadAsync();
             DistributionTests.Check(ready.State=="ready" && ready.DownloadedBytes==ready.TotalBytes && service.Downloaded!=null,"Download must only become ready after checksum verification.");
             DistributionTests.Check(handler.Requests==3,"Download must fetch the checksum and exact edition artifact.");
+            var cachedHandler=new Handler();using(var reloaded=new UpdateService(paths,new UpdateIdentity("0.1.1-beta.9","standard","portable",true),new UpdateTransport(cachedHandler)))
+            {
+                var cached=await reloaded.CheckAsync();
+                DistributionTests.Check(cached.State=="ready" && reloaded.Downloaded!=null && cachedHandler.Requests==2,"A restarted service must reuse complete cached bytes only after fresh GitHub checksum validation.");
+            }
             using(var settings=JsonDocument.Parse("{\"autoCheck\":false,\"autoDownload\":false,\"channel\":\"stable\"}"))service.SetPreferences(settings.RootElement);
             DistributionTests.Check(service.View.AvailableVersion=="" && service.View.Channel=="stable","Channel change must revoke a previously selected beta update.");
             using(var bad=JsonDocument.Parse("{\"autoCheck\":true,\"autoDownload\":true,\"channel\":\"preview\"}"))
@@ -53,6 +58,16 @@ internal static class UpdateServiceTests
             bool duplicate=false;try{await service.CheckAsync();}catch(InvalidOperationException){duplicate=true;}
             DistributionTests.Check(duplicate,"Concurrent update checks must be deduplicated.");service.Cancel();await pending;
             DistributionTests.Check(service.View.State=="idle","Cancellation must not be represented as success.");
+            var failedPaths=new ApplicationPaths(Path.Combine(root,"write-failure"),"unit",Path.Combine(root,"failed-data"));
+            using var failed=new UpdateService(failedPaths,new UpdateIdentity("0.1.1-beta.9","standard","portable",true),new UpdateTransport(new Handler()));
+            bool inject=true;failed.Changed+=()=>
+            {
+                if(!inject || failed.View.State!="verifying")return;inject=false;
+                string operation=Directory.GetDirectories(Path.Combine(failedPaths.ProfileRoot,"updates"))[0];Directory.CreateDirectory(Path.Combine(operation,"download.json"));
+            };
+            await failed.CheckAsync();await failed.DownloadAsync();
+            DistributionTests.Check(failed.View.State=="failed" && failed.Downloaded==null,"Download-record failure must not publish a deleted ready package.");
+            await failed.DownloadAsync();DistributionTests.Check(failed.View.State=="ready" && failed.Downloaded!=null,"A download-record failure must allow a complete retry.");
         }
         finally
         {

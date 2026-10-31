@@ -19,6 +19,7 @@ public sealed class DesktopWindow : Form
     private CoreWebView2Controller controller;
     private CoreWebView2 core;
     private readonly ApiClient api;
+    private readonly UpdateService updater;
     private readonly AutomaticMatcher automaticMatcher;
     private readonly EmbeddedApiService localApi;
     private readonly string localSourcesFile;
@@ -50,6 +51,7 @@ public sealed class DesktopWindow : Form
     private readonly string browserData;
     private bool initialized,openRequested,exitRequested;
     public bool Ready { get; private set; }
+    internal bool UpdateHealthReady=>Ready && probe.ReceivedFrame && (localApi==null || localApi.View.State=="ready");
     public string Failure { get; private set; } = "";
     internal object LocalApiDiagnostics=>localApi==null ? null : new {localApi.View.Enabled,localApi.View.State,localApi.View.Message,localApi.View.Sources,ProcessId=localApi.ProcessId};
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -68,6 +70,7 @@ public sealed class DesktopWindow : Form
         Text="爆米花 · 弹幕面板"; ClientSize=new Size(380,540);FormBorderStyle=FormBorderStyle.None;
         ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;BackColor=Color.FromArgb(245,243,235);
         var paths=new ApplicationPaths(root,dataProfile,userDataRoot);
+        updater=new UpdateService(paths);updater.Changed+=QueueUpdateState;
         string data=paths.ProfileRoot; Directory.CreateDirectory(data);browserData=paths.BrowserData;
         preferences=paths.Preferences;
         appearancePreferences=paths.AppearancePreferences;
@@ -107,6 +110,7 @@ public sealed class DesktopWindow : Form
     {
         if(closing)return;
         closing=true;timer.Stop();timer.Dispose();automaticMatcher?.Dispose();flyout?.Dispose();tray?.Dispose();
+        if(updater!=null){updater.Changed-=QueueUpdateState;updater.Dispose();}
         if(localApi!=null){localApi.Changed-=QueueLocalApiUpdate;localApi.Dispose();}
         pending.Cancel();pending.Dispose();api.Dispose();
         if(probe!=null){probe.SampleUpdated-=QueuePlayerUpdate;probe.Dispose();}
@@ -283,7 +287,12 @@ public sealed class DesktopWindow : Form
         double now=Monotonic.Now; sync.Tick(now);
         Send(new { type="state", sequence, data=new { settings=Settings,settingsRevision,
             player=PlaybackSnapshot.Capture(sample,sync,now,sequence,mediaRevision),
-            commentCount=CommentCount, notice=Failure,automaticMatch=automaticMatcher?.Status,localApi=localApi?.View,appearance=Appearance } });
+            commentCount=CommentCount, notice=Failure,automaticMatch=automaticMatcher?.Status,localApi=localApi?.View,appearance=Appearance,update=updater.View } });
+    }
+    private void QueueUpdateState()
+    {
+        if(closing || IsDisposed || !IsHandleCreated)return;
+        try{BeginInvoke(new Action(()=>{if(!closing)PushState();}));}catch(InvalidOperationException){}
     }
     private void QueueLocalApiUpdate()
     {
@@ -307,6 +316,7 @@ public sealed class DesktopWindow : Form
         string id="", type="", commandCode="command-failed";
         long requestNoticeTicket=0;
         bool settingsCommitted=false,appearanceCommitted=false;
+        UpdateLease updateLease=null;
         try
         {
             string raw=e.WebMessageAsJson;
@@ -318,8 +328,22 @@ public sealed class DesktopWindow : Form
             type=msg.GetProperty("type").GetString()??"";
             var payload=msg.GetProperty("payload");
             object result;
-            if (type=="hello") { Ready=true; result=new { apiBase, apiSaved=localApi==null && apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=localApi==null ? new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","appearance-v1" } : new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","embedded-api-v1","appearance-v1" },localApi=localApi?.View,appearance=Appearance }; }
+            if (type=="hello") { Ready=true; updater.StartAutomatic(); result=new { apiBase, apiSaved=localApi==null && apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=localApi==null ? new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","appearance-v1","github-update-v1" } : new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","embedded-api-v1","appearance-v1","github-update-v1" },localApi=localApi?.View,appearance=Appearance,update=updater.View }; }
             else if (type=="get-settings") result=new { settings=Settings,settingsRevision };
+            else if(type is "get-update" or "set-update-preferences" or "check-update" or "download-update" or "cancel-update" or "open-update-page" or "install-update")
+            {
+                commandCode="update-command-failed";
+                bool write=type=="set-update-preferences",install=type=="install-update";
+                if(payload.ValueKind!=JsonValueKind.Object || (!write && payload.EnumerateObject().Count()!=(install ? 1 : 0)))throw new ArgumentException("更新命令参数无效。");
+                if(write)result=updater.SetPreferences(payload);
+                else if(type=="check-update")result=await updater.CheckAsync();
+                else if(type=="download-update")result=await updater.DownloadAsync();
+                else if(type=="cancel-update"){updater.Cancel();result=updater.View;}
+                else if(type=="open-update-page")
+                {System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(updater.ReleasePage.AbsoluteUri){UseShellExecute=true});result=new{opened=true};}
+                else if(install){updateLease=await updater.PrepareInstallAsync(payload.GetProperty("version").GetString(),Visible && WindowState!=FormWindowState.Minimized);result=new{accepted=true};}
+                else result=updater.View;
+            }
             else if(type is "get-appearance" or "set-appearance")
             {
                 if(type=="set-appearance")
@@ -461,11 +485,17 @@ public sealed class DesktopWindow : Form
             }
             else throw new ArgumentException("不支持的命令。");
             if(requestNoticeTicket>0 && manualNoticeTicket==requestNoticeTicket)manualNoticeTicket=0;
-            if (epoch!=documentEpoch) return;
+            if (epoch!=documentEpoch || closing){if(updateLease!=null){updateLease.Dispose();updater.InstallFailed();}return;}
             Send(new { type="response", id, ok=true, data=result, settingsRevision }); PushState();
+            if(updateLease!=null)
+            {
+                var lease=updateLease;
+                BeginInvoke(new Action(async ()=>{try{await lease.CommitAsync();RequestExit();}catch{updater.InstallFailed();}finally{lease.Dispose();}}));updateLease=null;
+            }
         }
         catch (Exception ex)
         {
+            if(updateLease!=null){updateLease.Dispose();updater.InstallFailed();}
             if(requestNoticeTicket>0 && manualNoticeTicket==requestNoticeTicket)manualNoticeTicket=0;
             if (epoch!=documentEpoch) return;
             string error=ex is OperationCanceledException ? "请求已取消。" : ex is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException ? ex.Message : "操作失败，请重试。";

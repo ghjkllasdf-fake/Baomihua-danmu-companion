@@ -13,9 +13,11 @@ internal sealed class ProbeSupervisor : IDisposable
     private readonly Task loop;
     private ProbeAttempt current;
     private int stopping;
+    private int receivedFrame;
     private long generation;
     private PlayerSample latest=new(null,"",0,null,null,0,"等待播放器探测","unavailable");
     public PlayerSample Latest=>Volatile.Read(ref latest);
+    internal bool ReceivedFrame=>Volatile.Read(ref receivedFrame)!=0;
     // Subscribers enqueue their own work; they do not execute UI/player reads here.
     public event Action Updated;
     internal long Generation=>Interlocked.Read(ref generation);
@@ -33,6 +35,7 @@ internal sealed class ProbeSupervisor : IDisposable
         lock (gate)
         {
             publish=Volatile.Read(ref stopping)==0;
+            Volatile.Write(ref receivedFrame,0);
             if(publish) Volatile.Write(ref latest,Latest with {Window=null,PositionMs=null,Playing=null,StampMs=Monotonic.Now,Source="unavailable",Detail=detail});
         }
         if(publish) Updated?.Invoke();
@@ -73,6 +76,7 @@ internal sealed class ProbeSupervisor : IDisposable
                     {
                         if (Volatile.Read(ref stopping)!=0 || !ReferenceEquals(current,attempt)) break;
                         Volatile.Write(ref latest,packet.Sample);
+                        Volatile.Write(ref receivedFrame,1);
                     }
                     Updated?.Invoke();
                     sequence=packet.Sequence; first=false;

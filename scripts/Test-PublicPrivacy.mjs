@@ -29,7 +29,7 @@ for (const entry of entries) {
     const lineEnd = text.indexOf('\n', address.index);
     const line = text.slice(lineStart, lineEnd < 0 ? text.length : lineEnd);
     // Pascal's symbol@library syntax is not an email address. Only admit the exact system imports used by the installer.
-    if (/\.iss$/i.test(path) && /^\s*external '(?:GetDriveTypeW|GetFileAttributesW)@kernel32\.dll stdcall';\s*$/.test(line)) continue;
+    if (/\.iss$/i.test(path) && /^\s*external '(?:GetDriveTypeW|GetFileAttributesW|CreateFileW|GetFileInformationByHandleEx|CloseHandle|SetFileInformationByHandle|GetFileSizeEx|LCMapStringW)@kernel32\.dll stdcall';\s*$/.test(line)) continue;
     if (path === 'tests/Test-BridgeBoundary.ps1' && address[0] === ['password', 'danmu.local'].join('@')) continue;
     if (!path.startsWith('licenses/') && !placeholderHost(address[1]) && address[1] !== 'users.noreply.github.com') {
       report(path, 'non-placeholder-email'); break;

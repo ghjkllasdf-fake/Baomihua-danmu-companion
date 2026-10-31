@@ -31,9 +31,11 @@ test('only the exact virtual-origin rejection fixture permits synthetic userinfo
   assert.equal((await scan('source.txt', value)).code, 1);
 });
 test('Inno system DLL declarations are not email addresses; adjacent real-looking addresses remain rejected', async () => {
-  const declarations = "  external 'GetDriveTypeW" + "@kernel32.dll stdcall';\n  external 'GetFileAttributesW" + "@kernel32.dll stdcall';\n";
+  const declarations = ['GetDriveTypeW', 'GetFileAttributesW', 'CreateFileW', 'GetFileInformationByHandleEx', 'CloseHandle', 'SetFileInformationByHandle', 'GetFileSizeEx', 'LCMapStringW']
+    .map(symbol => "  external '" + symbol + "@" + "kernel32.dll stdcall';\n").join('');
   assert.equal((await scan('installer/Guard.iss', declarations)).code, 0);
   assert.equal((await scan('source.txt', declarations)).code, 1);
+  assert.equal((await scan('installer/Guard.iss', "external 'UnknownImport" + "@" + "kernel32.dll stdcall';\n")).code, 1);
   const address = 'name' + '@' + 'private.test';
   const result = await scan('installer/Guard.iss', declarations + '// ' + address);
   assert.equal(result.code, 1);
