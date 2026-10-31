@@ -11,7 +11,7 @@ function UpdateGetFileId(Handle: Integer; InformationClass: Integer;
 function UpdateCloseHandle(Handle: Integer): Boolean;
   external 'CloseHandle@kernel32.dll stdcall';
 function UpdateSetDisposition(Handle, InformationClass: Integer;
-  var Delete: Byte; Size: LongWord): Boolean;
+  var Disposition: Byte; Size: LongWord): Boolean;
   external 'SetFileInformationByHandle@kernel32.dll stdcall';
 function UpdateGetSize(Handle: Integer; var Size: Int64): Boolean;
   external 'GetFileSizeEx@kernel32.dll stdcall';
@@ -33,7 +33,7 @@ end;
 var
   UpdateDirectory: String;
   UpdateOriginals: TStringList;
-  UpdateProofNames, UpdateProofIds: TStringList;
+  UpdateProofNames: TStringList;
   UpdateFailed: Boolean;
 function UpdateWordHex(Value: LongWord): String;
 var I: Integer; Digits: String;
@@ -64,46 +64,58 @@ procedure PrepareUpdateJournal;
 var Expected, RecordText: String; Entry: TFindRec; Saved: AnsiString; Count, Divider: Integer;
 begin
   if UpdateOriginals <> nil then Exit;
-  UpdateDirectory := ExpandConstant('{param:UPDATEJOURNAL|}');
+  if UpdateDirectory = '' then UpdateDirectory := ExpandConstant('{param:UPDATEJOURNAL|}');
   if UpdateDirectory = '' then Exit;
   Expected := AddBackslash(ExtractFileDir(RemoveBackslashUnlessRoot(WizardDirValue))) + '.DanmuCompanion-updates';
   if (CompareText(RemoveBackslashUnlessRoot(ExtractFileDir(UpdateDirectory)), Expected) <> 0) or
     not FileExists(AddBackslash(UpdateDirectory) + 'owner.json') or
     not FileExists(AddBackslash(UpdateDirectory) + 'journal.json') then RaiseException('Invalid update journal location.');
   UpdateOriginals := TStringList.Create;
-  UpdateOriginals.LoadFromFile(AddBackslash(UpdateDirectory) + 'installer-originals.txt');
-  UpdateProofNames := TStringList.Create; UpdateProofIds := TStringList.Create; Count := 0;
+  if not LoadStringFromFile(AddBackslash(UpdateDirectory) + 'journal.json', Saved) or
+    (Length(Saved) > 4096) or (Pos('"schemaVersion":2', UTF8Decode(Saved)) = 0) or
+    (Pos('"kind":"direct-overwrite"', UTF8Decode(Saved)) = 0) then RaiseException('Obsolete update journal; no old-version recovery is supported.');
+  UpdateProofNames := TStringList.Create; UpdateProofNames.Sorted := True; Count := 0;
   if FindFirst(AddBackslash(UpdateDirectory) + '*.file-id', Entry) then try
     repeat
-      Count := Count + 1; if Count > 16384 then RaiseException('Too many update file records.');
+      Count := Count + 1; if Count > 32770 then RaiseException('Too many update file records.');
       if (Entry.Attributes and $410) = 0 then
         if LoadStringFromFile(AddBackslash(UpdateDirectory) + Entry.Name, Saved) and (Length(Saved) <= 2048) then begin
           RecordText := UTF8Decode(Saved); Divider := Pos('|', RecordText);
           if (Divider > 1) and (Length(RecordText) - Divider = 48) then begin
-            UpdateProofNames.Add(Copy(RecordText, 1, Divider - 1)); UpdateProofIds.Add(Copy(RecordText, Divider + 1, 48));
+            UpdateProofNames.Add(RecordText);
           end;
         end;
     until not FindNext(Entry);
   finally FindClose(Entry); end;
 end;
 function UpdateOwnsNewFile(Relative: String): Boolean;
-var Target: String; Index: Integer;
+var Target: String;
 begin
   Result := False;
   if UpdateDirectory = '' then Exit;
   Target := AddBackslash(WizardDirValue) + Relative;
   if not FileExists(Target) then Exit;
-  Index := UpdateProofNames.IndexOf(Relative);
-  if Index >= 0 then Result := UpdateProofIds[Index] = UpdateIdentity(Target);
+  Result := UpdateProofNames.IndexOf(Relative + '|' + UpdateIdentity(Target)) >= 0;
 end;
+procedure ReloadUpdateJournal(Directory: String);
+begin
+  if UpdateOriginals <> nil then UpdateOriginals.Free;
+  if UpdateProofNames <> nil then UpdateProofNames.Free;
+  UpdateOriginals := nil; UpdateProofNames := nil;
+  UpdateDirectory := Directory; PrepareUpdateJournal;
+end;
+#include "DirectRepair.iss"
 function AdmitUpdateFile: Boolean;
 var Target, Relative: String;
 begin
   Result := True;
-  if UpdateDirectory = '' then Exit;
   Target := ExpandConstant(CurrentFileName);
   Relative := Copy(Target, Length(AddBackslash(WizardDirValue)) + 1, MaxInt);
-  if UpdateOriginals.IndexOf(Relative) >= 0 then Exit;
+  if UpdateDirectory = '' then begin
+    // Inno also evaluates Check during its pre-install Restart Manager scan.
+    // The native writer runs later in PrepareToInstall; Inno never copies payload.
+    Result := False; Exit;
+  end;
   // The native worker already committed these bytes with non-overwriting semantics.
   // Inno must never overwrite a newly introduced path, even after a late replacement.
   Result := False;
@@ -116,7 +128,7 @@ begin
   if UpdateFailed then Result := 1 else Result := 0;
 end;
 function UpdateDeleteMatching(Name, Identity: String): Boolean;
-var Handle: Integer; Delete: Byte;
+var Handle: Integer; Disposition: Byte;
 begin
   Result := False;
   if PathComponentProblem(Name) <> '' then Exit;
@@ -124,7 +136,7 @@ begin
   if Handle = -1 then Exit;
   try
     if CompareText(UpdateHandleIdentity(Handle), Identity) = 0 then begin
-      Delete := 1; Result := UpdateSetDisposition(Handle, 4, Delete, 1);
+      Disposition := 1; Result := UpdateSetDisposition(Handle, 4, Disposition, 1);
     end;
   finally UpdateCloseHandle(Handle); end;
 end;
@@ -149,7 +161,7 @@ begin
       if not LoadStringFromFile(Sidecar, Saved) then Exit;
       Records.Text := UTF8Decode(Saved);
     finally UpdateCloseHandle(Handle); end;
-    if (Records.Count < 1) or (Records.Count > 16385) then Exit;
+    if (Records.Count < 1) or (Records.Count > 16386) then Exit;
     if CompareText(Records[0], 'github-updater-owned-v1|' + Root) <> 0 then Exit;
     for I := 1 to Records.Count - 1 do begin
       if Records[I] <> '' then begin

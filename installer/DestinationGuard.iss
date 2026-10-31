@@ -1,3 +1,4 @@
+var AllowRegisteredRepair: Boolean;
 function LocalDriveType(RootPath: String): Integer;
   external 'GetDriveTypeW@kernel32.dll stdcall';
 
@@ -108,9 +109,10 @@ begin
     Exit;
   end;
   if not DirExists(Target) then Exit;
+  if AllowRegisteredRepair and ((Registered = '') or (CompareText(Target, Registered) = 0)) then Exit;
   if (Registered <> '') and (CompareText(Target, Registered) = 0) and
-     FileExists(Target + '\DanmuCompanion.exe') and
-     FileExists(Target + '\manifest.json') and FileExists(Target + '\unins000.exe') then Exit;
+     (AllowRegisteredRepair or (FileExists(Target + '\DanmuCompanion.exe') and
+     FileExists(Target + '\manifest.json') and FileExists(Target + '\unins000.exe'))) then Exit;
   // An enumeration failure is not proof of an empty directory.
   if not FindFirst(AddBackslash(Target) + '*', Entry) then
   begin

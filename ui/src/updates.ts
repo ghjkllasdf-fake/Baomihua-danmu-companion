@@ -1,7 +1,7 @@
 export type UpdatePhase = 'unavailable' | 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'verifying' | 'ready' | 'applying' | 'failed';
-export const updateCheckIntervals = [1, 6, 12, 24] as const;
+export const updateCheckIntervals = [24, 168, 720] as const;
 export type CheckIntervalHours = typeof updateCheckIntervals[number];
-export const defaultCheckIntervalHours: CheckIntervalHours = 6;
+export const defaultCheckIntervalHours: CheckIntervalHours = 24;
 export interface UpdatePreferences {
   autoCheck: boolean; autoDownload: boolean; channel: 'beta' | 'stable';
   // Omission preserves the legacy github-update-v1 host/payload contract.

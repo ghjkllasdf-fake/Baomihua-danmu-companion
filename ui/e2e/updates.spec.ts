@@ -5,7 +5,7 @@ import { skinIds } from '../src/appearance';
 import type { UpdateSnapshot } from '../src/updates';
 
 const fixture: UpdateSnapshot = { state: 'available', currentVersion: '0.1.1-beta.6', availableVersion: '0.1.1-beta.10', variant: 'standard', distribution: 'portable',
-  channel: 'beta', autoCheck: true, autoDownload: false, checkIntervalHours: 6, checkedAt: '2026-10-31T04:00:00Z', downloadedBytes: 0, totalBytes: 100,
+  channel: 'beta', autoCheck: true, autoDownload: false, checkIntervalHours: 24, checkedAt: '2026-10-31T04:00:00Z', downloadedBytes: 0, totalBytes: 100,
   notes: '保留设置，改进更新恢复。\n<script>not executed</script>', message: '', revision: 1, supported: true, canInstall: false, lastResult: '' };
 
 async function connect(page: Page, skin = 'fluent', state = fixture, failPreferences = false) {
@@ -173,6 +173,9 @@ test('opening settings never downloads; opt-in settings and two-step install rem
   await page.getByRole('button', { name: '重启并更新', exact: true }).click();
   expect((await commands(page)).includes('install-update')).toBe(false);
   await expect(page.getByRole('group', { name: '确认更新安装' })).toContainText('播放器不受控制');
+  await expect(page.getByRole('group', { name: '确认更新安装' })).toContainText('不备份旧版本');
+  await expect(page.getByRole('group', { name: '确认更新安装' })).toContainText('请勿全部覆盖');
+  await expect(page.getByRole('group', { name: '确认更新安装' })).not.toContainText('Recover-Danmu');
   await expect(page.getByRole('button', { name: '确认重启并更新', exact: true })).toBeInViewport({ ratio: 1 });
   await page.getByRole('button', { name: '返回', exact: true }).click();
   await page.getByRole('button', { name: /^更多设置/ }).click();
@@ -240,7 +243,7 @@ test('legacy updater snapshots keep update actions working but cannot pretend to
   await page.getByRole('button', { name: /^更多设置/ }).click();
   await openUpdates(page);
   const frequency = page.getByRole('combobox', { name: '检查频率', exact: true });
-  await expect(frequency).toHaveValue('6');
+  await expect(frequency).toHaveValue('24');
   await expect(frequency).toBeDisabled();
   await expect(page.locator('#update-frequency-notice')).toContainText('宿主不支持设置频率');
   await page.getByRole('switch', { name: '自动下载更新' }).click();
@@ -253,21 +256,22 @@ test('legacy updater snapshots keep update actions working but cannot pretend to
 
 test('supported check frequencies round-trip inside the updater without losing other preferences or downloading', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 380, height: 540 });
-  await connect(page, 'glass', { ...fixture, checkIntervalHours: 6 });
+  await connect(page, 'glass', { ...fixture, checkIntervalHours: 24 });
   await page.getByRole('button', { name: /^更多设置/ }).click();
   await openUpdates(page);
   const frequency = page.getByRole('combobox', { name: '检查频率', exact: true });
   await expect(frequency).toBeEnabled();
-  await expect(frequency.locator('option')).toHaveText(['每 1 小时', '每 6 小时', '每 12 小时', '每天']);
-  for (const interval of [1, 6, 12, 24]) {
+  await expect(frequency.locator('option')).toHaveText(['每天', '每周', '每月']);
+  for (const interval of [24, 168, 720]) {
     await frequency.selectOption(String(interval));
     await expect(frequency).toHaveValue(String(interval));
     await expect(frequency).toBeEnabled();
   }
+  await expect(page.getByText('每月按 30 天检查一次。')).toBeVisible();
   await page.getByRole('switch', { name: '自动检查更新' }).click();
   await expect(page.getByRole('switch', { name: '自动检查更新' })).not.toBeChecked();
   await expect(frequency).toBeDisabled();
-  await expect(frequency).toHaveValue('24');
+  await expect(frequency).toHaveValue('720');
   await page.getByRole('switch', { name: '自动检查更新' }).click();
   await expect(frequency).toBeEnabled();
   await page.getByRole('switch', { name: '自动下载更新' }).click();
@@ -276,23 +280,23 @@ test('supported check frequencies round-trip inside the updater without losing o
   await expect(page.getByRole('combobox', { name: '更新通道' })).toHaveValue('stable');
   await expect(frequency).toBeEnabled();
   expect(await page.evaluate(() => (window as unknown as { updateFixture: { preferenceWrites: unknown[] } }).updateFixture.preferenceWrites.at(-1))).toEqual(
-    { autoCheck: true, autoDownload: true, channel: 'stable', checkIntervalHours: 24 },
+    { autoCheck: true, autoDownload: true, channel: 'stable', checkIntervalHours: 720 },
   );
   await page.locator('.update-panel > summary').click();
   await openUpdates(page);
-  await expect(frequency).toHaveValue('24');
+  await expect(frequency).toHaveValue('720');
   await page.locator('.mini-app').screenshot({ path: testInfo.outputPath('module-frequency-glass.png') });
   expect((await commands(page)).filter(type => ['download-update', 'install-update'].includes(type))).toEqual([]);
   expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]);
 });
 
 test('a rejected frequency preference restores the confirmed selection and keeps an explicit error', async ({ page }) => {
-  await connect(page, 'fluent', { ...fixture, checkIntervalHours: 6 }, true);
+  await connect(page, 'fluent', { ...fixture, checkIntervalHours: 24 }, true);
   await page.getByRole('button', { name: /^更多设置/ }).click();
   await openUpdates(page);
   const frequency = page.getByRole('combobox', { name: '检查频率', exact: true });
-  await frequency.selectOption('24');
+  await frequency.selectOption('168');
   await expect(page.getByRole('alert')).toHaveText('更新偏好保存失败');
-  await expect(frequency).toHaveValue('6');
+  await expect(frequency).toHaveValue('24');
   await expect(frequency).toBeEnabled();
 });

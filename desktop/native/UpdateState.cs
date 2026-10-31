@@ -11,6 +11,12 @@ internal sealed record UpdateIdentity(string Version,string Variant,string Distr
 {
     internal static string UninstallKey(string variant)=>@"Software\Microsoft\Windows\CurrentVersion\Uninstall\"+
         (variant=="includeAPI" ? "{D5C0CE54-F622-40E2-9F4A-D70D17C31BD2}_is1" : "{604952AE-033E-4832-9071-A9F995BA8C1D}_is1");
+    internal static bool RegisteredAt(string root,string variant)
+    {
+        using var registry=RegistryKey.OpenBaseKey(RegistryHive.CurrentUser,RegistryView.Registry64);using var key=registry.OpenSubKey(UninstallKey(variant));
+        return key?.GetValue("InstallLocation") is string location && Path.IsPathFullyQualified(location) &&
+            string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(location)),UpdatePackage.SafeRoot(root),StringComparison.OrdinalIgnoreCase);
+    }
     internal static string DistributionFor(string root,string variant)
     {
         using var registry=RegistryKey.OpenBaseKey(RegistryHive.CurrentUser,RegistryView.Registry64);using var key=registry.OpenSubKey(UninstallKey(variant));
@@ -37,32 +43,34 @@ internal sealed record UpdateIdentity(string Version,string Variant,string Distr
     }
 }
 
-internal sealed record UpdatePreferences(bool AutoCheck,bool AutoDownload,string Channel,string CheckedAt,int CheckIntervalHours=6);
+internal sealed record UpdatePreferences(bool AutoCheck,bool AutoDownload,string Channel,string CheckedAt,int CheckIntervalHours=24);
 internal sealed record UpdateSnapshot(string State,string CurrentVersion,string AvailableVersion,string Variant,string Distribution,string Channel,
-    bool AutoCheck,bool AutoDownload,string CheckedAt,long DownloadedBytes,long TotalBytes,string Notes,string Message,long Revision,bool Supported,bool CanInstall,string LastResult="",int CheckIntervalHours=6);
+    bool AutoCheck,bool AutoDownload,string CheckedAt,long DownloadedBytes,long TotalBytes,string Notes,string Message,long Revision,bool Supported,bool CanInstall,string LastResult="",int CheckIntervalHours=24);
 internal sealed record UpdateDownload(string File,string Checksum,long Size,string Version,string Variant,string Distribution,string Operation,string InventoryChecksum="",string ArchiveChecksum="",long ArchiveSize=0);
 
 internal static class UpdateStorage
 {
-    internal static bool MetadataError(Exception error)=>error is InvalidDataException or IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException or System.Collections.Generic.KeyNotFoundException or FormatException or OverflowException;
+    internal static bool MetadataError(Exception error)=>error is InvalidDataException or IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException or NotSupportedException or System.Collections.Generic.KeyNotFoundException or FormatException or OverflowException;
     internal static readonly JsonSerializerOptions Json=new(){PropertyNamingPolicy=JsonNamingPolicy.CamelCase};
     internal static JsonDocument ReadJson(string path,int limit)
     {using var input=File.OpenRead(path);var doc=JsonDocument.Parse(UpdatePackage.ReadLimited(input,limit));try{UpdatePackage.Unique(doc.RootElement);return doc;}catch{doc.Dispose();throw;}}
-    internal static void Atomic(string path,byte[] bytes)
+    internal static void Atomic(string path,byte[] bytes,UpdateDirectories directories=null)
     {
-        UpdatePackage.SafeRoot(Path.GetDirectoryName(path));Directory.CreateDirectory(Path.GetDirectoryName(path));string temporary=path+"."+Guid.NewGuid().ToString("N")+".tmp";
+        if(directories==null){UpdatePackage.SafeRoot(Path.GetDirectoryName(path));Directory.CreateDirectory(Path.GetDirectoryName(path));}
+        else path=directories.File(Path.GetDirectoryName(path),Path.GetFileName(path),true);
+        string temporary=path+"."+Guid.NewGuid().ToString("N")+".tmp";
         try
         {
             using(var output=new FileStream(temporary,FileMode.CreateNew,FileAccess.Write,FileShare.None)){output.Write(bytes);output.Flush(true);}File.Move(temporary,path,true);
         }
         finally{if(File.Exists(temporary))File.Delete(temporary);}
     }
-    internal static bool ValidInterval(int hours)=>hours is 1 or 6 or 12 or 24;
-    internal static int ReadInterval(JsonElement root,int fallback=6)
+    internal static bool ValidInterval(int hours)=>hours is 24 or 168 or 720;
+    internal static int ReadInterval(JsonElement root,int fallback=24,bool migrate=false)
     {
         if(!root.TryGetProperty("checkIntervalHours",out var value))return fallback;
-        UpdatePackage.Check(value.ValueKind==JsonValueKind.Number && value.TryGetInt32(out int hours) && ValidInterval(hours),"更新检查频率无效。");
-        return value.GetInt32();
+        UpdatePackage.Check(value.ValueKind==JsonValueKind.Number && value.TryGetInt32(out int hours) && (ValidInterval(hours) || migrate && (hours is 1 or 6 or 12)),"更新检查频率无效。");
+        return ValidInterval(value.GetInt32()) ? value.GetInt32() : 24;
     }
     internal static void Save(string path,UpdatePreferences preferences)
     {UpdatePackage.Check(ValidInterval(preferences.CheckIntervalHours),"更新检查频率无效。");Atomic(path,JsonSerializer.SerializeToUtf8Bytes(preferences,Json));}
@@ -75,7 +83,7 @@ internal static class UpdateStorage
             UpdatePackage.Check(root.EnumerateObject().Count()==(root.TryGetProperty("checkIntervalHours",out _) ? 5 : 4),"更新设置格式无效。");
             string savedChannel=root.GetProperty("channel").GetString(),stamp=root.GetProperty("checkedAt").GetString();
             UpdatePackage.Check(savedChannel is "beta" or "stable" && stamp!=null && stamp.Length<=64 && (stamp.Length==0 || DateTimeOffset.TryParse(stamp,out _)),"更新设置内容无效。");
-            return new(root.GetProperty("autoCheck").GetBoolean(),root.GetProperty("autoDownload").GetBoolean(),savedChannel,stamp,ReadInterval(root));
+            return new(root.GetProperty("autoCheck").GetBoolean(),root.GetProperty("autoDownload").GetBoolean(),savedChannel,stamp,ReadInterval(root,migrate:true));
         }
         catch(Exception error) when(error is FileNotFoundException or DirectoryNotFoundException){return new(true,false,channel,"");}
         catch(Exception error) when(MetadataError(error))

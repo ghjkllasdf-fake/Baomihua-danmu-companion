@@ -43,7 +43,8 @@ export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
       <label className="update-channel"><span>检查频率</span><select value={state.checkIntervalHours ?? defaultCheckIntervalHours} disabled={prefsDisabled || !state.autoCheck || !frequencySupported} aria-describedby={!frequencySupported ? 'update-frequency-notice' : undefined} onChange={event => {
         const interval = updateCheckIntervals.find(value => String(value) === event.target.value);
         if (interval !== undefined) void save({ ...preferences, checkIntervalHours: interval });
-      }}>{updateCheckIntervals.map(interval => <option key={interval} value={interval}>{interval === 24 ? '每天' : `每 ${interval} 小时`}</option>)}</select></label>
+      }}>{updateCheckIntervals.map(interval => <option key={interval} value={interval}>{{ 24: '每天', 168: '每周', 720: '每月' }[interval]}</option>)}</select></label>
+      {state.checkIntervalHours === 720 && <p className="update-muted">每月按 30 天检查一次。</p>}
       {!frequencySupported && <p id="update-frequency-notice" className="update-muted">当前宿主不支持设置频率，升级后可调整。</p>}
       <label className="update-toggle"><span>自动下载更新</span><input type="checkbox" role="switch" checked={state.autoDownload} disabled={prefsDisabled} onChange={event => void save({ ...preferences, autoDownload: event.target.checked })} /></label>
       <label className="update-channel"><span>更新通道</span><select value={state.channel} disabled={prefsDisabled} onChange={event => void save({ ...preferences, channel: event.target.value === 'stable' ? 'stable' : 'beta' })}><option value="stable">正式版</option><option value="beta">Beta 与正式版</option></select></label>
@@ -61,7 +62,7 @@ export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
       {['checking', 'downloading', 'verifying'].includes(state.state) && <button type="button" className="text-button" onClick={() => void cancel()}>取消</button>}
       <button type="button" className="text-button" disabled={busy} onClick={() => void openRelease()}>打开 GitHub Release</button>
     </div>
-    {confirm && state.state === 'ready' && <div ref={confirmation} className="update-confirm" role="group" aria-label="确认更新安装"><p>更新至 {state.availableVersion}？弹幕伴侣会退出并重新启动，播放器不受控制。</p><p className="update-muted">若更新中断，可从程序目录旁的 .DanmuCompanion-updates 文件夹打开 Recover-Danmu 恢复快捷方式。</p><div className="update-actions"><button type="button" className="primary" disabled={busy || !state.canInstall} onClick={() => void install(state.availableVersion)}>确认重启并更新</button><button type="button" className="text-button" onClick={() => setConfirm(false)}>暂不更新</button></div></div>}
+    {confirm && state.state === 'ready' && <div ref={confirmation} className="update-confirm" role="group" aria-label="确认更新安装"><p>更新至 {state.availableVersion}？弹幕伴侣会退出并重新启动，播放器不受控制。</p><p className="update-muted">原位覆盖，不备份旧版本。失败时用同版本安装器修复；Portable 若有外来文件冲突，请勿全部覆盖，可解压到新的空目录运行。个人设置保留。</p><div className="update-actions"><button type="button" className="primary" disabled={busy || !state.canInstall} onClick={() => void install(state.availableVersion)}>确认重启并更新</button><button type="button" className="text-button" onClick={() => setConfirm(false)}>暂不更新</button></div></div>}
     </div>
   </details>;
 }

@@ -13,7 +13,7 @@ internal static class UpdatePackageTests
             files=new[]{new{path,length=payload.Length,sha256=Convert.ToHexString(SHA256.HashData(payload)).ToLowerInvariant()}}});
     internal static void Reject(Action action,string message)
     {
-        bool rejected=false;try{action();}catch(Exception e) when(e is InvalidDataException or ArgumentException or IOException){rejected=true;}
+        bool rejected=false;try{action();}catch(Exception e) when(e is InvalidDataException or ArgumentException or IOException or UnauthorizedAccessException){rejected=true;}
         DistributionTests.Check(rejected,message);
     }
     internal static void Run()
@@ -51,6 +51,36 @@ internal static class UpdatePackageTests
             }
             Reject(()=>UpdatePackage.Extract(linkZip,Path.Combine(root,"link-stage"),"0.1.1-beta.10","standard"),"ZIP symlinks must be rejected.");
             DistributionTests.Check(!File.Exists(Path.Combine(root,"escape")),"Rejected extraction must not write outside its stage.");
+            string source=Path.Combine(root,"helper-source"),trustedZip=Path.Combine(root,"trusted.zip");
+            UpdateTransactionTests.Payload(source,"0.1.1-beta.10",new(){{"DanmuCompanion.exe","main"},{"DanmuCompanion.Updater.exe","trusted helper"},{"zh-Hans/helper.dll","trusted culture dependency"}});
+            ZipFile.CreateFromDirectory(source,trustedZip);byte[] zipBytes=File.ReadAllBytes(trustedZip);
+            var download=new UpdateDownload(trustedZip,Convert.ToHexString(SHA256.HashData(zipBytes)),zipBytes.Length,"0.1.1-beta.10","standard","portable",root);
+            bool zipReplacementDenied=false;
+            using(var guard=UpdateLauncher.PrepareHelper(download,Path.Combine(root,"locked-helper"),root,()=>{
+                try{File.Move(trustedZip,trustedZip+".replaced");}catch(IOException){zipReplacementDenied=true;}
+            }))
+            {
+                DistributionTests.Check(zipReplacementDenied,"Validated ZIP handle must deny replacement until extraction finishes.");
+                Reject(()=>Directory.Move(Path.Combine(root,"locked-helper"),Path.Combine(root,"moved-helper")),"Held helper ancestors must reject rename before execution.");
+                Reject(()=>File.WriteAllText(Path.Combine(root,"locked-helper","zh-Hans","helper.dll"),"malicious"),"All helper DLL cultures must remain write-locked before execution.");
+            }
+            string changedHelper=Path.Combine(root,"changed-helper");bool wouldLaunch=false;
+            Reject(()=>{
+                using var guard=UpdateLauncher.PrepareHelper(download,changedHelper,root,afterExtracted:()=>
+                    UpdateTransactionTests.Payload(changedHelper,"0.1.1-beta.10",new(){{"DanmuCompanion.exe","main"},{"DanmuCompanion.Updater.exe","malicious helper"},{"zh-Hans/helper.dll","malicious culture dependency"}}));
+                wouldLaunch=true;
+            },"Self-consistent replacement of helper and manifest must fail against the original trusted ZIP manifest.");
+            DistributionTests.Check(!wouldLaunch,"Changed helper must never cross the process-launch boundary.");
+            string link=Path.Combine(root,"linked-setup.exe"),trustedExecutable=Path.Combine(source,"DanmuCompanion.Updater.exe");bool linkAvailable=true;
+            try{File.CreateSymbolicLink(link,trustedExecutable);}catch(Exception error) when(error is UnauthorizedAccessException or IOException){linkAvailable=false;}
+            if(linkAvailable)
+            {
+                bool linkedLaunch=false;Reject(()=>{
+                    using var held=UpdateLauncher.GuardExecutable(link,UpdatePackage.Read(source).Files[1]);linkedLaunch=true;
+                },"Execution guards must reject the symlink object, not hash and lock its trusted target.");
+                DistributionTests.Check(!linkedLaunch,"No execution may follow a mutable file link even if its target hashes correctly.");
+            }
+            else Console.WriteLine("UNAVAILABLE: file-symlink execution race fixture requires Windows symlink creation permission; no permission or OS policy was changed.");
         }
         finally
         {

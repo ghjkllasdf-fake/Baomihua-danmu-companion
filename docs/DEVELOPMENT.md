@@ -16,11 +16,11 @@ npm.cmd --prefix ui run test:e2e
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release
 node --test tests/release-package.test.mjs tests/native-archive.test.mjs tests/installer-guard.test.mjs tests/browser-prerequisite.test.mjs tests/source-state.test.mjs
 node scripts/check-release-mutation.mjs
-node scripts/build-release.mjs --version 0.1.1-beta.6
-node scripts/test-release.mjs --version 0.1.1-beta.6
+node scripts/build-release.mjs --version 0.1.1-beta.7
+node scripts/test-release.mjs --version 0.1.1-beta.7
 ```
 
-运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.1.1-beta.6/`，两个版本来自同一 manifest payload；应用文件不得超过 210 MiB，且白名单拒绝私有浏览器目录。
+运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.1.1-beta.7/`，两个版本来自同一 manifest payload；应用文件不得超过 210 MiB，且白名单拒绝私有浏览器目录。
 
 `test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝孤立旧安装、原位重装、卸载和外来文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
 
@@ -48,15 +48,27 @@ node scripts/test-release.mjs --version 0.1.1-beta.6
 
 `--packaged-shutdown ABS_INCLUDEAPI_PAYLOAD SECONDS` 只验证观察器定时结束、原生握手与关闭收尾，不要求视频或弹幕出现，不能代替播放验收。观察器防止跨 Dispatcher 取样时的计时器重入，关闭前先停止取样；启动未完成或提前退出仍视为失败。
 
+### 中英文资源
+
+`NativeHost`、`NativeProbe`、`NativeUpdater` 共用 `SatelliteResourceLanguages=en;zh-Hans;zh-Hant`；发行合并再独立过滤并通过 payload 白名单核对。当前 .NET 程序输出只生成 `zh-Hans`、`zh-Hant` 目录，英语使用主程序集的 neutral 默认资源，区域文化回退由 .NET 处理。只裁剪程序随附的 .NET 卫星资源，不修改系统、共享 WebView2 或依赖许可证；不新增语言选择器。旧版本清单仍可被更新器读取，以识别并清除旧 owned 语言文件，不按语言目录名称删除外来文件。
+
+原位安装在替换前将旧清单和有限资源路径的磁盘身份保存到本次 Inno 临时目录，安装成功后由当前原生更新组件核对原版本哈希、当前安装和身份再删除。仅清原清单内、现清单已移除的卫星 DLL；同名外来替换、被修改／占用的文件及非空目录保留。自动更新只保存旧清单／哈希／磁盘身份等有限元数据，不复制旧程序；逐文件校验后直接替换，并删除未改变的旧 owned 文件。
+
+```text
+tests\NativeDistribution\bin\Release\net10.0-windows\win-x64\NativeDistribution.Tests.exe --resource-fallback-tests ABS_PAYLOAD
+```
+
+该只读测试从指定输出加载实际 WinForms 资源，核对中文简／繁体、英语及被裁剪文化的 neutral 回退；它不更改 OS 语言。最终 ZIP、安装后文件、两份 manifest 和 install-files 列表仍须分别检查。
+
 ## 开发工具与补充回归
 
 ### GitHub 更新发行契约
 
-更新回归入口为原生测试 EXE 的 `--update-tests`、`node --test tests/installer-update-journal.test.mjs` 和 `node scripts/test-updater-runtime.mjs`。最后一个命令在短临时路径发布受控旧／新程序，验证真实 UI／采样健康握手、交接失败和启动失败回滚；仅将验证结果保留到 `artifacts/updater-runtime-tests`，不改动用户安装或发布 Release。它会改变测试项目的本地输出名，运行后应重新构建 `tests/NativeDistribution`，不要与依赖该测试 EXE 的安装器测试并行。
+更新回归入口为原生测试 EXE 的 `--update-tests`、`node --test tests/installer-update-journal.test.mjs` 和 `node scripts/test-updater-runtime.mjs`。最后一个命令在短临时路径发布受控旧／新程序，验证真实 UI／采样健康握手、交接失败和启动失败的真实修复流程与不回滚行为；仅将验证结果保留到 `artifacts/updater-runtime-tests`，不改动用户安装或发布 Release。它会改变测试项目的本地输出名，运行后应重新构建 `tests/NativeDistribution`，不要与依赖该测试 EXE 的安装器测试并行。
 
 更新源固定为本项目 GitHub Releases，不使用第三方版本服务器或内置 GitHub Token。构建器共同发布 `NativeHost`、`NativeProbe`、`NativeUpdater`，相同运行库只保留一份。每个发行版新增 `DanmuCompanion-VERSION-win-x64[-includeAPI]-manifest.json` 附件，与安装版、Portable ZIP 来自同一份 payload，三个文件的哈希均进入 `SHA256SUMS.txt`。发布新版本时应上传两种发行版的独立 manifest，并合并校验清单；安装更新缺少对应清单时不会被选择。不要修改已发布同版本资产。
 
-自动检查只在完整、干净、版本一致的发行包和正常 `app` 配置中启动；候选／源码及隔离测试配置不自动联网。首次检查约 20–30 秒后，后续默认间隔六小时，可在“更多设置”底部折叠的“软件更新”模块选择 1、6、12、24 小时；网络失败或 GitHub 限流时会退避。下载必须手动触发或明确开启。状态和安装命令通过 `github-update-v1` 类型契约，原生组件以当前用户管道、进程身份及真实界面／采样握手确认交接与重启。安装版更新同时校验配套 ZIP，原生组件将新增文件原子、非覆盖地放入目标并记录磁盘身份；Inno 只更新原有应用文件和安装登记，不再覆盖新增路径，不靠相同内容猜测文件所有权。
+自动检查只在完整、干净、版本一致的发行包和正常 `app` 配置中启动；候选／源码及隔离测试配置不自动联网。首次检查约 20–30 秒后，后续默认每天，可在“更多设置”底部折叠的“软件更新”模块选择每天／每周／每月（24／168／720 小时，每月固定 30 天）；网络失败或 GitHub 限流时会退避。下载必须手动触发或明确开启。状态和安装命令通过 `github-update-v1` 类型契约，原生组件以当前用户管道、进程身份及真实界面／采样握手确认交接与重启。安装版更新同时校验配套 ZIP；自动更新、手动安装和中断修复共用 `UpdateApply` 原生写入器，以同句柄哈希／磁盘身份核对删除对象，再进行非覆盖 rename。Inno 不再写 payload，只更新安装登记、卸载组件和快捷方式，不靠相同内容猜测文件所有权。
 
 ```text
 .deps\dotnet\dotnet.exe build tests/NativeDistribution/NativeDistribution.csproj -c Release --no-restore
@@ -64,6 +76,12 @@ tests\NativeDistribution\bin\Release\net10.0-windows\win-x64\NativeDistribution.
 node --test tests/installer-update-journal.test.mjs
 node scripts/test-updater-runtime.mjs
 ```
+
+客户更新以新宿主的界面／采样及必要 API 健康握手为成功门槛。`UpdateLauncher` 通过同一禁写／禁删除的 ZIP 句柄校验、解压，保留原可信 manifest 并在启动前锁定 helper、依赖和祖先目录；worker 接过自身锁直到退出。手动 Inno 安装使用编译进 setup 的可信 hash 表（含 manifest 自身），而非重信任临时清单。`UpdateApply` 仅保留旧清单和文件磁盘身份元数据，不复制／归档旧程序、卸载组件或注册表；原位覆盖后不执行回滚。身份记录为逐文件 current／pending 两槽，反复修复中断也不丢失现有文件的合法身份。所有权侧车的实际父目录创建权限和旧侧车 DELETE 权限在写程序前探测。零写入失败才允许启动未变的旧程序；部分写入或健康失败记录 `repair-required`。安装器按同版本完整包修复；Portable 外来冲突不得“全部覆盖”，可解压到新空目录运行。Inno 使用新卸载日志，payload 由磁盘身份侧车负责卸载，避免旧文件名日志删除外来文件。新版本不发现／执行历史恢复操作，也不批量删除历史备份。上次检查尝试与服务端退避分开持久化，重启不能绕过日／周／30天跨度；旧 1／6／12 小时偏好迁移为每天，其他偏好保留。
+
+`node scripts/test-updater-sized.mjs` 使用固定 includeAPI 输入的 4k+ 文件／实际字节，记录原生写入耗时、内存和增量身份记录数量，不复制旧程序；其主 EXE 仍是受控 fixture，不代表实际播放器体验或发布包验收。`node --test tests/installer-helper-guard.test.mjs` 使用真实 Inno 自解压和受控 helper，验证提取后 EXE／DLL／manifest 替换不能执行，持锁后的写入与目录 rename 被拒绝。
+
+校验路径在本次操作内缓存已验证的根，并逐级持有真实父目录句柄，避免对每个文件反复扫描同一祖先；文件哈希采用最多 8 路有界读取，同句柄读取磁盘身份。增量 pending 身份先落盘，再通过 rename 提升为 current，不复制或重写整个身份列表。手动安装的启动按钮等待可信 stage 更新组件完成全包持锁及真实界面／采样／API 握手；不是直接 `nowait` 执行新宿主。`test-updater-runtime.mjs` 另以实际固定 includeAPI Node／脚本和隔离配置验证该启动链，尝试替换已持锁的 node／entry，不修改用户安装或 OS 权限。
 
 原生整链路测试构建隔离的受控旧程序和实际新宿主，检查立即退出、死亡组件拒绝交接、文件替换及 WebView2／采样握手；它不发布 Release、不更新现有用户安装，也不等同于全部系统／断电场景验收。实际 Inno 日志测试使用无卸载登记和无快捷方式的专用安装器，覆盖完整与中断的新文件写入以及相同内容的外来冲突。
 

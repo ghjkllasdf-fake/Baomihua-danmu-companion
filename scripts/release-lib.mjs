@@ -3,6 +3,14 @@ import { createReadStream } from 'node:fs';
 import { readdir, lstat, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
+export const retainedResourceCultures = Object.freeze(['en', 'zh-Hans', 'zh-Hant']);
+export function nativePublishEntry(path) {
+  if (!path.includes('/')) return true;
+  const resource = /^([a-z]{2}(?:-[A-Za-z0-9]+)?)\/[A-Za-z0-9_.-]+\.resources\.dll$/.exec(path);
+  if (!resource) throw new Error(`Unexpected native publish subdirectory: ${path}`);
+  return retainedResourceCultures.includes(resource[1]);
+}
+
 export function releaseNames(version, includeApi = false) {
   if (!/^\d+\.\d+\.\d+-beta\.[1-9]\d*$/.test(version)) throw new Error('Invalid beta version.');
   const base = `DanmuCompanion-${version}-win-x64${includeApi ? '-includeAPI' : ''}`;
@@ -50,7 +58,8 @@ export function allowedEntry(path, apiEntries = null) {
   if (path.startsWith('api/')) return apiEntries?.has(path) ?? false;
   return /^(DanmuCompanion(?:\.Probe|\.Updater)?\.exe|MicrosoftEdgeWebview2Setup\.exe|createdump\.exe|README\.md|LICENSE|DISTRIBUTION-LICENSE\.txt|THIRD-PARTY-NOTICES\.md|install-files\.txt|manifest\.json)$/.test(path) ||
     /^DanmuCompanion(?:\.Probe|\.Updater)?\.(?:deps|runtimeconfig)\.json$/.test(path) ||
-    /^(?:[a-z]{2}(?:-[A-Za-z0-9]+)?\/)?[A-Za-z0-9_.-]+\.dll$/.test(path) ||
+    /^[A-Za-z0-9_.-]+\.dll$/.test(path) ||
+    /^(?:en|zh-Hans|zh-Hant)\/[A-Za-z0-9_.-]+\.resources\.dll$/.test(path) ||
     /^assets\/(?:app|tray)\.ico$/.test(path) ||
     /^ui\/dist\/(?:index\.html|favicon\.ico|assets\/[A-Za-z0-9_.-]+\.(?:js|css|svg|png|jpg|webp|woff2))$/.test(path) ||
     /^licenses\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\.(?:txt|rtf|json|nuspec|html|md)$/.test(path);

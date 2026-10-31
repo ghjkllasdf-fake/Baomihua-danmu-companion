@@ -7,6 +7,6 @@
     <ApplicationManifest>../NativeHost/app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../native/Update*.cs;../native/ApplicationPaths.cs;../native/NativeRuntime.cs" Link="Native/%(Filename)%(Extension)" />
+    <Compile Include="../native/Update*.cs;../native/ResourceRetirement.cs;../native/ApplicationPaths.cs;../native/NativeRuntime.cs" Link="Native/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

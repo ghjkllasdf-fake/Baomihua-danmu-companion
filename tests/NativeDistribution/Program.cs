@@ -27,8 +27,13 @@ internal static class DistributionTests
             if(args.Length==1 && args[0]=="--shadow-tests"){ShadowTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--video-companion-target")return VideoCompanionTests.RunTarget();
             if(args.Length==1 && args[0]=="--update-tests"){UpdateTests.Run();return 0;}
+            if(args.Length==1 && args[0]=="--update-direct-tests"){UpdateTransactionTests.Run();return 0;}
             if(args.Length==1 && args[0]=="--update-frequency-tests"){UpdateFrequencyTests.Run().GetAwaiter().GetResult();return 0;}
+            if(args.Length==1 && args[0]=="--update-maintenance-tests"){UpdateMaintenanceTests.Run();return 0;}
+            if(args.Length==2 && args[0]=="--resource-fallback-tests"){ResourceFallbackTests.Run(args[1]);return 0;}
+            if(args.Length==1 && args[0]=="--resource-retirement-tests"){ResourceRetirementTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--installer-update-fixture")return UpdateInstallerTests.Fixture(args);
+            if(args.Length==4 && args[0]=="--update-sized-fixture")return UpdateInstallerTests.Sized(args[1],args[2],args[3]);
             if(args.Length==2 && args[0]=="--update-parent-fixture")return UpdateRuntimeParent.Run(args[1]).GetAwaiter().GetResult();
             if(args.Contains("--update-handshake"))return UpdateRuntimeParent.Health(args);
             if(args.Length==2 && args[0]=="--update-fixture-stop")return UpdateRuntimeParent.Stop(args[1]);

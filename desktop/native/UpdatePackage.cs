@@ -6,6 +6,8 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Runtime.ExceptionServices;
 
 namespace Popcorn;
 
@@ -43,24 +45,27 @@ internal sealed class UpdatePackage
         Regex.IsMatch(path,@"\Aui/dist/(?:index\.html|favicon\.ico|assets/[A-Za-z0-9_.-]+\.(?:js|css|svg|png|jpg|webp|woff2))\z") ||
         Regex.IsMatch(path,@"\Alicenses/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\.(?:txt|rtf|json|nuspec|html|md)\z") ||
         includeApi && path.StartsWith("api/",StringComparison.Ordinal);
-    public static UpdatePackage Parse(byte[] raw,string expectedVersion,string expectedVariant)
+    public static UpdatePackage Parse(byte[] raw,string expectedVersion,string expectedVariant,Action<string> trace=null)
     {
         Check(raw.Length is >0 and <=4*1024*1024,"更新包清单过大。");
-        using var doc=JsonDocument.Parse(raw,new JsonDocumentOptions{MaxDepth=16});var root=doc.RootElement;Unique(root);
+        using var doc=JsonDocument.Parse(raw,new JsonDocumentOptions{MaxDepth=16});var root=doc.RootElement;Unique(root);trace?.Invoke("json");
         string version=root.GetProperty("version").GetString(),variant=root.GetProperty("variant").GetString();
         Check(root.GetProperty("schemaVersion").GetInt32()==1 && version==expectedVersion && UpdateVersion.TryParse(version,out _) &&
             variant==expectedVariant && variant is "standard" or "includeAPI" && !root.GetProperty("sourceDirty").GetBoolean() &&
             Regex.IsMatch(root.GetProperty("sourceCommit").GetString()??"",@"\A[a-f0-9]{40}\z"),"更新包版本、来源或发行版不匹配。");
         var array=root.GetProperty("files");Check(array.ValueKind==JsonValueKind.Array && array.GetArrayLength() is >0 and <=16384,"更新包文件数量无效。");
         var files=array.EnumerateArray().Select(file=>new UpdateFile(file.GetProperty("path").GetString(),file.GetProperty("length").GetInt64(),file.GetProperty("sha256").GetString())).ToArray();
+        trace?.Invoke("entries");
         Check(files.Select(f=>f.Path).Distinct(StringComparer.OrdinalIgnoreCase).Count()==files.Length,"更新包包含重名文件。");
         foreach(var file in files)
         {
             SafeRelative(file.Path);Check(Allowed(file.Path,variant=="includeAPI") && file.Length>=0 && file.Length<=UpdateCatalog.MaxDownload && UpdateCatalog.HashValid(file.Sha256),"更新包文件超出白名单或校验记录无效。");
         }
+        trace?.Invoke("paths");
         Check(files.Sum(f=>f.Length)+raw.Length<=(variant=="includeAPI" ? 400L : 210L)*1024*1024,"更新包超过发行版的资源预算。");
         var names=files.Select(f=>f.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach(string path in names){string parent=path;while(parent.Contains('/')){parent=parent[..parent.LastIndexOf('/')];Check(!names.Contains(parent),"更新包存在文件与目录冲突。");}}
+        trace?.Invoke("complete");
         return new UpdatePackage(version,variant,files,raw);
     }
     public static string SafeRoot(string root)
@@ -104,12 +109,29 @@ internal sealed class UpdatePackage
     }
     public static UpdatePackage VerifyDirectory(string root,string version,string variant)
     {
-        var package=Read(root,version,variant);foreach(var file in package.Owned)VerifyFile(SafeFile(root,file.Path),file);return package;
+        root=SafeRoot(root);using var directories=new UpdateDirectories();directories.Hold(root);
+        using var input=UpdateFileIdentity.OpenGuard(directories.File(root,"manifest.json"));var package=Parse(ReadLimited(input,4*1024*1024),version,variant);
+        VerifyFiles(root,package.Files);
+        return package;
+    }
+    internal static void VerifyFiles(string root,UpdateFile[] files,Action<int,FileStream> verified=null)
+    {
+        using var directories=new UpdateDirectories();string[] paths=files.Select(file=>directories.File(root,file.Path)).ToArray();
+        try
+        {
+            Parallel.For(0,files.Length,new ParallelOptions{MaxDegreeOfParallelism=Math.Min(8,Environment.ProcessorCount)},index=>
+            {using var held=UpdateLauncher.GuardExecutable(paths[index],files[index]);verified?.Invoke(index,held);});
+        }
+        catch(AggregateException error){ExceptionDispatchInfo.Capture(error.Flatten().InnerExceptions[0]).Throw();throw;}
     }
     public static UpdatePackage Extract(string archive,string destination,string version,string variant)
     {
+        using var input=new FileStream(archive,FileMode.Open,FileAccess.Read,FileShare.Read);return Extract(input,destination,version,variant);
+    }
+    internal static UpdatePackage Extract(Stream archive,string destination,string version,string variant)
+    {
         destination=SafeRoot(destination);Check(!Directory.Exists(destination) && !File.Exists(destination),"更新暂存目录已存在，未覆盖。");
-        using var zip=ZipFile.OpenRead(archive);Check(zip.Entries.Count is >1 and <=16385,"更新 ZIP 文件数量无效。");
+        using var zip=new ZipArchive(archive,ZipArchiveMode.Read,true);Check(zip.Entries.Count is >1 and <=16385,"更新 ZIP 文件数量无效。");
         Check(zip.Entries.Select(e=>e.FullName).Distinct(StringComparer.OrdinalIgnoreCase).Count()==zip.Entries.Count,"更新 ZIP 包含重名文件。");
         foreach(var entry in zip.Entries)
         {
@@ -120,11 +142,11 @@ internal sealed class UpdatePackage
         Check(manifest.Length is >0 and <=4*1024*1024,"更新 ZIP 清单过大。");
         UpdatePackage package;using(var input=manifest.Open())package=Parse(ReadLimited(input,manifest.Length),version,variant);
         Check(package.Files.Length+1==zip.Entries.Count,"更新 ZIP 存在未列入清单的文件。");
-        Directory.CreateDirectory(destination);
+        using var directories=new UpdateDirectories();directories.Hold(destination,true);
         foreach(var file in package.Owned)
         {
             var entry=zip.GetEntry(file.Path)??throw new InvalidDataException("更新 ZIP 缺少所需文件。");Check(entry.Length==file.Length,"更新 ZIP 文件大小不匹配。");
-            string target=SafeFile(destination,file.Path);Directory.CreateDirectory(Path.GetDirectoryName(target));
+            string target=directories.File(destination,file.Path,true);
             using(var input=entry.Open())using(var output=new FileStream(target,FileMode.CreateNew,FileAccess.Write,FileShare.None))
             {
                 byte[] buffer=new byte[65536];long total=0;int count;

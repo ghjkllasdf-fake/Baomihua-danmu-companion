@@ -14,29 +14,36 @@ internal static class UpdateRuntimeParent
     {
         using var input=UpdateStorage.ReadJson(instruction,16384);var data=input.RootElement;
         var paths=new ApplicationPaths(AppContext.BaseDirectory,"update-runtime",data.GetProperty("dataRoot").GetString());
+        var preferences=SettingsPreferences.Load(paths.Preferences);
+        DistributionTests.Check(preferences.Notice=="" && preferences.Settings.ShadowStrength==0.37,"Customer cleanup fixture must start with valid actual customized display preferences, not an opaque sentinel or defaults.");
         using var rootLock=new UpdateRootLock(paths.Root);DistributionTests.Check(rootLock.Acquired,"Fixture parent must own its root.");
         var download=data.GetProperty("download").Deserialize<UpdateDownload>(UpdateStorage.Json);
         Console.WriteLine("Fixture preparing worker.");Console.Out.Flush();
         using var lease=await UpdateLauncher.PrepareAsync(paths,download,false,default);
         Console.WriteLine("Fixture worker ready.");Console.Out.Flush();
         int worker=lease.WorkerId;string directory=lease.Directory;
-        if(data.GetProperty("mode").GetString().StartsWith("rollback"))UpdateStorage.Atomic(Path.Combine(directory,"started.json"),JsonSerializer.SerializeToUtf8Bytes(new{operationId=Path.GetFileName(directory),version=download.Version,ready=true}));
+        using var recovery=UpdateStorage.ReadJson(Path.Combine(directory,"worker.json"),16384);
+        string transaction=recovery.RootElement.GetProperty("applyDirectory").GetString();
+        DistributionTests.Check(UpdateStorage.Owns(UpdateInstalledOwnership.ParentFor(paths.Root),transaction) && !Directory.Exists(Path.Combine(transaction,"backup")),
+            "The customer path must contain metadata and incoming stage only, never original-program backups.");
+        DistributionTests.Check(UpdatePackage.Read(Path.Combine(directory,"helper")).Version==download.Version,"The running helper must originate from the incoming verified package, not old payload copies.");
+        if(data.GetProperty("mode").GetString().StartsWith("health-failure"))UpdateStorage.Atomic(Path.Combine(directory,"started.json"),JsonSerializer.SerializeToUtf8Bytes(new{operationId=Path.GetFileName(directory),version=download.Version,ready=true}));
         if(data.GetProperty("mode").GetString()=="worker-death")
         {
             using var process=Process.GetProcessById(worker);process.Kill(true);await process.WaitForExitAsync();bool rejected=false;
             try{await lease.CommitAsync();}catch{rejected=true;}
             DistributionTests.Check(rejected,"A dead worker must not be committed.");
-            UpdateStorage.Atomic(data.GetProperty("result").GetString(),JsonSerializer.SerializeToUtf8Bytes(new{survived=true,worker,directory}));
+            UpdateStorage.Atomic(data.GetProperty("result").GetString(),JsonSerializer.SerializeToUtf8Bytes(new{survived=true,worker,directory,transaction,noBackup=true}));
             await Task.Delay(1500);return 0;
         }
         if(data.GetProperty("mode").GetString()=="preflight-failure")File.AppendAllText(download.File,"changed after ready");
-        await lease.CommitAsync();UpdateStorage.Atomic(data.GetProperty("result").GetString(),JsonSerializer.SerializeToUtf8Bytes(new{armed=true,worker,directory}));return 0;
+        await lease.CommitAsync();UpdateStorage.Atomic(data.GetProperty("result").GetString(),JsonSerializer.SerializeToUtf8Bytes(new{armed=true,worker,directory,transaction,noBackup=true}));return 0;
     }
     internal static int Health(string[] args)
     {
         string Value(string name)=>args[Array.IndexOf(args,name)+1];
         var paths=new ApplicationPaths(AppContext.BaseDirectory,Value("--profile"),Value("--data-root"));
-        using var rootLock=new UpdateRootLock(paths.Root);DistributionTests.Check(rootLock.Acquired,"Rollback fixture child must own its root.");
+        using var rootLock=new UpdateRootLock(paths.Root);DistributionTests.Check(rootLock.Acquired,"Unmodified fixture child must own its root.");
         NativeRuntime.ValidateApplication(paths);NativeRuntime.LoadMediaProjection(paths.Root);NativeRuntime.ConfigureBrowserEnvironment(paths);SharedBrowserRuntime.ConfigureLoader(paths.Root);SharedBrowserRuntime.RequireAvailable();
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);Application.EnableVisualStyles();
         using var window=new DesktopWindow(paths.Root,"",Value("--profile"),paths.DataRoot){SuppressErrorDialogs=true};

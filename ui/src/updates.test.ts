@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasUpdate, supportsUpdateCheckInterval, updateCheckIntervals, validUpdatePreferences, validUpdateSnapshot, type UpdateSnapshot } from './updates';
+import { defaultCheckIntervalHours, hasUpdate, supportsUpdateCheckInterval, updateCheckIntervals, validUpdatePreferences, validUpdateSnapshot, type UpdateSnapshot } from './updates';
 import { defaultSettings, validHello } from './model';
 import { validPayload, validResult } from './protocol';
 
@@ -9,6 +9,13 @@ export const updateFixture: UpdateSnapshot = {
   notes: '更新说明', message: '', revision: 1, supported: true, canInstall: false, lastResult: '',
 };
 describe('update state boundary', () => {
+  it('offers only daily, weekly and fixed thirty-day monthly checks with daily as default', () => {
+    expect(updateCheckIntervals).toEqual([24, 168, 720]);
+    expect(defaultCheckIntervalHours).toBe(24);
+    for (const checkIntervalHours of [1, 6, 12]) {
+      expect(validUpdatePreferences({ autoCheck: true, autoDownload: false, channel: 'beta', checkIntervalHours })).toBe(false);
+    }
+  });
   it('accepts checked interval values and legacy snapshots without rejecting the whole hello', () => {
     for (const checkIntervalHours of updateCheckIntervals) {
       const current = { ...updateFixture, checkIntervalHours };

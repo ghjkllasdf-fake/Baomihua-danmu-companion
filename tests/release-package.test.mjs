@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, copyFile, stat } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, copyFile, stat, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory } from '../scripts/release-lib.mjs';
+import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory, nativePublishEntry, retainedResourceCultures } from '../scripts/release-lib.mjs';
+import { installerHelperTrust } from '../scripts/installer-helper-guard.mjs';
 
 test('native updater shares the manifest payload and only its exact executable/config names are admitted', () => {
   for (const path of ['DanmuCompanion.Updater.exe', 'DanmuCompanion.Updater.deps.json', 'DanmuCompanion.Updater.runtimeconfig.json']) assert.equal(allowedEntry(path), true);
@@ -20,6 +21,32 @@ test('runtime payload keeps the actual ICO entries and excludes source artwork a
     'ui/dist/other.ico', 'ui/dist/favicon.exe', 'ui/dist/favicon.ico:stream', 'ui/dist/../favicon.ico']) {
     assert.equal(allowedEntry(path), false);
   }
+});
+
+test('release payload retains Chinese/English resource satellites and rejects all other language directories', () => {
+  for (const culture of ['en', 'zh-Hans', 'zh-Hant']) {
+    assert.equal(allowedEntry(`${culture}/System.Windows.Forms.resources.dll`), true);
+    assert.equal(allowedEntry(`${culture}/PresentationFramework.resources.dll`), true);
+  }
+  for (const culture of ['cs', 'de', 'es', 'fr', 'it', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'tr']) {
+    assert.equal(allowedEntry(`${culture}/System.Windows.Forms.resources.dll`), false, culture);
+  }
+  assert.equal(allowedEntry('System.Windows.Forms.dll'), true, 'Neutral English runtime resources must stay in the root assembly.');
+  assert.equal(allowedEntry('zh-Hans/plugin.dll'), false, 'Culture folders must not become an arbitrary DLL allowance.');
+});
+
+test('all native projects use the same language policy and the release merge enforces it independently', async () => {
+  const root = resolve(import.meta.dirname, '..');
+  const props = await readFile(join(root, 'desktop/NativeCommon.props'), 'utf8');
+  assert.deepEqual(props.match(/<SatelliteResourceLanguages>([^<]+)<\/SatelliteResourceLanguages>/)?.[1].split(';'), retainedResourceCultures);
+  for (const project of ['NativeHost', 'NativeProbe', 'NativeUpdater']) {
+    assert.match(await readFile(join(root, `desktop/${project}/${project}.csproj`), 'utf8'), /NativeCommon.props/);
+  }
+  assert.deepEqual(['coreclr.dll', 'System.Windows.Forms.dll', 'en/System.Windows.Forms.resources.dll', 'zh-Hans/System.Windows.Forms.resources.dll',
+    'zh-Hant/System.Windows.Forms.resources.dll', 'de/System.Windows.Forms.resources.dll', 'pt-BR/System.Windows.Forms.resources.dll'].filter(nativePublishEntry),
+    ['coreclr.dll', 'System.Windows.Forms.dll', 'en/System.Windows.Forms.resources.dll', 'zh-Hans/System.Windows.Forms.resources.dll', 'zh-Hant/System.Windows.Forms.resources.dll']);
+  assert.throws(() => nativePublishEntry('zh-Hans/plugin.dll'), /Unexpected/);
+  assert.throws(() => nativePublishEntry('../coreclr.dll'), /Unexpected/);
 });
 
 test('installer file version comes from the same native properties as the artifact version', () => {
@@ -127,11 +154,13 @@ test('Inno compiles standard and includeAPI to distinct installer names', async 
     await writeFile(join(payload, 'DISTRIBUTION-LICENSE.txt'), 'test license');
     await writeFile(join(payload, 'MicrosoftEdgeWebview2Setup.exe'), 'test-only placeholder');
     const list = join(tmp, 'incoming.iss');
+    const trust = join(tmp, 'trusted.iss'), bootstrapper = await readFile(join(payload, 'MicrosoftEdgeWebview2Setup.exe'));
+    await writeFile(trust, installerHelperTrust([{ path: 'MicrosoftEdgeWebview2Setup.exe', length: bootstrapper.length, sha256: createHash('sha256').update(bootstrapper).digest('hex') }]));
     for (const includeApi of [false, true]) {
       // Exercise the real includeAPI scale rather than just compiling an empty list.
       const incoming = includeApi ? Array.from({ length: 11000 }, (_, i) => `  Files.Add('api\\node_modules\\entry-${i}.js');`).join('\n') : '';
       await writeFile(list, `procedure AddIncomingPayloadFiles(Files: TStringList);\nbegin\n${incoming}\nend;\n`);
-      const args = ['--quiet', '/DAppVersion=0.1.0-beta.3', '/DAppFileVersion=0.1.0.3', `/DPayloadDir=${payload}`, `/DPayloadFileList=${list}`,
+      const args = ['--quiet', '/DAppVersion=0.1.0-beta.3', '/DAppFileVersion=0.1.0.3', `/DPayloadDir=${payload}`, `/DPayloadFileList=${list}`, `/DHelperFileList=${trust}`,
         `/DReleaseDir=${tmp}`, ...(includeApi ? ['/DIncludeApi=1'] : []), 'installer/DanmuCompanion.iss'];
       const result = spawnSync(join(root, '.deps', 'inno', 'ISCC.exe'), args, { cwd: root, encoding: 'utf8', windowsHide: true, timeout: 60000 });
       assert.equal(result.status, 0, result.stdout + result.stderr);

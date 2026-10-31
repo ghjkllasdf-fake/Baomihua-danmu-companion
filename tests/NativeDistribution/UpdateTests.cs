@@ -44,5 +44,6 @@ internal static class UpdateTests
         UpdateInstallerTests.Run();
         UpdatePipeTests.Run().GetAwaiter().GetResult();
         UpdateMaintenanceTests.Run();
+        ResourceRetirementTests.Run();
     }
 }

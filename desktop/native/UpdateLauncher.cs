@@ -1,13 +1,35 @@
 using System;
 using System.Diagnostics;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
 using System.Linq;
 using System.Text;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Popcorn;
+
+internal sealed class UpdatePayloadGuard : IDisposable
+{
+    private readonly List<FileStream> streams=new();
+    private readonly UpdateDirectories directories=new();
+    internal UpdatePayloadGuard(string root,UpdatePackage package,Func<UpdateFile,bool> include=null)
+    {
+        try
+        {
+            directories.Hold(root);
+            foreach(var file in package.Owned)
+                if(include==null || include(file))
+                {
+                    string path=directories.File(root,file.Path);streams.Add(UpdateLauncher.GuardExecutable(path,file));
+                }
+        }
+        catch{Dispose();throw;}
+    }
+    public void Dispose(){foreach(var stream in streams)stream.Dispose();streams.Clear();directories.Dispose();}
+}
 
 internal sealed class UpdateLease : IDisposable
 {
@@ -36,7 +58,48 @@ internal sealed class UpdateLease : IDisposable
 
 internal static class UpdateLauncher
 {
-    private static async Task<string> ReadDiagnosticAsync(StreamReader input)
+    internal static FileStream GuardExecutable(string path,UpdateFile expected)
+    {
+        var stream=UpdateFileIdentity.OpenGuard(path);
+        try{UpdatePackage.Check(UpdatePackage.Hash(stream,expected.Length).Equals(expected.Sha256,StringComparison.OrdinalIgnoreCase),"将运行的更新组件校验失败。");stream.Position=0;return stream;}
+        catch{stream.Dispose();throw;}
+    }
+    internal static string VerifiedArchive(UpdateDownload download)
+    {
+        using var held=GuardArchive(download);return held.Name;
+    }
+    internal static FileStream GuardArchive(UpdateDownload download)
+    {
+        var primary=GuardExecutable(download.File,new UpdateFile(Path.GetFileName(download.File),download.Size,download.Checksum));
+        if(download.Distribution=="portable")return primary;
+        using(primary)
+        {
+        UpdatePackage.Check(UpdateCatalog.HashValid(download.InventoryChecksum) && UpdateCatalog.HashValid(download.ArchiveChecksum) && download.ArchiveSize>0 && download.ArchiveSize<=UpdateCatalog.MaxDownload,"安装更新缺少已校验的配套归档和清单。");
+        string name=UpdateCatalog.ArtifactName(download.Version,download.Variant=="includeAPI","portable"),archive=UpdatePackage.SafeFile(download.Operation,name);
+        return GuardExecutable(archive,new UpdateFile(name,download.ArchiveSize,download.ArchiveChecksum));
+        }
+    }
+    internal static UpdatePayloadGuard PrepareHelper(UpdateDownload download,string helper,string cache,Action afterArchiveVerified=null,Action afterExtracted=null)
+    {
+        UpdatePackage incoming;
+        // Hash and extract the same non-writable/non-renamable ZIP, never reopen its path.
+        using(var archive=GuardArchive(download))
+        {
+            afterArchiveVerified?.Invoke();incoming=UpdatePackage.Extract(archive,helper,download.Version,download.Variant);
+            VerifyInventory(download,incoming);CheckHelperPathBudget(cache,incoming);
+        }
+        afterExtracted?.Invoke();
+        // Keep the trusted ZIP manifest, including its own hash, across the execution boundary.
+        return new UpdatePayloadGuard(helper,incoming,file=>!file.Path.Contains('/') || file.Path.EndsWith(".dll",StringComparison.OrdinalIgnoreCase));
+    }
+    internal static void VerifyInventory(UpdateDownload download,UpdatePackage incoming)
+    {
+        if(download.Distribution!="installer")return;
+        using var input=File.OpenRead(UpdatePackage.SafeFile(download.Operation,UpdateCatalog.InventoryName(download.Version,download.Variant=="includeAPI")));
+        byte[] raw=UpdatePackage.ReadLimited(input,4*1024*1024);
+        UpdatePackage.Check(Convert.ToHexString(SHA256.HashData(raw)).Equals(download.InventoryChecksum,StringComparison.OrdinalIgnoreCase) && incoming.Manifest.AsSpan().SequenceEqual(raw),"安装器、归档和目标清单不一致。");
+    }
+    internal static async Task<string> ReadDiagnosticAsync(StreamReader input)
     {
         var text=new StringBuilder();var buffer=new char[256];
         try
@@ -58,16 +121,19 @@ internal static class UpdateLauncher
         var previous=await Task.Run(()=>UpdatePackage.VerifyDirectory(paths.Root,UpdateIdentity.Load(paths).Version,download.Variant),token).ConfigureAwait(false);
         UpdatePackage.Check(UpdateVersion.Newer(download.Version,previous.Version) && UpdateIdentity.DistributionFor(paths.Root,previous.Variant)==download.Distribution,"待安装的更新与当前发行版不匹配。");
         string cache=Path.Combine(paths.ProfileRoot,"updates");UpdatePackage.Check(UpdateStorage.Owns(cache,download.Operation),"更新下载缺少所属证明。");
-        CheckHelperPathBudget(cache,previous);
         UpdatePackage.Check(Path.GetFullPath(download.File)==Path.Combine(download.Operation,UpdateCatalog.ArtifactName(download.Version,download.Variant=="includeAPI",download.Distribution)),"更新附件路径无效。");
-        await Task.Run(()=>UpdatePackage.VerifyFile(download.File,new UpdateFile(Path.GetFileName(download.File),download.Size,download.Checksum)),token).ConfigureAwait(false);
-        UpdatePackage.Check(new DriveInfo(Path.GetPathRoot(cache)).AvailableFreeSpace>previous.Bytes+32L*1024*1024,"更新组件暂存空间不足。");
-        string directory=UpdateStorage.CreateOperation(cache,"worker"),helper=Path.Combine(directory,"helper");Directory.CreateDirectory(helper);
-        await Task.Run(()=>
+        UpdatePackage.Check(new DriveInfo(Path.GetPathRoot(cache)).AvailableFreeSpace>(download.Variant=="includeAPI" ? 400L : 210L)*1024*1024+32L*1024*1024,"更新组件暂存空间不足。");
+        string directory=UpdateStorage.CreateOperation(cache,"worker"),helper=Path.Combine(directory,"helper");
+        UpdatePayloadGuard executableGuard=null;
+        try
         {
-            foreach(var file in previous.Files.Where(f=>!f.Path.Contains('/') && (f.Path.EndsWith(".dll",StringComparison.Ordinal) || f.Path is "DanmuCompanion.Updater.exe" or "DanmuCompanion.Updater.deps.json" or "DanmuCompanion.Updater.runtimeconfig.json")))
-            {token.ThrowIfCancellationRequested();string target=Path.Combine(helper,file.Path);File.Copy(UpdatePackage.SafeFile(paths.Root,file.Path),target);UpdatePackage.VerifyFile(target,file);}
-        },token).ConfigureAwait(false);
+            executableGuard=await Task.Run(()=>
+            {
+                token.ThrowIfCancellationRequested();return PrepareHelper(download,helper,cache);
+            },token).ConfigureAwait(false);
+            NativeRuntime.ValidateApplication(new ApplicationPaths(helper));
+        }
+        catch{executableGuard?.Dispose();UpdateMaintenance.TryCleanupOperation(paths,directory);throw;}
         string id=Path.GetFileName(directory),executable=Path.Combine(helper,"DanmuCompanion.Updater.exe");
         var pipe=new NamedPipeServerStream("DanmuUpdate-"+id,PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous|PipeOptions.CurrentUserOnly);
         // Give the worker independent, bounded startup diagnostics instead of the app's console.
@@ -93,5 +159,6 @@ internal static class UpdateLauncher
             return new UpdateLease(pipe,worker);
         }
         catch{pipe.Dispose();if(worker!=null){if(!worker.HasExited){worker.Kill(true);worker.WaitForExit(5000);}worker.Dispose();}UpdateMaintenance.TryCleanupOperation(paths,directory);throw;}
+        finally{executableGuard?.Dispose();}
     }
 }

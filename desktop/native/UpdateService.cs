@@ -30,6 +30,7 @@ internal sealed class UpdateService : IDisposable
     private Task workerCompletion=Task.CompletedTask;
     private long automaticStartedAt;
     private long? lastCheckAttempt,failureStartedAt;
+    private DateTimeOffset attemptedAt=DateTimeOffset.MinValue;
     private TimeSpan failureDelay;
     private int checkFailures;
     private bool serverBackoff;
@@ -47,6 +48,7 @@ internal sealed class UpdateService : IDisposable
         retryFile=Path.Combine(cacheRoot,"retry.json");
         var retry=UpdateRetryStorage.Load(retryFile,this.clock.GetUtcNow(),out retryNotice);
         checkFailures=retry.Failures;
+        attemptedAt=retry.AttemptedAt>this.clock.GetUtcNow() ? this.clock.GetUtcNow() : retry.AttemptedAt;
         if(retry.NotBefore>this.clock.GetUtcNow()){failureStartedAt=this.clock.GetTimestamp();failureDelay=retry.NotBefore-this.clock.GetUtcNow();serverBackoff=retry.ServerLimited;}
         preferences=UpdateStorage.Load(preferencesFile,UpdateVersion.TryParse(this.identity.Version,out var version) && version.Stable ? "stable" : "beta",out string notice);
         view=new(this.identity.Supported ? "idle" : "unavailable",this.identity.Version,"",this.identity.Variant,this.identity.Distribution,preferences.Channel,
@@ -86,7 +88,7 @@ internal sealed class UpdateService : IDisposable
         State(state);
         try{await action(token.Token).ConfigureAwait(false);}
         catch(OperationCanceledException)
-        {if(state=="checking" && !token.IsCancellationRequested)RecordFailure(null);State(token.IsCancellationRequested ? selected==null ? "idle" : "available" : "failed",token.IsCancellationRequested ? "更新操作已取消。" : "更新请求超时，请重试。");}
+        {if(state=="checking" && !token.IsCancellationRequested)RecordFailure(null);else if(state=="checking" && retryNotice.Length==0)PersistRetry();State(token.IsCancellationRequested ? selected==null ? "idle" : "available" : "failed",token.IsCancellationRequested ? "更新操作已取消。" : "更新请求超时，请重试。");}
         catch(Exception error) when(UpdateStorage.MetadataError(error) || error is System.Net.Http.HttpRequestException)
         {if(state=="checking" || error is UpdateRateLimitException)RecordFailure(error);State("failed",error is InvalidDataException or InvalidOperationException ? error.Message[..Math.Min(error.Message.Length,400)] : "检查或下载失败，请确认网络与磁盘空间后重试。");}
         finally{lock(sync)active=null;operation.Release();WakeAutomatic();}
@@ -95,7 +97,7 @@ internal sealed class UpdateService : IDisposable
     public Task<UpdateSnapshot> CheckAsync()=>Check(false);
     private Task<UpdateSnapshot> Check(bool automatic)=>Execute("checking",async token=>
     {
-        lock(sync)lastCheckAttempt=clock.GetTimestamp();
+        lock(sync){lastCheckAttempt=clock.GetTimestamp();attemptedAt=clock.GetUtcNow();}
         var release=await transport.DiscoverAsync(identity.Version,preferences.Channel,identity.Variant=="includeAPI",identity.Distribution,token).ConfigureAwait(false);
         lock(sync){selected=release;if(release==null || downloaded?.Version!=release.Version)downloaded=null;}
         bool assetLimited;lock(sync)assetLimited=serverBackoff && FailureRemaining()>TimeSpan.Zero;
@@ -129,7 +131,7 @@ internal sealed class UpdateService : IDisposable
     }
     private void PersistRetry()
     {
-        UpdateRetry retry;lock(sync){var remaining=FailureRemaining();retry=remaining>TimeSpan.Zero ? new(UpdateRetryStorage.Deadline(clock.GetUtcNow(),remaining),checkFailures,serverBackoff) : new(DateTimeOffset.MinValue,checkFailures,false);}
+        UpdateRetry retry;lock(sync){var remaining=FailureRemaining();retry=remaining>TimeSpan.Zero ? new(UpdateRetryStorage.Deadline(clock.GetUtcNow(),remaining),checkFailures,serverBackoff,attemptedAt) : new(DateTimeOffset.MinValue,checkFailures,false,attemptedAt);}
         try{UpdateRetryStorage.Save(retryFile,retry);retryNotice="";}
         catch(Exception error) when(UpdateStorage.MetadataError(error)){retryNotice="检查退避未能保存，重启后可能重新检查。";}
     }
@@ -239,6 +241,7 @@ internal sealed class UpdateService : IDisposable
             var now=clock.GetUtcNow();
             if(DateTimeOffset.TryParse(view.CheckedAt,out var checkedAt) && checkedAt<=now)Extend(interval-(now-checkedAt));
             if(lastCheckAttempt.HasValue)Extend(interval-clock.GetElapsedTime(lastCheckAttempt.Value));
+            else if(attemptedAt!=DateTimeOffset.MinValue)Extend(interval-(now-attemptedAt));
             if(failureStartedAt.HasValue)Extend(failureDelay-clock.GetElapsedTime(failureStartedAt.Value));
             return remaining>TimeSpan.Zero ? remaining : TimeSpan.Zero;
         }

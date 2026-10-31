@@ -13,6 +13,7 @@ internal static class NativeHost
         int smoke=0,debugPort=0,updateParent=0;string profile="app",dataRoot=null,result=null,updateHandshake=null;bool check=false,open=false,removeStartup=false;
         try
         {
+            Console.OutputEncoding=new System.Text.UTF8Encoding(false);
             for(int i=0;i<args.Length;i++)
             {
                 string Value()=>++i<args.Length ? args[i] : throw new ArgumentException("Missing option value.");
@@ -35,17 +36,9 @@ internal static class NativeHost
             if((updateHandshake==null)!=(updateParent==0))throw new ArgumentException("Incomplete update handshake.");
             var paths=new ApplicationPaths(AppContext.BaseDirectory,profile,dataRoot);
             if(removeStartup){new StartupRegistration(paths.Root).RemoveOwnedNative();return 0;}
-            if(smoke==0 && !check && updateHandshake==null)
-            {
-                string recovery=UpdateMaintenance.FindRecovery(paths);
-                if(recovery!=null)
-                {
-                    if(MessageBox.Show("检测到未完成的更新。是否打开恢复组件？\r\n"+recovery,"爆米花弹幕伴侣",MessageBoxButtons.YesNo,MessageBoxIcon.Warning)==DialogResult.Yes)
-                    {System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(recovery){UseShellExecute=false,CreateNoWindow=true,WindowStyle=System.Diagnostics.ProcessWindowStyle.Hidden});return 0;}
-                }
-            }
+            if(smoke==0 && !check && updateHandshake==null)UpdateLegacyEntry.Retire(paths);
             using var rootLock=new UpdateRootLock(paths.Root);
-            if(!rootLock.Acquired)throw new InvalidOperationException("此目录中的弹幕伴侣正在运行或恢复更新，请先退出该实例。");
+            if(!rootLock.Acquired)throw new InvalidOperationException("此目录中的弹幕伴侣正在运行或更新，请先退出该实例。");
             NativeRuntime.ValidateApplication(paths);
             NativeRuntime.LoadMediaProjection(paths.Root);
             if(check){Console.WriteLine("PASS: native executable payload and projection dependencies.");return 0;}
@@ -62,7 +55,7 @@ internal static class NativeHost
             using var updateTimer=new System.Windows.Forms.Timer{Interval=250};
             if(updateHandshake!=null)
             {
-                updateTimer.Tick+=async (_,_)=>{if(!window.UpdateHealthReady)return;updateTimer.Stop();try{await UpdateWorker.WriteStartedAsync(paths,updateHandshake,updateParent);}catch{window.RequestExit();}};updateTimer.Start();
+                updateTimer.Tick+=async (_,_)=>{if(!window.UpdateHealthReady)return;updateTimer.Stop();try{await UpdateWorker.WriteStartedAsync(paths,updateHandshake,updateParent);}catch(Exception error){Console.Error.WriteLine("Startup handshake failed: "+error.GetType().Name+" "+(UpdateStorage.MetadataError(error) ? error.Message : "native pipe/process check failed"));window.RequestExit();}};updateTimer.Start();
             }
             if(smoke>0){timer.Interval=smoke*1000;timer.Tick+=(_,_)=>{timer.Stop();window.RequestExit();};timer.Start();}
             if(open)window.OpenWorkbench();

@@ -1,8 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace Popcorn;
 
@@ -13,46 +11,44 @@ internal static class UpdateMaintenanceTests
         string fixture=Path.Combine(Path.GetTempPath(),"DanmuUpdateMaintenance-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(fixture);
         try
         {
-            var paths=new ApplicationPaths(Path.Combine(fixture,"app")+Path.DirectorySeparatorChar,"unit",Path.Combine(fixture,"data"));
-            using(var first=new UpdateRootLock(paths.Root))using(var second=new UpdateRootLock(paths.Root))
-            {DistributionTests.Check(first.Acquired && !second.Acquired,"Recovery must not acquire a live root or mutate it.");}
-            using(var released=new UpdateRootLock(paths.Root))DistributionTests.Check(released.Acquired,"Root ownership must release across async-capable lifetimes.");
-            string cache=Path.Combine(paths.ProfileRoot,"updates");Directory.CreateDirectory(Path.Combine(cache,"foreign"));
-            File.WriteAllText(Path.Combine(cache,"last-result.json"),"{}");
-            File.WriteAllText(Path.Combine(cache,"preferences.json"),"{\"a\":1,\"b\":2,\"c\":3,\"d\":4}");
-            using(var corrupt=new UpdateService(paths,new UpdateIdentity("0.1.1-beta.6","standard","portable",true)))
-                DistributionTests.Check(!corrupt.View.AutoCheck && corrupt.View.Message.Length>0,"Malformed update preferences must disable checking, never block construction.");
-            DistributionTests.Check(UpdateMaintenance.FindRecovery(paths)==null && UpdateMaintenance.LastResult(paths)=="","Unowned and malformed cache records must not block startup.");
-            string broken=UpdateStorage.CreateOperation(cache,"worker");File.WriteAllText(Path.Combine(broken,"recovery.json"),"{}");
-            UpdateMaintenance.Cleanup(paths);DistributionTests.Check(Directory.Exists(Path.Combine(cache,"foreign")) && Directory.Exists(broken),"Cleanup must preserve foreign and corrupt recovery directories.");
-            var old=new Dictionary<string,string>{{"DanmuCompanion.exe","old"}};var next=new Dictionary<string,string>{{"DanmuCompanion.exe","new"}};
-            UpdateTransactionTests.Payload(paths.Root,"0.1.1-beta.6",old);
-            UpdatePackageTests.Reject(()=>UpdateLauncher.CheckHelperPathBudget(Path.Combine(fixture,new string('x',230)),UpdatePackage.Read(paths.Root)),"Long native helper paths must fail before launching or stopping the original parent.");
-            string transaction=UpdateStorage.CreateOperation(UpdateTransaction.ParentFor(paths.Root),"transaction");UpdateTransactionTests.Payload(Path.Combine(transaction,"stage"),"0.1.1-beta.7",next);
-            var prepared=UpdateTransaction.Prepare(paths.Root,transaction,"0.1.1-beta.7","standard");prepared.SetPhase("armed");
-            string worker=UpdateStorage.CreateOperation(cache,"worker"),helper=Path.Combine(worker,"helper","DanmuCompanion.Updater.exe");Directory.CreateDirectory(Path.GetDirectoryName(helper));File.WriteAllText(helper,"owned test helper");
-            var job=new UpdateJob(paths.Root,paths.DataRoot,"unit",new UpdateDownload("",new string('a',64),1,"0.1.1-beta.7","standard","portable",broken),false,Path.GetFileName(worker));
-            UpdateStorage.Atomic(Path.Combine(worker,"recovery.json"),JsonSerializer.SerializeToUtf8Bytes(new{job,transactionDirectory=transaction,workerPid=int.MaxValue,workerStartTicks=0},UpdateStorage.Json));
-            var sibling=new ApplicationPaths(Path.Combine(fixture,"other-app"),"unit",paths.DataRoot);
-            using(var otherLock=new UpdateRootLock(sibling.Root))UpdatePackageTests.Reject(()=>UpdateWorker.ValidateRecoveryJournal(sibling,job,transaction),"A sibling transaction must not be restored while holding a different root lock.");
-            DistributionTests.Check(UpdateMaintenance.FindRecovery(paths)==helper,"Interrupted recovery must match roots with a trailing separator.");
-            DistributionTests.Check(Task.Run(()=>UpdateRecoveryEntry.Create(paths,helper)).Wait(TimeSpan.FromSeconds(8)),"Recovery shortcuts must not marshal back to a blocked updater STA entry thread.");
-            File.Delete(Path.Combine(paths.Root,"DanmuCompanion.exe"));
-            DistributionTests.Check(File.Exists(UpdateRecoveryEntry.PathFor(paths)),"The external recovery entry must survive a broken main launcher.");
-            Directory.SetLastWriteTimeUtc(worker,DateTime.UtcNow-TimeSpan.FromDays(2));UpdateMaintenance.Cleanup(paths);
-            DistributionTests.Check(Directory.Exists(worker) && Directory.Exists(transaction),"Interrupted transactions must survive stale-cache cleanup.");
-            prepared.SetPhase("complete");UpdateMaintenance.Complete(paths,worker);UpdateMaintenance.Cleanup(paths);
-            DistributionTests.Check(!Directory.Exists(worker) && !Directory.Exists(transaction),"Complete operations must reclaim helper, stage and backup bytes.");
-            DistributionTests.Check(!File.Exists(UpdateRecoveryEntry.PathFor(paths)),"Complete operations must remove only their own recovery shortcut.");
-            string locked=UpdateStorage.CreateOperation(cache,"download"),lockedFile=Path.Combine(locked,"locked.bin");File.WriteAllText(lockedFile,"temporarily busy");
-            using(var handle=new FileStream(lockedFile,FileMode.Open,FileAccess.Read,FileShare.None))
+            var paths=new ApplicationPaths(Path.Combine(fixture,"app"),"unit",Path.Combine(fixture,"data"));string cache=Path.Combine(paths.ProfileRoot,"updates");Directory.CreateDirectory(cache);
+            UpdateTransactionTests.Payload(paths.Root,"0.1.1-beta.6",new(){{"DanmuCompanion.exe","old"}});
+            DistributionTests.Check(UpdateMaintenance.Running(JsonSerializer.SerializeToElement(new{}),"",(_,_)=>throw new System.ComponentModel.Win32Exception()),"Inaccessible worker identity must not be treated as exited.");
+            string legacy=UpdateStorage.CreateOperation(cache,"worker");Directory.CreateDirectory(Path.Combine(legacy,"backup"));File.WriteAllText(Path.Combine(legacy,"backup","old.exe"),"historic original");File.WriteAllText(Path.Combine(legacy,"recovery.json"),"{}");
+            UpdateMaintenance.Complete(paths,legacy);Directory.SetLastWriteTimeUtc(legacy,DateTime.UtcNow-TimeSpan.FromDays(3));UpdateMaintenance.Cleanup(paths);
+            DistributionTests.Check(File.ReadAllText(Path.Combine(legacy,"backup","old.exe"))=="historic original","The new updater must not delete or execute user legacy backups.");
+            string scopedLegacy=UpdateStorage.CreateOperation(cache,"worker");Directory.CreateDirectory(Path.Combine(scopedLegacy,"backup"));File.WriteAllText(Path.Combine(scopedLegacy,"backup","old.exe"),"existing old program");
+            var legacyJob=new UpdateJob(paths.Root,paths.DataRoot,"unit",null,false,Path.GetFileName(scopedLegacy));
+            UpdateStorage.Atomic(Path.Combine(scopedLegacy,"recovery.json"),JsonSerializer.SerializeToUtf8Bytes(new{job=legacyJob,workerPid=int.MaxValue,workerStartTicks=0},UpdateStorage.Json));
+            string foreignLink=UpdateLegacyEntry.PathFor(paths);Directory.CreateDirectory(Path.GetDirectoryName(foreignLink));File.WriteAllText(foreignLink,"foreign shortcut-shaped file");UpdateLegacyEntry.Retire(paths);
+            DistributionTests.Check(!File.Exists(Path.Combine(scopedLegacy,"recovery.json")) && File.Exists(Path.Combine(scopedLegacy,"legacy-disabled-recovery.json")),"Proven stopped legacy recovery must be disabled without retaining a runnable default recovery task.");
+            UpdateMaintenance.Complete(paths,scopedLegacy);UpdateMaintenance.Cleanup(paths);
+            DistributionTests.Check(File.ReadAllText(Path.Combine(scopedLegacy,"backup","old.exe"))=="existing old program" && File.ReadAllText(foreignLink)=="foreign shortcut-shaped file","Disabling a legacy task must preserve historical program bytes and unowned shortcuts.");
+            foreach(string recordName in new[]{"recovery.json","worker.json"})
             {
-                UpdatePackageTests.Reject(()=>UpdateStorage.RemoveOwned(cache,locked),"Locked cache bytes must defer cleanup.");
-                DistributionTests.Check(UpdateStorage.Owns(cache,locked),"A failed cleanup must retain its owner marker for retry.");
+                string malformed=UpdateStorage.CreateOperation(cache,"worker");
+                var badJob=legacyJob with{ApplicationRoot=@"\\server\share\x",OperationId=Path.GetFileName(malformed)};
+                UpdateStorage.Atomic(Path.Combine(malformed,recordName),JsonSerializer.SerializeToUtf8Bytes(new{schemaVersion=2,kind="direct-overwrite",job=badJob,workerPid=int.MaxValue,workerStartTicks=0},UpdateStorage.Json));
+                UpdateLegacyEntry.Retire(paths);UpdateMaintenance.ObserveWorkers(paths,()=>{},System.Threading.CancellationToken.None).GetAwaiter().GetResult();UpdateMaintenance.TryCleanupOperation(paths,malformed);
+                DistributionTests.Check(File.Exists(Path.Combine(malformed,recordName)),"Invalid legacy/worker UNC roots must be preserved without blocking startup or scheduling.");
             }
-            UpdateStorage.RemoveOwned(cache,locked);DistributionTests.Check(!Directory.Exists(locked),"Unlocked cache cleanup must be retryable.");
+            foreach(string phase in new[]{"prepared","armed","applying","repair-required","complete"})
+            {
+                string worker=UpdateStorage.CreateOperation(cache,"worker"),apply=UpdateStorage.CreateOperation(UpdateInstalledOwnership.ParentFor(paths.Root),"direct-update");
+                var job=new UpdateJob(paths.Root,paths.DataRoot,"unit",new UpdateDownload("",new string('a',64),1,"0.1.1-beta.7","standard","portable",legacy),false,Path.GetFileName(worker));
+                UpdateStorage.Atomic(Path.Combine(worker,"worker.json"),JsonSerializer.SerializeToUtf8Bytes(new{schemaVersion=2,kind="direct-overwrite",job,applyDirectory=apply,workerPid=int.MaxValue,workerStartTicks=0},UpdateStorage.Json));
+                UpdateStorage.Atomic(Path.Combine(apply,"journal.json"),JsonSerializer.SerializeToUtf8Bytes(new{schemaVersion=2,kind="direct-overwrite",targetRoot=paths.Root,phase}));
+                UpdateMaintenance.TryCleanupOperation(paths,worker);
+                DistributionTests.Check(Directory.Exists(apply)==(phase is "armed" or "applying" or "repair-required"),"Interrupted direct writes retain metadata/new download until repair, without old bytes.");
+            }
+            string locked=UpdateStorage.CreateOperation(cache,"download"),file=Path.Combine(locked,"locked.bin");File.WriteAllText(file,"busy");
+            using(var held=new FileStream(file,FileMode.Open,FileAccess.Read,FileShare.None)){UpdateMaintenance.TryCleanupOperation(paths,locked);DistributionTests.Check(UpdateStorage.Owns(cache,locked),"Locked cleanup must retain its owner marker for retry.");}
+            UpdateMaintenance.TryCleanupOperation(paths,locked);DistributionTests.Check(!Directory.Exists(locked),"Unlocked download cleanup must be retryable.");
+            File.WriteAllText(Path.Combine(cache,"last-result.json"),"broken");DistributionTests.Check(UpdateMaintenance.LastResult(paths)=="","Malformed history must not block startup.");
+            UpdateStorage.Atomic(Path.Combine(cache,"last-result.json"),JsonSerializer.SerializeToUtf8Bytes(new{operationId=Guid.NewGuid().ToString("N"),status="repair-required",version="0.1.1-beta.7",completedAt=DateTimeOffset.UtcNow.ToString("O")}));
+            DistributionTests.Check(UpdateMaintenance.LastResult(paths).Contains("重新安装") && !UpdateMaintenance.LastResult(paths).Contains("已恢复"),"Partial update results must truthfully require repair, never claim rollback or success.");
         }
         finally{UpdatePackage.Check(Path.GetFullPath(fixture).StartsWith(Path.Combine(Path.GetTempPath(),"DanmuUpdateMaintenance-"),StringComparison.OrdinalIgnoreCase),"Unsafe fixture cleanup.");Directory.Delete(fixture,true);}
-        Console.WriteLine("PASS: exclusive recovery ownership, corrupt-cache tolerance, root normalization and deferred cleanup.");
+        Console.WriteLine("PASS: metadata-only cleanup, legacy-backup preservation, process-query failure, locked retry and truthful repair notices.");
     }
 }
