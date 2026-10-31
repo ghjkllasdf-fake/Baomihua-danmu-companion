@@ -2,33 +2,45 @@ import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { defaultSettings } from '../src/model';
 import { skinIds } from '../src/appearance';
+import type { UpdateSnapshot } from '../src/updates';
 
-const fixture = { state: 'available', currentVersion: '0.1.1-beta.6', availableVersion: '0.1.1-beta.10', variant: 'standard', distribution: 'portable',
-  channel: 'beta', autoCheck: true, autoDownload: false, checkedAt: '2026-10-31T04:00:00Z', downloadedBytes: 0, totalBytes: 100,
+const fixture: UpdateSnapshot = { state: 'available', currentVersion: '0.1.1-beta.6', availableVersion: '0.1.1-beta.10', variant: 'standard', distribution: 'portable',
+  channel: 'beta', autoCheck: true, autoDownload: false, checkIntervalHours: 6, checkedAt: '2026-10-31T04:00:00Z', downloadedBytes: 0, totalBytes: 100,
   notes: '保留设置，改进更新恢复。\n<script>not executed</script>', message: '', revision: 1, supported: true, canInstall: false, lastResult: '' };
 
-async function connect(page: Page, skin = 'fluent', state = fixture) {
-  await page.addInitScript(({ settings, skin, state }) => {
+async function connect(page: Page, skin = 'fluent', state = fixture, failPreferences = false) {
+  await page.addInitScript(({ settings, skin, state, failPreferences }) => {
     const callbacks: ((event: { data: unknown }) => void)[] = [];
     let snapshot = state, sequence = 0;
     const commands: string[] = [];
+    const preferenceWrites: Record<string, unknown>[] = [];
     function emit(data: unknown) { callbacks.forEach(callback => callback({ data })); }
-    Object.defineProperty(window, 'updateFixture', { value: { commands, emit: (update: unknown) => emit({ type: 'state', sequence: ++sequence, data: { update } }) } });
+    Object.defineProperty(window, 'updateFixture', { value: { commands, preferenceWrites, emit: (update: unknown) => emit({ type: 'state', sequence: ++sequence, data: { update } }) } });
     Object.defineProperty(window, 'chrome', { configurable: true, value: { webview: {
       addEventListener: (_: string, callback: (event: { data: unknown }) => void) => callbacks.push(callback),
       postMessage: (message: { id: string; type: string; payload?: Record<string, unknown> }) => {
         commands.push(message.type);
+        if (message.type === 'set-update-preferences' && failPreferences) {
+          preferenceWrites.push({ ...message.payload });
+          setTimeout(() => emit({ type: 'response', id: message.id, ok: false, error: '更新偏好保存失败' }), 10);
+          return;
+        }
         let data: unknown = snapshot;
         if (message.type === 'hello') data = { protocolVersion: 1, capabilities: ['media-context-v1', 'tray-flyout-v1', 'appearance-v1', 'github-update-v1'],
           apiBase: '', settings, settingsRevision: 0, stateSequence: 0, appearance: { skin, reduceTransparency: false, revision: 0, backdrop: 'solid', notice: '' }, update: snapshot };
-        else if (message.type === 'set-update-preferences') { snapshot = { ...snapshot, ...message.payload, revision: snapshot.revision + 1 }; data = snapshot; }
+        else if (message.type === 'set-update-preferences') {
+          preferenceWrites.push({ ...message.payload });
+          const channelChanged = message.payload?.channel !== snapshot.channel;
+          snapshot = { ...snapshot, ...message.payload, ...(channelChanged ? { state: 'idle', availableVersion: '', downloadedBytes: 0, totalBytes: 0, notes: '', canInstall: false } : {}), revision: snapshot.revision + 1 };
+          data = snapshot;
+        }
         else if (message.type === 'download-update') { snapshot = { ...snapshot, state: 'ready', downloadedBytes: 100, canInstall: true, revision: snapshot.revision + 1 }; data = snapshot; }
         else if (message.type === 'install-update') data = { accepted: true };
         else if (message.type === 'open-update-page') data = { opened: true };
         setTimeout(() => emit({ type: 'response', id: message.id, ok: true, data }), 10);
       },
     } } });
-  }, { settings: defaultSettings, skin, state });
+  }, { settings: defaultSettings, skin, state, failPreferences });
   await page.goto('/');
   await expect(page.locator('.mini-app')).toBeVisible();
   if (state.availableVersion) await expect(page.locator('.footer-actions .update-indicator')).toBeVisible();
@@ -219,4 +231,68 @@ test('the collapsed updater remains a large touch target and its shared badge su
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.locator('.mini-app').screenshot({ path: testInfo.outputPath('module-touch-forced-colors.png') });
   } finally { await context.close(); }
+});
+
+test('legacy updater snapshots keep update actions working but cannot pretend to set a check frequency', async ({ page }) => {
+  const legacy = { ...fixture };
+  delete legacy.checkIntervalHours;
+  await connect(page, 'fluent', legacy);
+  await page.getByRole('button', { name: /^更多设置/ }).click();
+  await openUpdates(page);
+  const frequency = page.getByRole('combobox', { name: '检查频率', exact: true });
+  await expect(frequency).toHaveValue('6');
+  await expect(frequency).toBeDisabled();
+  await expect(page.locator('#update-frequency-notice')).toContainText('宿主不支持设置频率');
+  await page.getByRole('switch', { name: '自动下载更新' }).click();
+  await expect(page.getByRole('switch', { name: '自动下载更新' })).toBeChecked();
+  expect(await page.evaluate(() => (window as unknown as { updateFixture: { preferenceWrites: unknown[] } }).updateFixture.preferenceWrites)).toEqual([
+    { autoCheck: true, autoDownload: true, channel: 'beta' },
+  ]);
+  expect((await commands(page)).filter(type => ['download-update', 'install-update'].includes(type))).toEqual([]);
+});
+
+test('supported check frequencies round-trip inside the updater without losing other preferences or downloading', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 380, height: 540 });
+  await connect(page, 'glass', { ...fixture, checkIntervalHours: 6 });
+  await page.getByRole('button', { name: /^更多设置/ }).click();
+  await openUpdates(page);
+  const frequency = page.getByRole('combobox', { name: '检查频率', exact: true });
+  await expect(frequency).toBeEnabled();
+  await expect(frequency.locator('option')).toHaveText(['每 1 小时', '每 6 小时', '每 12 小时', '每天']);
+  for (const interval of [1, 6, 12, 24]) {
+    await frequency.selectOption(String(interval));
+    await expect(frequency).toHaveValue(String(interval));
+    await expect(frequency).toBeEnabled();
+  }
+  await page.getByRole('switch', { name: '自动检查更新' }).click();
+  await expect(page.getByRole('switch', { name: '自动检查更新' })).not.toBeChecked();
+  await expect(frequency).toBeDisabled();
+  await expect(frequency).toHaveValue('24');
+  await page.getByRole('switch', { name: '自动检查更新' }).click();
+  await expect(frequency).toBeEnabled();
+  await page.getByRole('switch', { name: '自动下载更新' }).click();
+  await expect(page.getByRole('switch', { name: '自动下载更新' })).toBeChecked();
+  await page.getByRole('combobox', { name: '更新通道' }).selectOption('stable');
+  await expect(page.getByRole('combobox', { name: '更新通道' })).toHaveValue('stable');
+  await expect(frequency).toBeEnabled();
+  expect(await page.evaluate(() => (window as unknown as { updateFixture: { preferenceWrites: unknown[] } }).updateFixture.preferenceWrites.at(-1))).toEqual(
+    { autoCheck: true, autoDownload: true, channel: 'stable', checkIntervalHours: 24 },
+  );
+  await page.locator('.update-panel > summary').click();
+  await openUpdates(page);
+  await expect(frequency).toHaveValue('24');
+  await page.locator('.mini-app').screenshot({ path: testInfo.outputPath('module-frequency-glass.png') });
+  expect((await commands(page)).filter(type => ['download-update', 'install-update'].includes(type))).toEqual([]);
+  expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations).toEqual([]);
+});
+
+test('a rejected frequency preference restores the confirmed selection and keeps an explicit error', async ({ page }) => {
+  await connect(page, 'fluent', { ...fixture, checkIntervalHours: 6 }, true);
+  await page.getByRole('button', { name: /^更多设置/ }).click();
+  await openUpdates(page);
+  const frequency = page.getByRole('combobox', { name: '检查频率', exact: true });
+  await frequency.selectOption('24');
+  await expect(page.getByRole('alert')).toHaveText('更新偏好保存失败');
+  await expect(frequency).toHaveValue('6');
+  await expect(frequency).toBeEnabled();
 });

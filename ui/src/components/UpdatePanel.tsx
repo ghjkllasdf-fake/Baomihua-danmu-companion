@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { useUpdates } from '../use-updates';
-import { hasUpdate, updateBusy } from '../updates';
+import { defaultCheckIntervalHours, hasUpdate, updateBusy, updateCheckIntervals } from '../updates';
 import { UpdateBadge } from './UpdateBadge';
 
 export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
@@ -24,6 +24,9 @@ export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
   </summary>;
   if (!state) return <details className="update-panel" aria-labelledby="update-heading">{heading}<p className="update-muted">当前宿主不提供自动更新，或尚未连接桌面程序。</p></details>;
   const busy = pending || updateBusy(state.state), prefsDisabled = !state.supported || busy;
+  const frequencySupported = state.checkIntervalHours !== undefined;
+  const preferences = { autoCheck: state.autoCheck, autoDownload: state.autoDownload, channel: state.channel,
+    ...(frequencySupported ? { checkIntervalHours: state.checkIntervalHours } : {}) };
   const phaseText = { unavailable: '此运行方式不支持自动更新', idle: '尚未检查更新', checking: '正在检查 GitHub 版本…', current: '当前已是最新可用版本',
     available: `发现新版本 ${state.availableVersion}`, downloading: '正在下载更新…', verifying: '正在校验更新文件…', ready: '更新已准备好', applying: '正在准备退出并安装更新…', failed: '更新未完成，请重试' }[state.state];
   const percent = state.totalBytes > 0 ? Math.min(100, Math.floor(state.downloadedBytes / state.totalBytes * 100)) : null;
@@ -36,9 +39,14 @@ export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
     <div className="update-body">
     <div className="update-build"><span>当前版本 <span className="update-version">{state.currentVersion || '开发版本'}</span></span><span>{state.variant === 'includeAPI' ? '内置 API 版' : '普通版'} · {state.distribution === 'installer' ? '安装版' : '便携版'}</span></div>
     <div className="update-preferences">
-      <label className="update-toggle"><span>自动检查更新</span><input type="checkbox" role="switch" checked={state.autoCheck} disabled={prefsDisabled} onChange={event => void save({ autoCheck: event.target.checked, autoDownload: state.autoDownload, channel: state.channel })} /></label>
-      <label className="update-toggle"><span>自动下载更新</span><input type="checkbox" role="switch" checked={state.autoDownload} disabled={prefsDisabled} onChange={event => void save({ autoCheck: state.autoCheck, autoDownload: event.target.checked, channel: state.channel })} /></label>
-      <label className="update-channel"><span>更新通道</span><select value={state.channel} disabled={prefsDisabled} onChange={event => void save({ autoCheck: state.autoCheck, autoDownload: state.autoDownload, channel: event.target.value === 'stable' ? 'stable' : 'beta' })}><option value="stable">正式版</option><option value="beta">Beta 与正式版</option></select></label>
+      <label className="update-toggle"><span>自动检查更新</span><input type="checkbox" role="switch" checked={state.autoCheck} disabled={prefsDisabled} onChange={event => void save({ ...preferences, autoCheck: event.target.checked })} /></label>
+      <label className="update-channel"><span>检查频率</span><select value={state.checkIntervalHours ?? defaultCheckIntervalHours} disabled={prefsDisabled || !state.autoCheck || !frequencySupported} aria-describedby={!frequencySupported ? 'update-frequency-notice' : undefined} onChange={event => {
+        const interval = updateCheckIntervals.find(value => String(value) === event.target.value);
+        if (interval !== undefined) void save({ ...preferences, checkIntervalHours: interval });
+      }}>{updateCheckIntervals.map(interval => <option key={interval} value={interval}>{interval === 24 ? '每天' : `每 ${interval} 小时`}</option>)}</select></label>
+      {!frequencySupported && <p id="update-frequency-notice" className="update-muted">当前宿主不支持设置频率，升级后可调整。</p>}
+      <label className="update-toggle"><span>自动下载更新</span><input type="checkbox" role="switch" checked={state.autoDownload} disabled={prefsDisabled} onChange={event => void save({ ...preferences, autoDownload: event.target.checked })} /></label>
+      <label className="update-channel"><span>更新通道</span><select value={state.channel} disabled={prefsDisabled} onChange={event => void save({ ...preferences, channel: event.target.value === 'stable' ? 'stable' : 'beta' })}><option value="stable">正式版</option><option value="beta">Beta 与正式版</option></select></label>
     </div>
     <p className="update-phase" role="status">{phaseText}</p>
     {(state.state === 'downloading' || state.state === 'verifying') && <div className="update-progress"><progress max="100" value={percent ?? undefined} aria-label="更新下载进度" /><span>{percent === null ? '大小未知' : `${percent}%`}</span></div>}
