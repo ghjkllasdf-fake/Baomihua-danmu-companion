@@ -1,14 +1,14 @@
 import { validAppearanceSnapshot, type AppearanceSnapshot } from './appearance.ts';
-import { validUpdateSnapshot, type UpdateSnapshot } from './updates';
+import { validUpdateSnapshot, type UpdateSnapshot } from './updates.ts';
 
 export interface Settings {
   areaFraction: number; fontSize: number; scaleWithWindow: boolean; speedMultiplier: number;
-  opacity: number; outlineWidth: number; density: number; rolling: boolean; top: boolean;
+  opacity: number; outlineWidth: number; shadowStrength: number; density: number; rolling: boolean; top: boolean;
   bottom: boolean; dedupe: boolean; keywords: string; offsetMs: number; enabled: boolean;
 }
 export const defaultSettings: Settings = {
   areaFraction: .5, fontSize: 22, scaleWithWindow: false, speedMultiplier: .8,
-  opacity: .85, outlineWidth: 0, density: 60, rolling: true, top: true, bottom: true,
+  opacity: .85, outlineWidth: 0, shadowStrength: .45, density: 60, rolling: true, top: true, bottom: true,
   dedupe: true, keywords: '', offsetMs: 0, enabled: true,
 };
 export function validSettings(value: unknown): value is Settings {
@@ -16,7 +16,7 @@ export function validSettings(value: unknown): value is Settings {
   const s = value as Settings;
   const range = (n: unknown, min: number, max: number) => typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max;
   return [.25, .5, .75, 1].includes(s.areaFraction) && range(s.fontSize, 16, 64) &&
-    range(s.speedMultiplier, .5, 2) && range(s.opacity, .1, 1) && range(s.outlineWidth, 0, 3) &&
+    range(s.speedMultiplier, .5, 2) && range(s.opacity, .1, 1) && range(s.outlineWidth, 0, 3) && range(s.shadowStrength, 0, 1) &&
     range(s.offsetMs, -30000, 30000) && [30, 60, 100].includes(s.density) &&
     typeof s.keywords === 'string' && s.keywords.length <= 2000 &&
     [s.enabled, s.scaleWithWindow, s.rolling, s.top, s.bottom, s.dedupe].every(v => typeof v === 'boolean');

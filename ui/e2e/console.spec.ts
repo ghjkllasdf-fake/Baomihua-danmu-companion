@@ -40,7 +40,7 @@ test('honest browser preview, display controls, responsive layout and accessibil
 test('UI bridge fixture: real controls complete the source-selection flow', async ({ page }) => {
   await page.addInitScript(() => {
     const callbacks: ((event: { data: unknown }) => void)[] = [];
-    const initial = { areaFraction: .5, fontSize: 28, scaleWithWindow: true, speedMultiplier: 1, opacity: .85, outlineWidth: 1, density: 60, rolling: true, top: true, bottom: true, dedupe: true, keywords: '', offsetMs: 0, enabled: true };
+    const initial = { areaFraction: .5, fontSize: 28, scaleWithWindow: true, speedMultiplier: 1, opacity: .85, outlineWidth: 1, shadowStrength: .45, density: 60, rolling: true, top: true, bottom: true, dedupe: true, keywords: '', offsetMs: 0, enabled: true };
     Object.defineProperty(window, 'chrome', { configurable: true, value: { webview: {
       addEventListener: (_: string, cb: (event: { data: unknown }) => void) => callbacks.push(cb),
       postMessage: (msg: { id: string; type: string; payload: unknown }) => {

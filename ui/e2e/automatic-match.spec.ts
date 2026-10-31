@@ -94,18 +94,52 @@ for (const skin of ['fluent', 'glass', 'winui', 'studio']) {
     await expect(page.locator('html')).toHaveAttribute('data-skin', skin);
     await expect(page.locator('.match-status')).toHaveText(manualMessage);
     const button = page.getByRole('button', { name: '手动搜索 / 换源', exact: true });
-    await page.screenshot({ path: testInfo.outputPath('manual-search-required.png') });
+    await expect(page.getByRole('combobox', { name: '弹幕密度', exact: true })).toBeInViewport({ ratio: 1 });
+    await page.screenshot({ path: testInfo.outputPath('manual-search-required.png'), animations: 'disabled' });
     await expect(button).toHaveClass(/needs-attention/);
     await expect(button).toHaveAccessibleDescription(manualMessage);
     await expect(button.locator('.manual-source-prompt')).toHaveText('需处理');
+    const pulse = await button.evaluate(element => {
+      const animation = element.getAnimations().find(item => item instanceof CSSAnimation && item.animationName === 'manual-source-breathe');
+      return { name: getComputedStyle(element).animationName, duration: animation?.effect?.getTiming().duration, state: animation?.playState };
+    });
+    expect(pulse.name).toBe('manual-source-breathe');
+    expect(pulse.duration).toBeGreaterThanOrEqual(2400);
+    expect(pulse.state).toBe('running');
+    const started = await button.evaluate(element => Number(element.getAnimations()[0].currentTime));
+    await expect.poll(() => button.evaluate(element => Number(element.getAnimations()[0].currentTime))).toBeGreaterThan(started);
+    const phases = [];
+    for (const time of [0, 1400]) {
+      phases.push(await button.evaluate((element, currentTime) => {
+        const animation = element.getAnimations().find(item => item instanceof CSSAnimation && item.animationName === 'manual-source-breathe')!;
+        animation.pause(); animation.currentTime = currentTime;
+        const style = getComputedStyle(element), box = element.getBoundingClientRect();
+        return { background: style.backgroundColor, border: style.borderColor, shadow: style.boxShadow,
+          color: style.color, opacity: style.opacity, transform: style.transform, width: box.width, height: box.height };
+      }, time));
+      const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+      expect(axe.violations).toEqual([]);
+    }
+    expect(phases[0].background).not.toBe(phases[1].background);
+    expect(phases[0].border).not.toBe(phases[1].border);
+    expect(phases[0].shadow).not.toBe(phases[1].shadow);
+    expect(phases[0].width).toBe(phases[1].width);
+    expect(phases[0].height).toBe(phases[1].height);
+    expect(phases[0].color).toBe(phases[1].color);
+    for (const phase of phases) {
+      expect(phase.transform).toBe('none');
+      expect(phase.opacity).toBe('1');
+    }
+    await button.evaluate(element => element.getAnimations()[0].play());
     await expect(page.locator('.source-view')).toBeHidden();
     await expect(button).not.toBeFocused();
-    const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
-    expect(axe.violations).toEqual([]);
     await page.setViewportSize({ width: 320, height: 540 });
     await expect(button).toBeInViewport({ ratio: 1 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath('manual-search-required-narrow.png') });
+    await page.screenshot({ path: testInfo.outputPath('manual-search-required-narrow.png'), animations: 'disabled' });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(button).toHaveCSS('animation-name', 'none');
+    await expect(button.locator('.manual-source-prompt')).toBeVisible();
     await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
     await expect(button.locator('.manual-source-prompt')).toBeVisible();
     await button.focus();
@@ -161,6 +195,8 @@ test('required manual search keeps a large touch target', async ({ browser }) =>
     const button = page.getByRole('button', { name: '手动搜索 / 换源', exact: true });
     await expect(button).toHaveClass(/needs-attention/);
     expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    const shadowRow = page.getByRole('slider', { name: '阴影强度', exact: true }).locator('..');
+    expect((await shadowRow.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   } finally { await context.close(); }
 });

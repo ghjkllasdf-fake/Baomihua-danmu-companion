@@ -15,6 +15,13 @@ internal static class TrayPlacementTests
         Verify(display,new Rectangle(0,40,1920,1040),new Point(1795,20),desired,TaskbarEdge.Top);
         Verify(display,new Rectangle(48,0,1872,1080),new Point(24,990),desired,TaskbarEdge.Left);
         Verify(display,new Rectangle(0,0,1872,1080),new Point(1896,990),desired,TaskbarEdge.Right);
+        Verify(display,new Rectangle(0,0,1920,1040),new Point(960,1060),desired,TaskbarEdge.Bottom);
+        Verify(display,new Rectangle(0,40,1920,1040),new Point(960,20),desired,TaskbarEdge.Top);
+        Verify(display,new Rectangle(48,0,1872,1080),new Point(24,540),desired,TaskbarEdge.Left);
+        Verify(display,new Rectangle(0,0,1872,1080),new Point(1896,540),desired,TaskbarEdge.Right);
+        // An unrelated desktop dock must not decide the notification area's edge.
+        Verify(display,new Rectangle(120,0,1800,1040),new Point(1700,1060),desired,TaskbarEdge.Bottom);
+        Verify(display,new Rectangle(48,40,1872,1040),new Point(960,20),desired,TaskbarEdge.Top);
 
         var secondDisplay=new Rectangle(-1920,-200,1920,1080);
         Verify(secondDisplay,new Rectangle(-1872,-200,1872,1080),new Point(-1896,820),desired,TaskbarEdge.Left);
@@ -35,7 +42,14 @@ internal static class TrayPlacementTests
         Verify(new Rectangle(0,0,320,160),new Rectangle(0,0,320,120),new Point(260,140),desired,TaskbarEdge.Bottom);
         Verify(new Rectangle(-600,-60,80,40),new Rectangle(-592,-60,72,40),new Point(-596,-40),desired,TaskbarEdge.Left);
         Verify(display,new Rectangle(0,0,1920,1040),new Point(1795,1060),desired,TaskbarEdge.Bottom,16);
-        Console.WriteLine("PASS: tray flyout edge selection, clamped work areas, negative coordinates, auto-hide and slide direction.");
+        foreach(double scale in new[]{1.25,1.5,2.0})
+        {
+            var scaled=new Size((int)Math.Round(380*scale),(int)Math.Round(540*scale));
+            Verify(display,new Rectangle(0,0,1920,1040),new Point(960,1060),scaled,TaskbarEdge.Bottom,(int)Math.Round(8*scale));
+            Verify(secondDisplay,new Rectangle(-1872,-200,1872,1080),new Point(-1896,340),scaled,TaskbarEdge.Left,(int)Math.Round(8*scale));
+        }
+        Verify(display,new Rectangle(0,0,1920,1040),new Point(960,1060),new Size(381,541),TaskbarEdge.Bottom);
+        Console.WriteLine("PASS: tray icon-centred placement, pure-axis slides, scaled work areas, negative coordinates and auto-hide.");
     }
 
     private static void Verify(Rectangle screen,Rectangle work,Point anchor,Size desired,TaskbarEdge edge,int gap=8)
@@ -54,6 +68,11 @@ internal static class TrayPlacementTests
             ? DistanceToRange(anchor.X,bounds.Left,bounds.Right)
             : DistanceToRange(anchor.Y,bounds.Top,bounds.Bottom);
         Check(crossDistance<=gap,$"The flyout must remain anchored near the tray icon along the taskbar: {context}; got {bounds}.");
+        int expectedCentreStart=edge is TaskbarEdge.Bottom or TaskbarEdge.Top
+            ? Math.Clamp(anchor.X-bounds.Width/2,work.Left,work.Right-bounds.Width)
+            : Math.Clamp(anchor.Y-bounds.Height/2,work.Top,work.Bottom-bounds.Height);
+        Check((edge is TaskbarEdge.Bottom or TaskbarEdge.Top ? bounds.X : bounds.Y)==expectedCentreStart,
+            $"The flyout must centre on the tray icon unless the work-area boundary clamps it: {context}; got {bounds}.");
 
         int distanceFromEdge=edge switch {
             TaskbarEdge.Bottom=>work.Bottom-bounds.Bottom,
@@ -68,8 +87,8 @@ internal static class TrayPlacementTests
         bool correctSlide=edge switch {
             TaskbarEdge.Bottom=>from.X==bounds.X && from.Y>bounds.Y,
             TaskbarEdge.Top=>from.X==bounds.X && from.Y<bounds.Y,
-            TaskbarEdge.Left=>from.X<bounds.X && from.Y>bounds.Y,
-            TaskbarEdge.Right=>from.X>bounds.X && from.Y>bounds.Y,
+            TaskbarEdge.Left=>from.X<bounds.X && from.Y==bounds.Y,
+            TaskbarEdge.Right=>from.X>bounds.X && from.Y==bounds.Y,
             _=>false
         };
         Check(correctSlide,$"The panel must slide into the work area in the taskbar-specific direction: {context}; from {from}, to {bounds.Location}.");

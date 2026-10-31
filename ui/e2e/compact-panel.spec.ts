@@ -2,6 +2,58 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { defaultSettings } from '../src/model';
 
+for (const label of ['A · 原生清爽', 'B · 流光玻璃', 'C · WinUI', 'D · 石墨工作室']) {
+  test(`${label} reuses the footer button to return from more settings without a duplicate header`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 380, height: 540 });
+    await page.goto('/');
+    await page.getByRole('button', { name: '切换皮肤', exact: true }).click();
+    await page.getByRole('button', { name: label, exact: true }).click();
+    await page.getByRole('button', { name: '返回设置', exact: true }).click();
+    const toggle = page.locator('.footer-actions .more-link');
+    const before = (await toggle.boundingBox())!;
+    await toggle.focus();
+    await toggle.press('Enter');
+    await expect(toggle).toHaveAccessibleName('返回');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('button', { name: '返回设置', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: '面板导航' })).toHaveCount(0);
+    const heading = page.getByRole('heading', { name: '更多设置', exact: true });
+    await expect(heading).toHaveClass('sr-only');
+    await expect(heading).toBeFocused();
+    const after = (await toggle.boundingBox())!;
+    expect(after.x).toBe(before.x);
+    expect(after.y).toBe(before.y);
+    await page.locator('.advanced summary').click();
+    await page.getByRole('textbox', { name: '屏蔽关键词', exact: true }).fill('保留的关键词');
+    await page.screenshot({ path: testInfo.outputPath('more-footer-return.png') });
+    const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    expect(axe.violations).toEqual([]);
+    await toggle.focus();
+    await toggle.press('Enter');
+    await expect(toggle).toHaveAccessibleName('更多设置');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('heading', { name: '爆米花弹幕面板', exact: true })).toBeFocused();
+    await expect(page.getByRole('slider', { name: '弹幕字号', exact: true })).toBeVisible();
+    await toggle.click();
+    await expect(page.locator('.advanced')).toHaveAttribute('open', '');
+    await expect(page.getByRole('textbox', { name: '屏蔽关键词', exact: true })).toHaveValue('保留的关键词');
+    await page.setViewportSize({ width: 320, height: 340 });
+    await page.locator('.manual-sync summary').click();
+    const scroll = await page.locator('.panel-main').evaluate(node => {
+      node.scrollTop = node.scrollHeight;
+      return { top: node.scrollTop, maximum: node.scrollHeight - node.clientHeight };
+    });
+    expect(scroll.maximum).toBeGreaterThan(0);
+    expect(scroll.top).toBe(scroll.maximum);
+    await expect(toggle).toBeInViewport({ ratio: 1 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath('more-footer-return-narrow-scrolled.png') });
+    await toggle.click();
+    await expect.poll(() => page.locator('.panel-main').evaluate(node => node.scrollTop)).toBe(0);
+    await expect(page.getByRole('slider', { name: '弹幕字号', exact: true })).toBeVisible();
+  });
+}
+
 test('compact panel has rows and header toggles, no product preview, and local navigation preserves edits', async ({ page }) => {
   await page.setViewportSize({ width: 380, height: 560 });
   await page.goto('/');
@@ -11,8 +63,9 @@ test('compact panel has rows and header toggles, no product preview, and local n
   await expect(page.getByRole('switch', { name: '开机自动启动', exact: true })).toBeVisible();
   await expect(page.getByLabel('API 地址', { exact: true })).toBeVisible();
   const rows = await page.getByRole('slider').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().top));
-  expect(rows.length).toBe(4);
-  expect(new Set(rows).size).toBe(4);
+  expect(rows.length).toBe(5);
+  expect(new Set(rows).size).toBe(5);
+  await expect(page.getByRole('slider', { name: '阴影强度', exact: true })).toHaveValue('0.45');
   await expect(page.getByRole('button', { name: '搜索弹幕来源', exact: true })).toBeHidden();
   await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
   await page.getByLabel('正在看什么？').fill('保留的手动搜索');
@@ -22,7 +75,7 @@ test('compact panel has rows and header toggles, no product preview, and local n
   await expect(page.getByRole('checkbox', { name: '滚动', exact: true })).toBeVisible();
   await page.locator('.advanced summary').click();
   expect((await page.locator('.advanced .range-control label').boundingBox())!.height).toBeLessThan(25);
-  await page.getByRole('button', { name: '返回设置', exact: true }).click();
+  await page.getByRole('button', { name: '返回', exact: true }).click();
   await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
   await expect(page.getByLabel('正在看什么？')).toHaveValue('保留的手动搜索');
   await page.getByRole('button', { name: '返回设置', exact: true }).click();

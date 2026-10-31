@@ -59,11 +59,11 @@ public static class TrayContentProbe
             controller.ParentWindow!=surface.Handle || controller.Bounds!=surface.ClientRectangle)
             throw new InvalidOperationException("The visible workbench is not presenting its current browser surface.");
         string raw=await controller.CoreWebView2.ExecuteScriptAsync(
-            "JSON.stringify({visible:document.visibilityState==='visible',shell:!!document.querySelector('#root>.mini-app'),header:document.querySelector('.mini-toolbar')?.getBoundingClientRect().toJSON(),sliders:document.querySelectorAll('.display-view input[type=range]').length,width:innerWidth,height:innerHeight})");
+            "JSON.stringify({visible:document.visibilityState==='visible',shell:!!document.querySelector('#root>.mini-app'),header:document.querySelector('.mini-toolbar')?.getBoundingClientRect().toJSON(),sliders:document.querySelectorAll('.display-view input[type=range]').length,shadow:[...document.querySelectorAll('.display-view .range-control label')].some(e=>e.textContent==='阴影强度'),width:innerWidth,height:innerHeight})");
         using var document=JsonDocument.Parse(JsonSerializer.Deserialize<string>(raw));
         var dom=document.RootElement;
         if(!dom.GetProperty("visible").GetBoolean() || !dom.GetProperty("shell").GetBoolean() ||
-            !dom.TryGetProperty("header",out var header) || header.GetProperty("height").GetDouble()<=0 || dom.GetProperty("sliders").GetInt32()!=4 ||
+            !dom.TryGetProperty("header",out var header) || header.GetProperty("height").GetDouble()<=0 || dom.GetProperty("sliders").GetInt32()!=5 || !dom.GetProperty("shadow").GetBoolean() ||
             dom.GetProperty("width").GetInt32()<300 || dom.GetProperty("height").GetInt32()<300)
             throw new InvalidOperationException("The actual browser document has not become visible and laid out: "+raw);
         using(var file=File.Create(path))

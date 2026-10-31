@@ -78,14 +78,15 @@ Scenario 'future or malformed envelopes never silently reuse embedded settings' 
     Assert ($futureShape.Settings.FontSize -eq 22 -and $futureShape.Notice.Contains('版本')) 'Future formats must be identified before trying to interpret their unknown schema.'
 }
 Scenario 'new saves contain only the version and style whitelist and can be reopened' {
-    $settings=[Popcorn.DanmakuSettings]::new(); $settings.FontSize=44; $settings.Keywords='测试词'
+    $settings=[Popcorn.DanmakuSettings]::new(); $settings.FontSize=44; $settings.Keywords='测试词'; $settings.ShadowStrength=0.7
     $serialized=[Popcorn.SettingsPreferences]::Serialize($settings)
     $envelope=ConvertFrom-Json -InputObject $serialized
     Assert ((@($envelope.PSObject.Properties.Name | Sort-Object) -join ',') -eq 'schemaVersion,settings' -and $envelope.schemaVersion -eq 1) 'Current preferences must use a versioned style-only envelope.'
-    Assert (@($envelope.settings.PSObject.Properties).Count -eq 14 -and -not $serialized.Contains('apiBase')) 'Serialized preferences contain unexpected fields.'
+    $styleKeys='areaFraction,bottom,dedupe,density,enabled,fontSize,keywords,offsetMs,opacity,outlineWidth,rolling,scaleWithWindow,shadowStrength,speedMultiplier,top'
+    Assert ((@($envelope.settings.PSObject.Properties.Name | Sort-Object) -join ',') -ceq $styleKeys -and -not $serialized.Contains('apiBase')) 'Serialized preferences contain unexpected fields.'
     Put $serialized
     $roundtrip=[Popcorn.SettingsPreferences]::Load($path)
-    Assert ($roundtrip.Settings.FontSize -eq 44 -and $roundtrip.Settings.Keywords -eq '测试词' -and $roundtrip.Notice -eq '') 'Versioned preferences must roundtrip.'
+    Assert ($roundtrip.Settings.FontSize -eq 44 -and $roundtrip.Settings.Keywords -eq '测试词' -and $roundtrip.Settings.ShadowStrength -eq 0.7 -and $roundtrip.Notice -eq '') 'Versioned preferences must roundtrip.'
 }
 if($failures.Count){ throw ($failures -join "`n") }
 'PASS: preference compatibility, bounded corruption recovery and style-only persistence without starting any window.'

@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { useUpdates } from '../use-updates';
 import { updateBusy } from '../updates';
 
 export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
   const { snapshot: state, error, pending, check, download, cancel, save, install, openRelease } = controller;
   const [confirm, setConfirm] = useState(false);
+  const confirmation = useRef<HTMLDivElement>(null);
   useEffect(() => { setConfirm(false); }, [state?.availableVersion, state?.state]);
+  function showConfirmation() {
+    setConfirm(true);
+    requestAnimationFrame(() => confirmation.current?.scrollIntoView({ block: 'center' }));
+  }
   if (!state) return <section className="update-panel" aria-label="软件更新"><h3>软件更新</h3><p className="update-muted">当前宿主不提供自动更新，或尚未连接桌面程序。</p></section>;
   const busy = pending || updateBusy(state.state), prefsDisabled = !state.supported || busy;
   const phaseText = { unavailable: '此运行方式不支持自动更新', idle: '尚未检查更新', checking: '正在检查 GitHub 版本…', current: '当前已是最新可用版本',
@@ -28,10 +33,10 @@ export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
     <div className="update-actions">
       <button type="button" className="secondary" disabled={!state.supported || busy} onClick={() => void check()}>检查更新</button>
       {state.availableVersion && ['available', 'failed'].includes(state.state) && <button type="button" className="primary" disabled={busy} onClick={() => void download()}>下载更新</button>}
-      {state.state === 'ready' && <button type="button" className="primary" disabled={!state.canInstall || busy} onClick={() => setConfirm(true)}>重启并更新</button>}
+      {state.state === 'ready' && <button type="button" className="primary" disabled={!state.canInstall || busy} onClick={showConfirmation}>重启并更新</button>}
       {['checking', 'downloading', 'verifying'].includes(state.state) && <button type="button" className="text-button" onClick={() => void cancel()}>取消</button>}
       <button type="button" className="text-button" disabled={busy} onClick={() => void openRelease()}>打开 GitHub Release</button>
     </div>
-    {confirm && state.state === 'ready' && <div className="update-confirm" role="group" aria-label="确认更新安装"><p>更新至 {state.availableVersion}？弹幕伴侣会退出并重新启动，播放器不受控制。</p><p className="update-muted">若更新中断，可从程序目录旁的 .DanmuCompanion-updates 文件夹打开 Recover-Danmu 恢复快捷方式。</p><div className="update-actions"><button type="button" className="primary" disabled={busy || !state.canInstall} onClick={() => void install(state.availableVersion)}>确认重启并更新</button><button type="button" className="text-button" onClick={() => setConfirm(false)}>暂不更新</button></div></div>}
+    {confirm && state.state === 'ready' && <div ref={confirmation} className="update-confirm" role="group" aria-label="确认更新安装"><p>更新至 {state.availableVersion}？弹幕伴侣会退出并重新启动，播放器不受控制。</p><p className="update-muted">若更新中断，可从程序目录旁的 .DanmuCompanion-updates 文件夹打开 Recover-Danmu 恢复快捷方式。</p><div className="update-actions"><button type="button" className="primary" disabled={busy || !state.canInstall} onClick={() => void install(state.availableVersion)}>确认重启并更新</button><button type="button" className="text-button" onClick={() => setConfirm(false)}>暂不更新</button></div></div>}
   </section>;
 }

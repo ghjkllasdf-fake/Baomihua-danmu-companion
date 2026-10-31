@@ -18,4 +18,5 @@ for (const snapshot of normalized) {
 }
 assert.deepEqual(normalized.map(s => s.settingsRevision), [0, 1, 1]);
 assert.deepEqual(normalized.map(s => s.settings.fontSize), [22, 40, 40]);
+assert.deepEqual(normalized.map(s => s.settings.shadowStrength), [.45, .75, .75], 'Shadow intensity must round-trip through the actual native host handlers and UI contract.');
 console.log('PASS: actual hello/save/read settings snapshots satisfy the current TypeScript validator without a desktop window.');

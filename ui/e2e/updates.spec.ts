@@ -58,6 +58,11 @@ test('opening settings never downloads; opt-in settings and two-step install rem
   await page.setViewportSize({ width: 380, height: 560 }); await connect(page);
   await page.getByRole('button', { name: /^更多设置/ }).click();
   await expect(page.getByRole('heading', { name: '更多设置', exact: true })).toBeFocused();
+  await expect(page.getByRole('button', { name: '返回', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.update-indicator')).toHaveCount(0);
+  await page.getByRole('button', { name: '返回', exact: true }).click();
+  await expect(page.locator('.update-indicator')).toHaveCount(1);
+  await page.getByRole('button', { name: /^更多设置/ }).click();
   expect((await commands(page)).filter(type => ['download-update', 'install-update'].includes(type))).toEqual([]);
   await expect(page.getByRole('switch', { name: '自动下载更新' })).not.toBeChecked();
   await page.getByRole('switch', { name: '自动检查更新' }).click();
@@ -66,6 +71,12 @@ test('opening settings never downloads; opt-in settings and two-step install rem
   await page.getByRole('button', { name: '重启并更新', exact: true }).click();
   expect((await commands(page)).includes('install-update')).toBe(false);
   await expect(page.getByRole('group', { name: '确认更新安装' })).toContainText('播放器不受控制');
+  await expect(page.getByRole('button', { name: '确认重启并更新', exact: true })).toBeInViewport({ ratio: 1 });
+  await page.getByRole('button', { name: '返回', exact: true }).click();
+  await page.getByRole('button', { name: /^更多设置/ }).click();
+  await page.getByRole('button', { name: '重启并更新', exact: true }).click();
+  await expect(page.getByRole('button', { name: '确认重启并更新', exact: true })).toBeInViewport({ ratio: 1 });
+  expect((await commands(page)).includes('install-update')).toBe(false);
   await page.screenshot({ path: testInfo.outputPath('update-confirm.png'), fullPage: true });
   await page.getByRole('button', { name: '确认重启并更新', exact: true }).click();
   await expect.poll(async () => (await commands(page)).filter(type => type === 'install-update').length).toBe(1);

@@ -4,7 +4,7 @@ import { emptyPlayer } from '../src/model';
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(initialPlayer => {
     const callbacks: ((event: { data: unknown }) => void)[] = [];
-    const initial = { areaFraction: .5, fontSize: 28, scaleWithWindow: true, speedMultiplier: 1, opacity: .85, outlineWidth: 1, density: 60, rolling: true, top: true, bottom: true, dedupe: true, keywords: '', offsetMs: 0, enabled: true };
+    const initial = { areaFraction: .5, fontSize: 28, scaleWithWindow: true, speedMultiplier: 1, opacity: .85, outlineWidth: 1, shadowStrength: .45, density: 60, rolling: true, top: true, bottom: true, dedupe: true, keywords: '', offsetMs: 0, enabled: true };
     let media = { title: '测试作品', episodeNumber: 1, syncMode: 'automatic', state: 'paused', positionMs: 10000 };
     let count = 0, hold = false, pending = '', sequence = 0;
     const emit = (data: unknown) => callbacks.forEach(callback => callback({ data }));

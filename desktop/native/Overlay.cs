@@ -215,7 +215,7 @@ internal sealed class OverlaySurface : FrameworkElement
         next.Validate(); double now=Position;
         bool layout=pendingFrame!=null || next.AreaFraction!=settings.AreaFraction || next.FontSize!=settings.FontSize || next.ScaleWithWindow!=settings.ScaleWithWindow ||
             next.Rolling!=settings.Rolling || next.Top!=settings.Top || next.Bottom!=settings.Bottom || next.Keywords!=settings.Keywords ||
-            next.OffsetMs!=settings.OffsetMs || next.Dedupe!=settings.Dedupe || next.Density!=settings.Density || next.OutlineWidth!=settings.OutlineWidth;
+            next.OffsetMs!=settings.OffsetMs || next.Dedupe!=settings.Dedupe || next.Density!=settings.Density || next.OutlineWidth!=settings.OutlineWidth || next.ShadowStrength!=settings.ShadowStrength;
         if (next.SpeedMultiplier!=settings.SpeedMultiplier)
             foreach (var b in active) b.Motion.Retime(now,8000/next.SpeedMultiplier);
         bool sameOffset=next.OffsetMs==settings.OffsetMs;
@@ -232,7 +232,7 @@ internal sealed class OverlaySurface : FrameworkElement
         double width=ActualWidth,height=ActualHeight,position=Position;
         double scale=width>0 && height>0 ? LayoutMath.Scale(width,height,layoutSettings.ScaleWithWindow) : 1;
         double dpi=VisualTreeHelper.GetDpi(this).PixelsPerDip;
-        double line=layoutSettings.FontSize*scale*1.4+4*scale;
+        double line=CommentSprite.LineHeight(layoutSettings.FontSize*scale,layoutSettings.ShadowStrength,scale);
         return new(visible,position,clock.Running,active.Count,shapes.Count,layoutSettings.FontSize*scale*dpi,height*settings.AreaFraction*dpi,width*dpi,height*dpi,
             active.Select(b=>b.Comment.Text).ToArray(),active.Select(b=>width-b.Motion.Progress(position)*(width+b.Width)).ToArray(),
             active.Select(b=>6*scale+b.Lane*line).ToArray(),active.Select(b=>b.Motion.Progress(position)).ToArray(),
@@ -316,7 +316,7 @@ internal sealed class OverlaySurface : FrameworkElement
             // the current position instead of filling the screen with a historical batch.
             recent.Clear(); cursor=0; queue.Seek(position,retained?.Count>0 ? ageWindow : 0); rebuild=false; preserveMotion=false;preserveDisplay=false;
         }
-        double scale=LayoutMath.Scale(width,height,settings.ScaleWithWindow), font=settings.FontSize*scale, line=font*1.4+4*scale;
+        double scale=LayoutMath.Scale(width,height,settings.ScaleWithWindow), font=settings.FontSize*scale, line=CommentSprite.LineHeight(font,settings.ShadowStrength,scale);
         int lanes=Math.Max(1,(int)Math.Floor((height*settings.AreaFraction-12*scale)/line));
         int scanned=0;
         foreach (var comment in queue.TakeDue(position,ageWindow))
@@ -336,7 +336,7 @@ internal sealed class OverlaySurface : FrameworkElement
             string normalized=comment.Text;
             if (settings.Dedupe && recent.TryGetValue(normalized,out double previous) && comment.TimeMs-previous<10000) continue;
             double dpi=VisualTreeHelper.GetDpi(this).PixelsPerDip;
-            string shapeKey=font.ToString("R",CultureInfo.InvariantCulture)+"|"+dpi.ToString("R",CultureInfo.InvariantCulture)+"|"+(settings.OutlineWidth*scale).ToString("R",CultureInfo.InvariantCulture)+"|"+comment.Color+"|"+comment.Text;
+            string shapeKey=font.ToString("R",CultureInfo.InvariantCulture)+"|"+dpi.ToString("R",CultureInfo.InvariantCulture)+"|"+(settings.OutlineWidth*scale).ToString("R",CultureInfo.InvariantCulture)+"|"+settings.ShadowStrength.ToString("R",CultureInfo.InvariantCulture)+"|"+scale.ToString("R",CultureInfo.InvariantCulture)+"|"+comment.Color+"|"+comment.Text;
             Geometry geometry=null; double spriteWidth=0,spriteHeight=0,pad=0; RasterSize raster=default;
             var shape=shapes.Find(shapeKey);
             if (shape==null)
@@ -349,7 +349,7 @@ internal sealed class OverlaySurface : FrameworkElement
                 position=Position;
                 if(motion.Progress(position)>1 || motion.Progress(position)<0) continue;
                 if (geometry.Bounds.IsEmpty) continue;
-                pad=settings.OutlineWidth*scale+2; spriteWidth=Math.Ceiling(geometry.Bounds.Width+pad*2); spriteHeight=Math.Ceiling(geometry.Bounds.Height+pad*2);
+                pad=CommentSprite.Padding(settings.OutlineWidth,settings.ShadowStrength,scale); spriteWidth=Math.Ceiling(geometry.Bounds.Width+pad*2); spriteHeight=Math.Ceiling(geometry.Bounds.Height+pad*2);
                 if (!SpriteLimits.TryMeasure(spriteWidth,spriteHeight,dpi,out raster)) { oversized++; continue; }
             }
             double textWidth=shape?.Width??spriteWidth, speed=(width+textWidth)/(duration/1000);
@@ -373,14 +373,7 @@ internal sealed class OverlaySurface : FrameworkElement
                 shape=shapes.Create(shapeKey,spriteWidth,spriteHeight,raster,()=>
                 {
                     if (!colors.TryGetValue(comment.Color,out var brush)) { if (colors.Count>=512) colors.Clear(); brush=new SolidColorBrush(Color.FromRgb((byte)(comment.Color>>16),(byte)(comment.Color>>8),(byte)comment.Color)); brush.Freeze(); colors[comment.Color]=brush; }
-                    var visual=new DrawingVisual();
-                    using (var dc=visual.RenderOpen())
-                    {
-                        dc.PushTransform(new TranslateTransform(pad-geometry.Bounds.Left,pad-geometry.Bounds.Top));
-                        dc.DrawGeometry(brush,settings.OutlineWidth>0 ? new Pen(Brushes.Black,settings.OutlineWidth*scale) : null,geometry); dc.Pop();
-                    }
-                    var bitmap=new RenderTargetBitmap(raster.Width,raster.Height,96*dpi,96*dpi,PixelFormats.Pbgra32);
-                    bitmap.Render(visual); return bitmap;
+                    return CommentSprite.Render(geometry,brush,settings.OutlineWidth,settings.ShadowStrength,scale,dpi,pad,raster);
                 });
                 if (shape==null)
                 {
@@ -412,14 +405,14 @@ internal sealed class OverlaySurface : FrameworkElement
     {
         base.OnRender(dc); double width=ActualWidth,height=ActualHeight,position=Position;
         if (width<=0 || height<=0) return;
-        double scale=LayoutMath.Scale(width,height,layoutSettings.ScaleWithWindow),line=layoutSettings.FontSize*scale*1.4+4*scale;
+        double scale=LayoutMath.Scale(width,height,layoutSettings.ScaleWithWindow),line=CommentSprite.LineHeight(layoutSettings.FontSize*scale,layoutSettings.ShadowStrength,scale);
         dc.PushClip(new RectangleGeometry(new Rect(0,0,width,Math.Max(0,height*settings.AreaFraction))));
         bool rendered=false;
         foreach (var b in AllowComments ? active : Enumerable.Empty<Bullet>())
         {
             double x=width-b.Motion.Progress(position)*(width+b.Width);
             double y=6*scale+b.Lane*line;
-            // Text and outline share this bitmap; brush alpha avoids a full-overlay opacity layer.
+            // Text, outline and shadow share this bitmap and the same final opacity.
             dc.DrawRectangle(b.Sprite.AlphaBrush(settings.Opacity),null,new Rect(x,y,b.Sprite.Width,b.Sprite.Height));
             double left=Math.Max(0,x),right=Math.Min(width,x+b.Sprite.Width),bottom=Math.Min(height*settings.AreaFraction,y+b.Sprite.Height);
             if(!rendered && notice.AwaitingDraw && VideoVisible && settings.Opacity>0 && right>left && bottom>y &&
