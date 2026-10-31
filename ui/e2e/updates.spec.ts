@@ -35,23 +35,54 @@ async function connect(page: Page, skin = 'fluent', state = fixture) {
 async function commands(page: Page) { return page.evaluate(() => (window as unknown as { updateFixture: { commands: string[] } }).updateFixture.commands); }
 async function emit(page: Page, value: unknown) { await page.evaluate(value => (window as unknown as { updateFixture: { emit: (value: unknown) => void } }).updateFixture.emit(value), value); }
 
-for (const skin of skinIds) test(`${skin}: red arrow follows More Settings without changing home height`, async ({ page }, testInfo) => {
+for (const skin of skinIds) test(`${skin}: compact More Settings uses an aligned SVG update badge without changing footer height`, async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 380, height: 560 });
   await connect(page, skin);
   for (const width of [320, 380, 768]) {
     await page.setViewportSize({ width, height: 560 });
-    const label = (await page.locator('.more-label').boundingBox())!, arrow = (await page.locator('.update-indicator').boundingBox())!;
-    expect(arrow.y).toBeLessThan(label.y);
-    expect(arrow.x).toBeGreaterThan(label.x + label.width - 4);
-    expect(await page.locator('.update-indicator').evaluate(el => getComputedStyle(el).color)).toBe(skin === 'studio' ? 'rgb(255, 105, 113)' : 'rgb(196, 36, 42)');
+    await expect(page.locator('.more-label')).toHaveCSS('font-size', '12px');
+    await expect(page.locator('.more-label')).toHaveCSS('font-weight', '400');
+    const label = (await page.locator('.more-label').boundingBox())!, badge = (await page.locator('.update-indicator').boundingBox())!;
+    expect(Math.abs(badge.y + badge.height / 2 - label.y - label.height / 2)).toBeLessThanOrEqual(1);
+    expect(badge.x).toBeGreaterThan(label.x);
+    expect(badge.x + badge.width).toBeLessThanOrEqual(label.x + label.width);
+    expect(badge.width).toBeLessThanOrEqual(16);
+    expect(badge.height).toBeLessThanOrEqual(16);
+    await expect(page.locator('.update-indicator')).toHaveCSS('color', skin === 'studio' ? 'rgb(255, 105, 113)' : 'rgb(196, 36, 42)');
+    await expect(page.locator('.update-indicator svg')).toHaveCount(1);
+    await expect(page.locator('.update-indicator')).toHaveAttribute('aria-hidden', 'true');
+    await expect(page.locator('.more-chevron')).toHaveCount(1);
+    expect((await page.locator('.more-chevron').boundingBox())!.width).toBeLessThanOrEqual(12);
+    await expect(page.getByRole('button', { name: '更多设置，有新版本 0.1.1-beta.10', exact: true })).toBeInViewport({ ratio: 1 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.locator('.mini-app').screenshot({ path: testInfo.outputPath(`home-${width}-${skin}.png`) });
   }
   await page.setViewportSize({ width: 380, height: 560 });
   const height = (await page.locator('.mini-app').boundingBox())!.height;
-  await page.screenshot({ path: testInfo.outputPath(`home-${skin}.png`) });
+  const footerHeight = (await page.locator('.mini-footer').boundingBox())!.height;
+  const violations = (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations;
+  expect(violations).toEqual([]);
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  await expect(page.locator('.update-indicator svg')).toBeVisible();
+  await expect(page.locator('.more-chevron')).toBeVisible();
+  await page.locator('.mini-app').screenshot({ path: testInfo.outputPath(`forced-colors-${skin}.png`) });
+  await page.emulateMedia({ forcedColors: 'none', reducedMotion: 'no-preference' });
+  await page.locator('.mini-app').screenshot({ path: testInfo.outputPath(`home-${skin}.png`) });
+  await page.getByRole('button', { name: /^更多设置/ }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: '返回', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.locator('.more-label')).toHaveCSS('font-size', '12px');
+  await expect(page.locator('.more-chevron')).toHaveAttribute('data-direction', 'back');
+  await expect(page.locator('.more-chevron')).toHaveCSS('transform', 'matrix(-1, 0, 0, -1, 0, 0)');
+  await page.locator('.mini-app').screenshot({ path: testInfo.outputPath(`return-${skin}.png`) });
+  await page.getByRole('button', { name: '返回', exact: true }).click();
+  expect((await commands(page)).filter(type => ['download-update', 'install-update'].includes(type))).toEqual([]);
   await emit(page, { ...fixture, state: 'current', availableVersion: '', revision: 2 });
   await expect(page.locator('.update-indicator')).toHaveCount(0);
   expect((await page.locator('.mini-app').boundingBox())!.height).toBe(height);
+  expect((await page.locator('.mini-footer').boundingBox())!.height).toBe(footerHeight);
+  await expect(page.getByRole('button', { name: '更多设置', exact: true })).toBeVisible();
+  await page.locator('.mini-app').screenshot({ path: testInfo.outputPath(`no-update-${skin}.png`) });
 });
 
 test('opening settings never downloads; opt-in settings and two-step install remain explicit', async ({ page }, testInfo) => {
