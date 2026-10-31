@@ -1,15 +1,23 @@
-.more-label { position: relative; display: inline-block; }
-.update-indicator { position: absolute; top: -7px; right: -8px; color: #c4242a; font-size: 12px; line-height: 1; font-weight: 700; pointer-events: none; }
-html[data-skin="studio"] .update-indicator { color: #ff6971; }
+.update-label { position: relative; }
+.update-label.has-update { padding-right: 18px; }
+.mini-app .update-indicator { position: absolute; top: -4px; right: 0; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; background: #c4242a; color: #fff; font-size: 11px; font-weight: 600; line-height: 1; pointer-events: none; }
+html[data-skin="studio"] .mini-app .update-indicator { background: #ff6971; color: #201e1e; }
 .update-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.update-panel { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); } /* taste-skill-ignore: matches existing app settings section dividers. */
-.update-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.update-heading h3, .update-panel>h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.update-panel { margin-top: 10px; border-top: 1px solid var(--line); scroll-margin-top: 4px; } /* taste-skill-ignore: separates the independent update disclosure from display controls. */
+.mini-app .update-summary { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 6px 0; list-style: none; }
+.update-summary::-webkit-details-marker { display: none; }
+.mini-app .update-title { flex-shrink: 0; font-size: 13px; font-weight: 500; line-height: 20px; }
+.update-summary-state { margin-left: auto; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.update-disclosure { width: 12px; height: 12px; flex-shrink: 0; color: var(--muted); }
+.update-panel[open] > .update-summary .update-disclosure { transform: rotate(90deg); }
+.update-body { padding: 4px 0 10px; }
+.update-build { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; color: var(--muted); font-size: 11px; }
 .update-version { font-size: 12px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .update-muted { margin: 5px 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
-.update-preferences { margin: 10px 0; }
-.update-toggle, .update-channel { display: flex; align-items: center; justify-content: space-between; min-height: 34px; gap: 12px; font-size: 12px; }
+.update-preferences { margin: 8px 0; }
+.update-toggle, .update-channel { display: flex; align-items: center; justify-content: space-between; min-height: 32px; gap: 12px; font-size: 12px; }
 .update-channel select { max-width: 65%; font-size: 12px; padding: 5px 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 5px; }
+.update-channel select:disabled { opacity: 1; color: var(--muted); cursor: not-allowed; }
 .update-phase { margin: 10px 0 5px; font-size: 13px; font-weight: 500; }
 .update-message { margin: 7px 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .update-progress { display: flex; align-items: center; gap: 10px; font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -19,5 +27,6 @@ html[data-skin="studio"] .update-indicator { color: #ff6971; }
 .update-notes { margin-top: 9px; font-size: 12px; }
 .update-notes pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; font: inherit; line-height: 1.7; }
 .update-confirm { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.7; } /* taste-skill-ignore: separates explicit install confirmation in the existing app style. */
-@media (pointer: coarse) { .update-toggle, .update-channel, .update-panel .update-actions button { min-height: 44px; } }
-@media (forced-colors: active) { .update-indicator { color: LinkText; } }
+@media (pointer: coarse) { .mini-app .update-summary, .update-toggle, .update-channel, .update-panel .update-actions button { min-height: 44px; } }
+@media (pointer: coarse) { .update-channel select { min-height: 44px; } }
+@media (forced-colors: active) { .mini-app .update-indicator, html[data-skin="studio"] .mini-app .update-indicator { background: Highlight; color: HighlightText; border: 1px solid CanvasText; } }

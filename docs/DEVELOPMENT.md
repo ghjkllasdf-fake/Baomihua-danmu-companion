@@ -56,7 +56,7 @@ node scripts/test-release.mjs --version 0.1.1-beta.6
 
 更新源固定为本项目 GitHub Releases，不使用第三方版本服务器或内置 GitHub Token。构建器共同发布 `NativeHost`、`NativeProbe`、`NativeUpdater`，相同运行库只保留一份。每个发行版新增 `DanmuCompanion-VERSION-win-x64[-includeAPI]-manifest.json` 附件，与安装版、Portable ZIP 来自同一份 payload，三个文件的哈希均进入 `SHA256SUMS.txt`。发布新版本时应上传两种发行版的独立 manifest，并合并校验清单；安装更新缺少对应清单时不会被选择。不要修改已发布同版本资产。
 
-自动检查只在完整、干净、版本一致的发行包和正常 `app` 配置中启动；候选／源码及隔离测试配置不自动联网。首次检查约 20–30 秒后，后续间隔六小时；下载必须手动触发或明确开启。状态和安装命令通过 `github-update-v1` 类型契约，原生组件以当前用户管道、进程身份及真实界面／采样握手确认交接与重启。安装版更新同时校验配套 ZIP，原生组件将新增文件原子、非覆盖地放入目标并记录磁盘身份；Inno 只更新原有应用文件和安装登记，不再覆盖新增路径，不靠相同内容猜测文件所有权。
+自动检查只在完整、干净、版本一致的发行包和正常 `app` 配置中启动；候选／源码及隔离测试配置不自动联网。首次检查约 20–30 秒后，后续默认间隔六小时，可在“更多设置”底部折叠的“软件更新”模块选择 1、6、12、24 小时；网络失败或 GitHub 限流时会退避。下载必须手动触发或明确开启。状态和安装命令通过 `github-update-v1` 类型契约，原生组件以当前用户管道、进程身份及真实界面／采样握手确认交接与重启。安装版更新同时校验配套 ZIP，原生组件将新增文件原子、非覆盖地放入目标并记录磁盘身份；Inno 只更新原有应用文件和安装登记，不再覆盖新增路径，不靠相同内容猜测文件所有权。
 
 ```text
 .deps\dotnet\dotnet.exe build tests/NativeDistribution/NativeDistribution.csproj -c Release --no-restore
