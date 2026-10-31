@@ -1,5 +1,12 @@
 export type UpdatePhase = 'unavailable' | 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'verifying' | 'ready' | 'applying' | 'failed';
-export interface UpdatePreferences { autoCheck: boolean; autoDownload: boolean; channel: 'beta' | 'stable' }
+export const updateCheckIntervals = [1, 6, 12, 24] as const;
+export type CheckIntervalHours = typeof updateCheckIntervals[number];
+export const defaultCheckIntervalHours: CheckIntervalHours = 6;
+export interface UpdatePreferences {
+  autoCheck: boolean; autoDownload: boolean; channel: 'beta' | 'stable';
+  // Omission preserves the legacy github-update-v1 host/payload contract.
+  checkIntervalHours?: CheckIntervalHours;
+}
 export interface UpdateSnapshot extends UpdatePreferences {
   state: UpdatePhase; currentVersion: string; availableVersion: string; variant: 'standard' | 'includeAPI'; distribution: 'portable' | 'installer';
   checkedAt: string; downloadedBytes: number; totalBytes: number; notes: string; message: string; revision: number; supported: boolean; canInstall: boolean; lastResult: string;
@@ -24,13 +31,19 @@ function newer(a: string, b: string): boolean {
   return x.pre.length > y.pre.length;
 }
 export function validUpdatePreferences(v: unknown): v is UpdatePreferences {
-  return object(v) && exact(v, ['autoCheck', 'autoDownload', 'channel']) && typeof v.autoCheck === 'boolean' && typeof v.autoDownload === 'boolean' && ['beta', 'stable'].includes(String(v.channel));
+  if (!object(v)) return false;
+  const interval = Object.hasOwn(v, 'checkIntervalHours');
+  return exact(v, ['autoCheck', 'autoDownload', 'channel', ...(interval ? ['checkIntervalHours'] : [])]) &&
+    (!interval || updateCheckIntervals.some(hours => v.checkIntervalHours === hours)) &&
+    typeof v.autoCheck === 'boolean' && typeof v.autoDownload === 'boolean' && ['beta', 'stable'].includes(String(v.channel));
 }
 export function validUpdateSnapshot(v: unknown): v is UpdateSnapshot {
-  if (!object(v) || !exact(v, ['state', 'currentVersion', 'availableVersion', 'variant', 'distribution', 'channel', 'autoCheck', 'autoDownload', 'checkedAt', 'downloadedBytes', 'totalBytes', 'notes', 'message', 'revision', 'supported', 'canInstall', 'lastResult'])) return false;
+  if (!object(v)) return false;
+  const interval = Object.hasOwn(v, 'checkIntervalHours');
+  if (!exact(v, ['state', 'currentVersion', 'availableVersion', 'variant', 'distribution', 'channel', 'autoCheck', 'autoDownload', 'checkedAt', 'downloadedBytes', 'totalBytes', 'notes', 'message', 'revision', 'supported', 'canInstall', 'lastResult', ...(interval ? ['checkIntervalHours'] : [])])) return false;
   if (!['unavailable', 'idle', 'checking', 'current', 'available', 'downloading', 'verifying', 'ready', 'applying', 'failed'].includes(String(v.state)) ||
     !['standard', 'includeAPI'].includes(String(v.variant)) || !['portable', 'installer'].includes(String(v.distribution)) ||
-    !validUpdatePreferences({ autoCheck: v.autoCheck, autoDownload: v.autoDownload, channel: v.channel }) ||
+    !validUpdatePreferences({ autoCheck: v.autoCheck, autoDownload: v.autoDownload, channel: v.channel, ...(interval ? { checkIntervalHours: v.checkIntervalHours } : {}) }) ||
     typeof v.supported !== 'boolean' || typeof v.canInstall !== 'boolean' || typeof v.notes !== 'string' || v.notes.length > 16000 || typeof v.message !== 'string' || v.message.length > 500 || typeof v.lastResult !== 'string' || v.lastResult.length > 500 ||
     !integer(v.revision) || !integer(v.downloadedBytes, 1024 * 1024 * 1024) || !integer(v.totalBytes, 1024 * 1024 * 1024) || Number(v.downloadedBytes) > Number(v.totalBytes) ||
     typeof v.checkedAt !== 'string' || v.checkedAt.length > 64 || v.checkedAt !== '' && !Number.isFinite(Date.parse(v.checkedAt)) ||
@@ -43,4 +56,5 @@ export function validUpdateSnapshot(v: unknown): v is UpdateSnapshot {
   return !v.canInstall || v.state === 'ready' && v.supported === true;
 }
 export function hasUpdate(value: unknown): boolean { return validUpdateSnapshot(value) && Boolean(value.availableVersion); }
+export const supportsUpdateCheckInterval = (snapshot: UpdateSnapshot) => snapshot.checkIntervalHours !== undefined;
 export const updateBusy = (state: UpdatePhase) => ['checking', 'downloading', 'verifying', 'applying'].includes(state);
