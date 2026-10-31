@@ -1,0 +1,23 @@
+.more-label { position: relative; display: inline-block; }
+.update-indicator { position: absolute; top: -7px; right: -8px; color: #c4242a; font-size: 12px; line-height: 1; font-weight: 700; pointer-events: none; }
+html[data-skin="studio"] .update-indicator { color: #ff6971; }
+.update-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.update-panel { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.update-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.update-heading h3, .update-panel>h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.update-version { font-size: 12px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.update-muted { margin: 5px 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.update-preferences { margin: 10px 0; }
+.update-toggle, .update-channel { display: flex; align-items: center; justify-content: space-between; min-height: 34px; gap: 12px; font-size: 12px; }
+.update-channel select { max-width: 65%; font-size: 12px; padding: 5px 7px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 5px; }
+.update-phase { margin: 10px 0 5px; font-size: 13px; font-weight: 500; }
+.update-message { margin: 7px 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.update-progress { display: flex; align-items: center; gap: 10px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.update-progress progress { min-width: 0; flex: 1; height: 8px; accent-color: var(--accent); }
+.update-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 9px; }
+.update-panel .update-actions button { min-height: 32px; }
+.update-notes { margin-top: 9px; font-size: 12px; }
+.update-notes pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; font: inherit; line-height: 1.7; }
+.update-confirm { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.7; }
+@media (pointer: coarse) { .update-toggle, .update-channel, .update-panel .update-actions button { min-height: 44px; } }
+@media (forced-colors: active) { .update-indicator { color: LinkText; } }

@@ -1,4 +1,5 @@
 import { validAppearanceSnapshot, type AppearanceSnapshot } from './appearance.ts';
+import { validUpdateSnapshot, type UpdateSnapshot } from './updates';
 
 export interface Settings {
   areaFraction: number; fontSize: number; scaleWithWindow: boolean; speedMultiplier: number;
@@ -60,6 +61,7 @@ export function safeLocalApiText(value: string, fallback: string): string {
 export interface Hello extends SettingsSnapshot {
   apiBase: string; stateSequence: number; protocolVersion: 1; capabilities: string[];
   apiSaved?: boolean; apiNotice?: string; localApi?: LocalApi; appearance?: AppearanceSnapshot;
+  update?: UpdateSnapshot;
 }
 export function validHello(value: unknown): value is Hello {
   if (!validSettingsSnapshot(value)) return false;
@@ -69,6 +71,7 @@ export function validHello(value: unknown): value is Hello {
     hello.protocolVersion === 1 && Array.isArray(hello.capabilities) && hello.capabilities.length <= 32 &&
     hello.capabilities.every(capability => typeof capability === 'string' && capability.length <= 64) &&
     hello.capabilities.includes('media-context-v1') &&
+    (!hello.capabilities.includes('github-update-v1') || validUpdateSnapshot(hello.update)) &&
     (!hello.capabilities.includes('appearance-v1') || validAppearanceSnapshot(hello.appearance)) &&
     (!hello.capabilities.includes('embedded-api-v1') || validLocalApi(hello.localApi)) &&
     (!hello.capabilities.includes('api-persistence-v1') || typeof hello.apiSaved === 'boolean' &&
