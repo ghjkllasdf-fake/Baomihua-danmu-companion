@@ -94,7 +94,7 @@ public sealed class DesktopWindow : Form
         overlay=new OverlayHost(); overlay.SetSettings(Settings);
         probe=new PlayerProbe(root); probe.SampleUpdated+=QueuePlayerUpdate; sample=probe.Latest;
         startup=new StartupRegistration(root);
-        tray=new DesktopTray(root,OpenWorkbench,RequestExit,(anchor,wasVisible)=>{if(wasVisible || Visible)HideWorkbench();else OpenWorkbench();},()=>Visible);
+        tray=new DesktopTray(root,OpenWorkbench,RequestExit,(anchor,wasVisible)=>{if(wasVisible || Visible)HideWorkbench();else OpenWorkbenchAt(anchor);},()=>Visible);
         flyout=new TrayFlyout(this,()=>tray.MenuVisible);
         automaticMatcher=new AutomaticMatcher(api.FetchAsync,ApplyAutomaticMatch,OnAutomaticState,message=>tray.ShowFailure(message),localApi==null ? 0 : 3);
         CommentsLoaded+=comments=>overlay.SetComments(comments,presentationTicket);
@@ -141,9 +141,14 @@ public sealed class DesktopWindow : Form
     public void OpenWorkbench()
     {
         if(closing || IsDisposed)return;
-        openRequested=true;
         var screen=Screen.PrimaryScreen;
-        flyout.Open(tray.Anchor??new Point(screen.Bounds.Right-24,screen.Bounds.Bottom-1));
+        OpenWorkbenchAt(tray.Anchor??new Point(screen.Bounds.Right-24,screen.Bounds.Bottom-1));
+    }
+    private void OpenWorkbenchAt(Point anchor)
+    {
+        if(closing || IsDisposed)return;
+        openRequested=true;
+        flyout.Open(anchor);
         UpdateBrowserPresentation();
     }
     public void HideWorkbench(){if(!closing && !IsDisposed)flyout.Hide();}

@@ -10,7 +10,17 @@ internal sealed class DesktopTray : IDisposable
     private readonly ContextMenuStrip menu;
     private readonly Icon artwork;
     private bool disposed;
-    public Point? Anchor {get;private set;}
+    private Point? lastInteraction;
+    public Point? Anchor
+    {
+        get
+        {
+            if(disposed)return null;
+            return IconCentre()??lastInteraction;
+        }
+    }
+    private Point? IconCentre()=>TrayIconLocator.GetBounds(icon) is Rectangle bounds
+        ? new Point(bounds.Left+bounds.Width/2,bounds.Top+bounds.Height/2) : null;
     public bool MenuVisible=>menu.Visible;
     public DesktopTray(string root,Action open,Action exit,Action<Point,bool> toggle=null,Func<bool> visible=null)
     {
@@ -22,8 +32,8 @@ internal sealed class DesktopTray : IDisposable
         icon=new NotifyIcon {Icon=artwork,Text=Tooltip("",0,"",0),ContextMenuStrip=menu,Visible=true};
         icon.BalloonTipClicked+=(_,_)=>open();
         bool wasVisible=false;
-        icon.MouseDown+=(_,_)=>{Anchor=Cursor.Position;wasVisible=visible?.Invoke()==true;};
-        icon.MouseClick+=(_,e)=>{if(e.Button==MouseButtons.Left){if(toggle!=null)toggle(Anchor??Cursor.Position,wasVisible);else open();}};
+        icon.MouseDown+=(_,_)=>{lastInteraction=IconCentre()??Cursor.Position;wasVisible=visible?.Invoke()==true;};
+        icon.MouseClick+=(_,e)=>{if(e.Button==MouseButtons.Left){if(toggle!=null)toggle(lastInteraction??Anchor??Cursor.Position,wasVisible);else open();}};
     }
     private static string Compact(string value,int limit)
     {
