@@ -108,20 +108,31 @@ for (const skin of ['fluent', 'glass', 'winui', 'studio']) {
     expect(pulse.state).toBe('running');
     const started = await button.evaluate(element => Number(element.getAnimations()[0].currentTime));
     await expect.poll(() => button.evaluate(element => Number(element.getAnimations()[0].currentTime))).toBeGreaterThan(started);
-    const phases = await button.evaluate(element => {
-      const animation = element.getAnimations().find(item => item instanceof CSSAnimation && item.animationName === 'manual-source-breathe')!;
-      animation.pause(); animation.currentTime = 0;
-      const quiet = getComputedStyle(element).boxShadow;
-      animation.currentTime = 1400;
-      const bright = getComputedStyle(element).boxShadow;
-      animation.play();
-      return { quiet, bright };
-    });
-    expect(phases.quiet).not.toBe(phases.bright);
+    const phases = [];
+    for (const time of [0, 1400]) {
+      phases.push(await button.evaluate((element, currentTime) => {
+        const animation = element.getAnimations().find(item => item instanceof CSSAnimation && item.animationName === 'manual-source-breathe')!;
+        animation.pause(); animation.currentTime = currentTime;
+        const style = getComputedStyle(element), box = element.getBoundingClientRect();
+        return { background: style.backgroundColor, border: style.borderColor, shadow: style.boxShadow,
+          color: style.color, opacity: style.opacity, transform: style.transform, width: box.width, height: box.height };
+      }, time));
+      const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+      expect(axe.violations).toEqual([]);
+    }
+    expect(phases[0].background).not.toBe(phases[1].background);
+    expect(phases[0].border).not.toBe(phases[1].border);
+    expect(phases[0].shadow).not.toBe(phases[1].shadow);
+    expect(phases[0].width).toBe(phases[1].width);
+    expect(phases[0].height).toBe(phases[1].height);
+    expect(phases[0].color).toBe(phases[1].color);
+    for (const phase of phases) {
+      expect(phase.transform).toBe('none');
+      expect(phase.opacity).toBe('1');
+    }
+    await button.evaluate(element => element.getAnimations()[0].play());
     await expect(page.locator('.source-view')).toBeHidden();
     await expect(button).not.toBeFocused();
-    const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
-    expect(axe.violations).toEqual([]);
     await page.setViewportSize({ width: 320, height: 540 });
     await expect(button).toBeInViewport({ ratio: 1 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
