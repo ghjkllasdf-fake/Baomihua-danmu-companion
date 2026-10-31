@@ -38,9 +38,15 @@ internal static class UpdateTransactionTests
             UpdatePackageTests.Reject(()=>rollback.Apply(_=>throw new IOException("injected apply failure")),"Apply failure must remain a failure after rollback.");
             UpdatePackage.VerifyDirectory(root,"0.1.1-beta.9","standard");
             DistributionTests.Check(File.ReadAllText(Path.Combine(root,"user.txt"))=="preserve foreign file","Rollback must preserve foreign content.");
-            File.Copy(Path.Combine(interrupted,"stage","new.dll"),Path.Combine(root,"new.dll"));
+            string partial=Path.Combine(interrupted,"new.tmp");File.Copy(Path.Combine(interrupted,"stage","new.dll"),partial);
+            rollback.RecordCreated("new.dll",partial);File.Move(partial,Path.Combine(root,"new.dll"));
             UpdateTransaction.Load(interrupted).Restore();
             DistributionTests.Check(!File.Exists(Path.Combine(root,"new.dll")),"Journal recovery must clean a partially applied owned file.");
+            string raced=UpdateStorage.CreateOperation(parent,"transaction");Payload(Path.Combine(raced,"stage"),"0.1.1-beta.10",nextFiles);
+            var race=UpdateTransaction.Prepare(root,raced,"0.1.1-beta.10","standard");File.WriteAllText(Path.Combine(root,"new.dll"),"late foreign sentinel");
+            UpdatePackageTests.Reject(()=>race.Apply(),"Apply must reject a new-file collision introduced after Prepare.");
+            DistributionTests.Check(File.ReadAllText(Path.Combine(root,"new.dll"))=="late foreign sentinel","Apply and rollback must preserve late foreign bytes.");
+            UpdatePackage.VerifyDirectory(root,"0.1.1-beta.9","standard");File.Delete(Path.Combine(root,"new.dll"));
             File.WriteAllText(Path.Combine(root,"new.dll"),"foreign collision");
             string collision=UpdateStorage.CreateOperation(parent,"transaction");Payload(Path.Combine(collision,"stage"),"0.1.1-beta.10",nextFiles);
             UpdatePackageTests.Reject(()=>UpdateTransaction.Prepare(root,collision,"0.1.1-beta.10","standard"),"New payload must not overwrite an unowned collision.");
