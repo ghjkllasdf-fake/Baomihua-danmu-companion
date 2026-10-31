@@ -44,6 +44,21 @@ internal static class UpdateInstallerTests
             transaction.RecordCreatedForTest("new.dll");
             File.WriteAllText(Path.Combine(root,"unins000.exe"),"new uninstall fixture");transaction.AcceptInstalled();transaction.Restore();
             UpdatePackage.VerifyDirectory(root,"0.1.1-beta.9","standard");
+            string advancedRoot=Path.Combine(fixture,"newer-install"),advancedStage=Path.Combine(fixture,"newer-install-stage");
+            UpdateTransactionTests.Payload(advancedRoot,"0.1.1-beta.9",new Dictionary<string,string>{{"DanmuCompanion.exe","old"}});
+            UpdateTransactionTests.Payload(advancedStage,"0.1.1-beta.10",new Dictionary<string,string>{{"DanmuCompanion.exe","next"}});
+            var advancedRegistration=new Registration();
+            var obsoleteRecovery=UpdateInstallerTransaction.Prepare(advancedRoot,UpdateStorage.CreateOperation(UpdateTransaction.ParentFor(advancedRoot),"transaction"),"0.1.1-beta.10","standard",advancedRegistration,UpdatePackage.Read(advancedStage));
+            UpdateTransactionTests.Payload(advancedRoot,"0.1.1-beta.11",new Dictionary<string,string>{{"DanmuCompanion.exe","newer successful install"}});
+            using(var lockedManifest=new FileStream(Path.Combine(advancedRoot,"manifest.json"),FileMode.Open,FileAccess.Read,FileShare.None))
+            {
+                bool rejected=false;
+                try{obsoleteRecovery.Restore();}catch(Exception error) when(error is IOException or UnauthorizedAccessException){rejected=true;}
+                DistributionTests.Check(rejected,"An unreadable current manifest must block stale recovery before any mutation.");
+                DistributionTests.Check(!advancedRegistration.Restored && File.ReadAllText(Path.Combine(advancedRoot,"DanmuCompanion.exe"))=="newer successful install","A locked newer manifest must leave all installed files and registration untouched.");
+            }
+            UpdatePackageTests.Reject(()=>obsoleteRecovery.Restore(),"An old installed transaction must not overwrite a later valid installation.");
+            DistributionTests.Check(!advancedRegistration.Restored && File.ReadAllText(Path.Combine(advancedRoot,"DanmuCompanion.exe"))=="newer successful install","A stale recovery must reject before touching files or registration.");
             string dynamicRoot=Path.Combine(fixture,"dynamic-app"),dynamicStage=Path.Combine(fixture,"dynamic-stage");
             UpdateTransactionTests.Payload(dynamicRoot,"0.1.1-beta.9",new Dictionary<string,string>{{"DanmuCompanion.exe","old"},{"dynamic.dll","old dynamic"}});
             UpdateInstalledOwnership.Save(dynamicRoot,new[]{new UpdateOwnedFile("dynamic.dll",UpdateFileIdentity.Read(Path.Combine(dynamicRoot,"dynamic.dll")))});
@@ -118,6 +133,7 @@ internal static class UpdateInstallerTests
             string corruptDirectory=UpdateStorage.CreateOperation(parent,"transaction");var corruptRegistration=new Registration();
             var corrupt=UpdateInstallerTransaction.Prepare(root,corruptDirectory,"0.1.1-beta.10","standard",corruptRegistration,incoming);
             File.WriteAllText(Path.Combine(root,"DanmuCompanion.exe"),"partially installed main");File.WriteAllText(Path.Combine(root,"new.dll"),"unproven new bytes");
+            File.WriteAllText(Path.Combine(root,"manifest.json"),"{interrupted manifest");
             File.WriteAllText(Path.Combine(corruptDirectory,"1.file-id"),"new.dll|partial");corrupt.Restore();
             DistributionTests.Check(corruptRegistration.Restored && corrupt.RecoveryNotice.Length>0 && File.ReadAllText(Path.Combine(root,"new.dll"))=="unproven new bytes","Corrupt creation logs must still restore originals and registry while preserving unproven bytes.");
             UpdatePackage.VerifyDirectory(root,"0.1.1-beta.9","standard");

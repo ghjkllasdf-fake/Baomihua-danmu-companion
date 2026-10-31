@@ -183,6 +183,12 @@ internal sealed class UpdateInstallerTransaction
     public void Restore()
     {
         UpdatePackage.Check(UpdateStorage.Owns(UpdateTransaction.ParentFor(Root),Directory),"安装恢复目录的所属证明无效。");
+        UpdatePackage current=null;
+        // Unreadable metadata is not evidence of an interrupted install: locks and access failures must stop before any write.
+        try{current=UpdatePackage.Read(Root);}
+        catch(Exception error) when(error is FileNotFoundException or DirectoryNotFoundException or InvalidDataException or JsonException or
+            InvalidOperationException or ArgumentException or System.Collections.Generic.KeyNotFoundException or FormatException or OverflowException){}
+        UpdatePackage.Check(current==null || current.Variant==Variant && (current.Version==previous.Version || current.Version==Version),"安装目录已是其他版本或发行版，旧恢复事务不会覆盖它。");
         foreach(var file in originals)UpdatePackage.VerifyFile(UpdatePackage.SafeFile(Backup,file.Path),file);
         Created[] created=Array.Empty<Created>();
         var restoredIdentities=nativeOwned.ToDictionary(f=>f.Path,f=>f.Identity,StringComparer.OrdinalIgnoreCase);
