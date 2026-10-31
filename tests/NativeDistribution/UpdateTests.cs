@@ -37,5 +37,7 @@ internal static class UpdateTests
         Console.WriteLine("PASS: update version, channel, edition and checksum contracts.");
         UpdatePackageTests.Run();
         UpdateTransportTests.Run().GetAwaiter().GetResult();
+        UpdateServiceTests.Run().GetAwaiter().GetResult();
+        UpdateTransactionTests.Run();
     }
 }
