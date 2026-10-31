@@ -1,11 +1,32 @@
 import { test, expect } from '@playwright/test';
 
+test('shadow intensity supports keyboard adjustment, explicit off and confirmed rollback', async ({ page }) => {
+  const slider = page.getByRole('slider', { name: '阴影强度', exact: true });
+  await expect(slider).toHaveValue('0.45');
+  await slider.press('End');
+  await expect(slider).toHaveAttribute('aria-valuetext', '100%');
+  await page.clock.runFor(16);
+  await expect(page.locator('html')).toHaveAttribute('data-updates', '1');
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('fixture-settle', { detail: { index: 0, ok: true } })));
+  await expect(page.locator('.mini-footer')).toContainText('显示偏好已保存');
+  await slider.press('Home'); await page.clock.runFor(16);
+  await expect(slider).toHaveAttribute('aria-valuetext', '关闭');
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('fixture-settle', { detail: { index: 1, ok: false } })));
+  await expect(slider).toHaveValue('1');
+  await expect(page.getByRole('alert')).toContainText('保存失败');
+  await slider.press('Home'); await page.clock.runFor(16);
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('fixture-settle', { detail: { index: 2, ok: true } })));
+  await expect(slider).toHaveValue('0');
+  await expect(slider).toHaveAttribute('aria-valuetext', '关闭');
+  await expect(page.locator('.mini-footer')).toContainText('显示偏好已保存');
+});
+
 test.beforeEach(async ({ page }) => {
   await page.clock.install();
   await page.addInitScript(() => {
     const callbacks: ((event: { data: unknown }) => void)[] = [];
     const updates: { id: string; payload: { settings: unknown } }[] = [];
-    let settings: unknown = { areaFraction: .5, fontSize: 28, scaleWithWindow: true, speedMultiplier: 1, opacity: .85, outlineWidth: 1, density: 60, rolling: true, top: true, bottom: true, dedupe: true, keywords: '', offsetMs: 0, enabled: true };
+    let settings: unknown = { areaFraction: .5, fontSize: 28, scaleWithWindow: true, speedMultiplier: 1, opacity: .85, outlineWidth: 1, shadowStrength: .45, density: 60, rolling: true, top: true, bottom: true, dedupe: true, keywords: '', offsetMs: 0, enabled: true };
     let settingsRevision = 0, reads = 0, holdReads = false;
     window.addEventListener('fixture-commit', event => { settings = updates[(event as CustomEvent<number>).detail].payload.settings; settingsRevision++; });
     window.addEventListener('fixture-hold-reads', event => { holdReads = Boolean((event as CustomEvent).detail); });

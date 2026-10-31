@@ -11,8 +11,9 @@ test('compact panel has rows and header toggles, no product preview, and local n
   await expect(page.getByRole('switch', { name: '开机自动启动', exact: true })).toBeVisible();
   await expect(page.getByLabel('API 地址', { exact: true })).toBeVisible();
   const rows = await page.getByRole('slider').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().top));
-  expect(rows.length).toBe(4);
-  expect(new Set(rows).size).toBe(4);
+  expect(rows.length).toBe(5);
+  expect(new Set(rows).size).toBe(5);
+  await expect(page.getByRole('slider', { name: '阴影强度', exact: true })).toHaveValue('0.45');
   await expect(page.getByRole('button', { name: '搜索弹幕来源', exact: true })).toBeHidden();
   await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
   await page.getByLabel('正在看什么？').fill('保留的手动搜索');

@@ -10,7 +10,7 @@ function Range({ label, value, min, max, step = 1, display, onChange }: {
   </div>;
 }
 export function DisplaySettings({ settings: s, update, view = 'all' }: { settings: Settings; update(patch: Partial<Settings>): void; view?: 'basic' | 'advanced' | 'all' }) {
-  return <section className="display-settings" aria-labelledby={view === 'advanced' ? 'advanced-heading' : 'display-heading'}>
+  return <section className="display-settings" data-view={view} aria-labelledby={view === 'advanced' ? 'advanced-heading' : 'display-heading'}>
     <h2 id={view === 'advanced' ? 'advanced-heading' : 'display-heading'} className="sr-only">{view === 'advanced' ? '高级显示设置' : '显示设置'}</h2>
     {view !== 'advanced' && <>
     <fieldset className="region-control"><legend>显示区域 <small>从顶部向下</small></legend>
@@ -24,6 +24,7 @@ export function DisplaySettings({ settings: s, update, view = 'all' }: { setting
       <Range label="滚动速度" min={.5} max={2} step={.1} value={s.speedMultiplier} display={`${s.speedMultiplier.toFixed(1)}×`} onChange={speedMultiplier => update({ speedMultiplier })} />
       <Range label="不透明度" min={.1} max={1} step={.05} value={s.opacity} display={`${Math.round(s.opacity * 100)}%`} onChange={opacity => update({ opacity })} />
       <Range label="文字描边" min={0} max={3} step={.5} value={s.outlineWidth} display={`${s.outlineWidth} px`} onChange={outlineWidth => update({ outlineWidth })} />
+      <Range label="阴影强度" min={0} max={1} step={.05} value={s.shadowStrength} display={s.shadowStrength === 0 ? '关闭' : `${Math.round(s.shadowStrength * 100)}%`} onChange={shadowStrength => update({ shadowStrength })} />
     </div>
     <label className="toggle-row"><span>等比缩放<small>全屏与小窗，保持相同的观看比例</small></span><input aria-label="随视频窗口等比缩放" type="checkbox" role="switch" checked={s.scaleWithWindow} onChange={e => update({ scaleWithWindow: e.target.checked })} /></label>
     <div className="setting-line"><label htmlFor="density">弹幕密度</label><select id="density" value={s.density} onChange={e => update({ density: Number(e.target.value) })}>

@@ -112,13 +112,19 @@
 :root .mini-app .preview-banner{background:var(--accent-soft);color:var(--ink)}
 
 
+/* Keep the fifth display row above the footer without shrinking touch targets. */
+@media(pointer:fine){:root[data-skin] .mini-app .display-settings[data-view=basic] .range-control{min-height:28px}:root[data-skin] .mini-app .display-settings[data-view=basic]>.toggle-row{min-height:32px;padding:5px 0}:root[data-skin] .mini-app .display-settings[data-view=basic]>.setting-line{min-height:32px;padding:2px 0}:root[data-skin=studio] .mini-app .display-settings[data-view=basic] .range-grid{gap:2px}}
 @media(pointer:coarse){:root[data-skin] .mini-app input[type=range]{height:40px}:root[data-skin] .mini-app .range-control{min-height:44px}:root .skin-trigger{min-width:44px;min-height:44px}}
 
-/* A terminal match failure promotes the next action, not every progress update. */
-:root .mini-app .manual-source-link.needs-attention{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:4px 8px;border:1px solid transparent;border-radius:6px;background:var(--accent);color:#fff;font-weight:600;white-space:nowrap}
+/* A slow, small-area signal keeps the next action visible without flashing its text. */
+:root .mini-app .manual-source-link.needs-attention{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:4px 8px;border:1px solid color-mix(in srgb,var(--accent) 28%,transparent);border-radius:6px;background:var(--accent-soft);color:var(--ink);font-weight:600;white-space:nowrap;animation:manual-source-breathe 2.8s ease-in-out infinite}
+:root .mini-app .manual-source-link.needs-attention::before{content:"";width:5px;height:5px;flex:none;border-radius:50%;background:var(--accent);animation:manual-signal-breathe 2.8s ease-in-out infinite}
+@keyframes manual-source-breathe{0%,100%{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 4%,transparent),0 0 0 0 transparent}50%{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 26%,transparent),0 0 8px 2px color-mix(in srgb,var(--accent) 13%,transparent)}}
+@keyframes manual-signal-breathe{0%,100%{opacity:.45;box-shadow:0 0 0 0 transparent}50%{opacity:1;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 15%,transparent)}}
 .manual-source-prompt{border-left:1px solid currentColor;padding-left:6px;font-size:11px;font-weight:400}
 :root[data-skin=glass] .mini-app .manual-source-link.needs-attention{border-radius:999px}
 :root[data-skin=winui] .mini-app .manual-source-link.needs-attention{border-radius:4px}
-:root[data-skin=studio] .mini-app .manual-source-link.needs-attention{border-radius:2px;color:var(--canvas)}
+:root[data-skin=studio] .mini-app .manual-source-link.needs-attention{border-radius:2px}
 @media(pointer:coarse){:root .mini-app .manual-source-link.needs-attention{min-height:44px}}
-@media(forced-colors:active){:root[data-skin] .mini-app .manual-source-link.needs-attention{background:Highlight;color:HighlightText;border-color:Highlight}}
+@media(prefers-reduced-motion:reduce){:root .mini-app .manual-source-link.needs-attention,:root .mini-app .manual-source-link.needs-attention::before{animation:none;box-shadow:none}:root .mini-app .manual-source-link.needs-attention::before{opacity:1}}
+@media(forced-colors:active){:root[data-skin] .mini-app .manual-source-link.needs-attention{animation:none;background:Canvas;color:Highlight;border-color:Highlight;box-shadow:none}:root[data-skin] .mini-app .manual-source-link.needs-attention::before{animation:none;opacity:1;box-shadow:none}}

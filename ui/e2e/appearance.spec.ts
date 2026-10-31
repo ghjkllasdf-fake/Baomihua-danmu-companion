@@ -44,7 +44,8 @@ test('four real skins preview offline without storage, keep the compact jobs, an
     await expect(page.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('.appearance-status')).toContainText('预览');
     await page.getByRole('button', { name: '返回设置', exact: true }).click();
-    await expect(page.getByRole('slider')).toHaveCount(4);
+    await expect(page.getByRole('slider')).toHaveCount(5);
+    await expect(page.getByRole('slider', { name: '阴影强度', exact: true })).toHaveValue('0.45');
     await expect(page.locator('.preview')).toHaveCount(0);
     const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
     expect(axe.violations).toEqual([]);

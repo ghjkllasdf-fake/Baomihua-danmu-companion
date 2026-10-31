@@ -12,6 +12,13 @@ describe('display settings and time', () => {
     for (const areaFraction of [.25, .5, .75, 1]) expect(validSettings({ ...defaultSettings, areaFraction })).toBe(true);
     expect(validSettings({ ...defaultSettings, areaFraction: .3 })).toBe(false);
   });
+  it('validates shadow intensity independently of outline and opacity, with zero disabling it', () => {
+    expect(defaultSettings.shadowStrength).toBe(.45);
+    for (const shadowStrength of [0, .25, .45, 1]) expect(validSettings({ ...defaultSettings, shadowStrength })).toBe(true);
+    for (const shadowStrength of [-.01, 1.01, NaN, Infinity, undefined, '0.5']) {
+      expect(validSettings({ ...defaultSettings, shadowStrength })).toBe(false);
+    }
+  });
   it('rejects invalid values rather than posting them to the host', () => {
     expect(validSettings({ ...defaultSettings, fontSize: NaN })).toBe(false);
     expect(validSettings({ ...defaultSettings, keywords: 'a'.repeat(2001) })).toBe(false);

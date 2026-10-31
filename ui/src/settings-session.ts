@@ -7,7 +7,7 @@ type Transport = (type: 'update-settings' | 'get-settings', payload?: { settings
 const keys = Object.keys(defaultSettings) as (keyof Settings)[];
 function copy(s: Settings): Settings {
   return { areaFraction: s.areaFraction, fontSize: s.fontSize, scaleWithWindow: s.scaleWithWindow, speedMultiplier: s.speedMultiplier,
-    opacity: s.opacity, outlineWidth: s.outlineWidth, density: s.density, rolling: s.rolling, top: s.top, bottom: s.bottom,
+    opacity: s.opacity, outlineWidth: s.outlineWidth, shadowStrength: s.shadowStrength, density: s.density, rolling: s.rolling, top: s.top, bottom: s.bottom,
     dedupe: s.dedupe, keywords: s.keywords, offsetMs: s.offsetMs, enabled: s.enabled };
 }
 

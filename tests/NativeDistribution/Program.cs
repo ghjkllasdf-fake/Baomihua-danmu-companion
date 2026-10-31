@@ -22,6 +22,7 @@ internal static class DistributionTests
     {
         try
         {
+            if(args.Length==1 && args[0]=="--shadow-tests"){ShadowTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--video-companion-target")return VideoCompanionTests.RunTarget();
             if(args.Length>0 && args[0]=="--video-companion-tests"){VideoCompanionTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--retry-match-tests"){RetryMatchTests.Run().GetAwaiter().GetResult();return 0;}
@@ -69,6 +70,7 @@ internal static class DistributionTests
             NativeInstanceTests.Run();
             NativeStartupTests.Run();
             NativePreferenceTests.Run();
+            ShadowTests.Run();
             VideoNoticeTests.Run();
             TrayPlacementTests.Run();
             PlaybackEventSignalTests.Run();
