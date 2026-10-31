@@ -35,5 +35,7 @@ internal static class UpdateTests
             Check(rejected,"Missing, duplicate or malformed checksum was accepted.");
         }
         Console.WriteLine("PASS: update version, channel, edition and checksum contracts.");
+        UpdatePackageTests.Run();
+        UpdateTransportTests.Run().GetAwaiter().GetResult();
     }
 }
