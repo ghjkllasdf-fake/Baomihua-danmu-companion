@@ -114,7 +114,7 @@
 
 /* Keep the fifth display row above the footer without shrinking touch targets. */
 @media(pointer:fine){:root[data-skin] .mini-app .display-settings[data-view=basic] .range-control{min-height:28px}:root[data-skin] .mini-app .display-settings[data-view=basic]>.toggle-row{min-height:32px;padding:5px 0}:root[data-skin] .mini-app .display-settings[data-view=basic]>.setting-line{min-height:32px;padding:2px 0}:root[data-skin=studio] .mini-app .display-settings[data-view=basic] .range-grid{gap:2px}}
-@media(pointer:coarse){:root[data-skin] .mini-app input[type=range]{height:40px}:root[data-skin] .mini-app .range-control{min-height:44px}:root .skin-trigger{min-width:44px;min-height:44px}}
+@media(pointer:coarse){:root[data-skin] .mini-app input[type=range]{height:40px}:root[data-skin] .mini-app .range-control{min-height:44px}:root .skin-trigger{min-width:44px;min-height:44px}:root .mini-app .footer-actions .more-link{min-width:44px;min-height:44px}}
 
 /* Breathe the entire fill and edge without resizing the button or fading its text. */
 :root .mini-app .manual-source-link.needs-attention{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:4px 8px;border:1px solid color-mix(in srgb,var(--accent) 28%,transparent);border-radius:6px;background:var(--accent-soft);color:var(--ink);font-weight:600;white-space:nowrap;animation:manual-source-breathe 2.8s ease-in-out infinite}
