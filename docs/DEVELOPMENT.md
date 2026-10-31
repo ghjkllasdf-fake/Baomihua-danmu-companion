@@ -4,7 +4,7 @@
 
 ## 原生 Beta 构建（当前）
 
-当前入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`，版本由 `desktop/NativeCommon.props` 固定。用户运行、采样、自启动、WebView2 前置环境安装和卸载无需 PowerShell。本文的 PowerShell 命令仅用于开发环境准备和补充测试，发行构建使用下面的原生入口。
+当前入口是 `desktop/NativeHost`、`desktop/NativeProbe` 与 `desktop/NativeUpdater`，版本由 `desktop/NativeCommon.props` 固定。用户运行、采样、自启动、更新、WebView2 前置环境安装和卸载无需 PowerShell。本文的 PowerShell 命令仅用于开发环境准备和补充测试，发行构建使用下面的原生入口。
 
 本地工具由 `native-toolchain.json` 固定：.NET SDK 10.0.403／运行时 10.0.14、WebView2 SDK 1.0.4314.35、Windows 投影 10.0.26100.84、微软 Evergreen Bootstrapper 1.3.307.15、Inno Setup 7.1.1。当前仅使用系统共享 Evergreen Runtime，不下载或分发历史 Fixed Runtime。按清单的官方来源准备 `.deps` 原始归档及对应解压目录；构建器校验归档、投影 DLL、引导程序和编译器，不修改全局 SDK。Node/npm 与 UI 依赖见后文和 `ui/package-lock.json`。
 
@@ -49,6 +49,23 @@ node scripts/test-release.mjs --version 0.1.1-beta.6
 `--packaged-shutdown ABS_INCLUDEAPI_PAYLOAD SECONDS` 只验证观察器定时结束、原生握手与关闭收尾，不要求视频或弹幕出现，不能代替播放验收。观察器防止跨 Dispatcher 取样时的计时器重入，关闭前先停止取样；启动未完成或提前退出仍视为失败。
 
 ## 开发工具与补充回归
+
+### GitHub 更新发行契约
+
+更新回归入口为原生测试 EXE 的 `--update-tests`、`node --test tests/installer-update-journal.test.mjs` 和 `node scripts/test-updater-runtime.mjs`。最后一个命令在短临时路径发布受控旧／新程序，验证真实 UI／采样健康握手、交接失败和启动失败回滚；仅将验证结果保留到 `artifacts/updater-runtime-tests`，不改动用户安装或发布 Release。它会改变测试项目的本地输出名，运行后应重新构建 `tests/NativeDistribution`，不要与依赖该测试 EXE 的安装器测试并行。
+
+更新源固定为本项目 GitHub Releases，不使用第三方版本服务器或内置 GitHub Token。构建器共同发布 `NativeHost`、`NativeProbe`、`NativeUpdater`，相同运行库只保留一份。每个发行版新增 `DanmuCompanion-VERSION-win-x64[-includeAPI]-manifest.json` 附件，与安装版、Portable ZIP 来自同一份 payload，三个文件的哈希均进入 `SHA256SUMS.txt`。发布新版本时应上传两种发行版的独立 manifest，并合并校验清单；安装更新缺少对应清单时不会被选择。不要修改已发布同版本资产。
+
+自动检查只在完整、干净、版本一致的发行包和正常 `app` 配置中启动；候选／源码及隔离测试配置不自动联网。首次检查约 20–30 秒后，后续间隔六小时；下载必须手动触发或明确开启。状态和安装命令通过 `github-update-v1` 类型契约，原生组件以当前用户管道、进程身份及真实界面／采样握手确认交接与重启。安装版更新同时校验配套 ZIP，原生组件将新增文件原子、非覆盖地放入目标并记录磁盘身份；Inno 只更新原有应用文件和安装登记，不再覆盖新增路径，不靠相同内容猜测文件所有权。
+
+```text
+.deps\dotnet\dotnet.exe build tests/NativeDistribution/NativeDistribution.csproj -c Release --no-restore
+tests\NativeDistribution\bin\Release\net10.0-windows\win-x64\NativeDistribution.Tests.exe --update-tests
+node --test tests/installer-update-journal.test.mjs
+node scripts/test-updater-runtime.mjs
+```
+
+原生整链路测试构建隔离的受控旧程序和实际新宿主，检查立即退出、死亡组件拒绝交接、文件替换及 WebView2／采样握手；它不发布 Release、不更新现有用户安装，也不等同于全部系统／断电场景验收。实际 Inno 日志测试使用无卸载登记和无快捷方式的专用安装器，覆盖完整与中断的新文件写入以及相同内容的外来冲突。
 
 Node.js / npm 固定为 26.7.0 / 11.19.0，React / React DOM 为 19.3.1，TypeScript / Vite 为 6.0.3 / 8.3.5。原生版本由 `native-toolchain.json` 与 `desktop/NativeCommon.props` 固定。
 

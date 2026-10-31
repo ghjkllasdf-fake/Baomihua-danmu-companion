@@ -2,7 +2,7 @@
 .update-indicator { position: absolute; top: -7px; right: -8px; color: #c4242a; font-size: 12px; line-height: 1; font-weight: 700; pointer-events: none; }
 html[data-skin="studio"] .update-indicator { color: #ff6971; }
 .update-announcement { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.update-panel { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.update-panel { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); } /* taste-skill-ignore: matches existing app settings section dividers. */
 .update-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .update-heading h3, .update-panel>h3 { margin: 0; font-size: 14px; font-weight: 600; }
 .update-version { font-size: 12px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -18,6 +18,6 @@ html[data-skin="studio"] .update-indicator { color: #ff6971; }
 .update-panel .update-actions button { min-height: 32px; }
 .update-notes { margin-top: 9px; font-size: 12px; }
 .update-notes pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; font: inherit; line-height: 1.7; }
-.update-confirm { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.7; }
+.update-confirm { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.7; } /* taste-skill-ignore: separates explicit install confirmation in the existing app style. */
 @media (pointer: coarse) { .update-toggle, .update-channel, .update-panel .update-actions button { min-height: 44px; } }
 @media (forced-colors: active) { .update-indicator { color: LinkText; } }
