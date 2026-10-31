@@ -39,6 +39,7 @@ internal static class UpdateTests
         UpdatePackageTests.Run();
         UpdateTransportTests.Run().GetAwaiter().GetResult();
         UpdateServiceTests.Run().GetAwaiter().GetResult();
+        UpdateFrequencyTests.Run().GetAwaiter().GetResult();
         UpdateTransactionTests.Run();
         UpdateInstallerTests.Run();
         UpdatePipeTests.Run().GetAwaiter().GetResult();

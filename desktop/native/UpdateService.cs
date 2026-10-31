@@ -32,7 +32,7 @@ internal sealed class UpdateService : IDisposable
         cacheRoot=Path.Combine(paths.ProfileRoot,"updates");preferencesFile=Path.Combine(cacheRoot,"preferences.json");
         preferences=UpdateStorage.Load(preferencesFile,UpdateVersion.TryParse(this.identity.Version,out var version) && version.Stable ? "stable" : "beta",out string notice);
         view=new(this.identity.Supported ? "idle" : "unavailable",this.identity.Version,"",this.identity.Variant,this.identity.Distribution,preferences.Channel,
-            preferences.AutoCheck,preferences.AutoDownload,preferences.CheckedAt,0,0,"",this.identity.Supported ? notice : "开发、候选或不完整的发行包不执行自动更新，请使用 GitHub 正式发行包。",0,this.identity.Supported,false,UpdateMaintenance.LastResult(paths));
+            preferences.AutoCheck,preferences.AutoDownload,preferences.CheckedAt,0,0,"",this.identity.Supported ? notice : "开发、候选或不完整的发行包不执行自动更新，请使用 GitHub 正式发行包。",0,this.identity.Supported,false,UpdateMaintenance.LastResult(paths),preferences.CheckIntervalHours);
     }
     private void Change(Func<UpdateSnapshot,UpdateSnapshot> change)
     {
@@ -42,15 +42,15 @@ internal sealed class UpdateService : IDisposable
     public UpdateSnapshot SetPreferences(JsonElement payload)
     {
         if(View.State=="applying")throw new InvalidOperationException("正在交接更新安装，不能修改更新设置。");
-        UpdatePackage.Unique(payload);UpdatePackage.Check(payload.ValueKind==JsonValueKind.Object && payload.EnumerateObject().Count()==3,"更新设置参数无效。");
+        UpdatePackage.Unique(payload);UpdatePackage.Check(payload.ValueKind==JsonValueKind.Object && payload.EnumerateObject().Count()==(payload.TryGetProperty("checkIntervalHours",out _) ? 4 : 3),"更新设置参数无效。");
         string channel=payload.GetProperty("channel").GetString();UpdatePackage.Check(channel is "beta" or "stable","不支持的更新通道。");
         if(!operation.Wait(0))throw new InvalidOperationException("更新操作进行中，请完成或取消后再修改设置。");
         try
         {
-            var next=new UpdatePreferences(payload.GetProperty("autoCheck").GetBoolean(),payload.GetProperty("autoDownload").GetBoolean(),channel,preferences.CheckedAt);
+            var next=new UpdatePreferences(payload.GetProperty("autoCheck").GetBoolean(),payload.GetProperty("autoDownload").GetBoolean(),channel,preferences.CheckedAt,UpdateStorage.ReadInterval(payload,preferences.CheckIntervalHours));
             UpdateStorage.Save(preferencesFile,next);bool changed=next.Channel!=preferences.Channel;preferences=next;
             if(changed){UpdateDownload discarded;lock(sync){selected=null;discarded=downloaded;downloaded=null;}if(discarded!=null)UpdateMaintenance.TryCleanupOperation(paths,discarded.Operation);}
-            Change(v=>v with{Channel=channel,AutoCheck=next.AutoCheck,AutoDownload=next.AutoDownload,Message="",State=changed ? identity.Supported ? "idle" : "unavailable" : v.State,
+            Change(v=>v with{Channel=channel,AutoCheck=next.AutoCheck,AutoDownload=next.AutoDownload,CheckIntervalHours=next.CheckIntervalHours,Message="",State=changed ? identity.Supported ? "idle" : "unavailable" : v.State,
                 AvailableVersion=changed ? "" : v.AvailableVersion,Notes=changed ? "" : v.Notes,DownloadedBytes=changed ? 0 : v.DownloadedBytes,TotalBytes=changed ? 0 : v.TotalBytes,CanInstall=changed ? false : v.CanInstall});
             return View;
         }

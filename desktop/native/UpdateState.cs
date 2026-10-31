@@ -37,9 +37,9 @@ internal sealed record UpdateIdentity(string Version,string Variant,string Distr
     }
 }
 
-internal sealed record UpdatePreferences(bool AutoCheck,bool AutoDownload,string Channel,string CheckedAt);
+internal sealed record UpdatePreferences(bool AutoCheck,bool AutoDownload,string Channel,string CheckedAt,int CheckIntervalHours=6);
 internal sealed record UpdateSnapshot(string State,string CurrentVersion,string AvailableVersion,string Variant,string Distribution,string Channel,
-    bool AutoCheck,bool AutoDownload,string CheckedAt,long DownloadedBytes,long TotalBytes,string Notes,string Message,long Revision,bool Supported,bool CanInstall,string LastResult="");
+    bool AutoCheck,bool AutoDownload,string CheckedAt,long DownloadedBytes,long TotalBytes,string Notes,string Message,long Revision,bool Supported,bool CanInstall,string LastResult="",int CheckIntervalHours=6);
 internal sealed record UpdateDownload(string File,string Checksum,long Size,string Version,string Variant,string Distribution,string Operation,string InventoryChecksum="",string ArchiveChecksum="",long ArchiveSize=0);
 
 internal static class UpdateStorage
@@ -57,17 +57,25 @@ internal static class UpdateStorage
         }
         finally{if(File.Exists(temporary))File.Delete(temporary);}
     }
-    internal static void Save(string path,UpdatePreferences preferences)=>Atomic(path,JsonSerializer.SerializeToUtf8Bytes(preferences,Json));
+    internal static bool ValidInterval(int hours)=>hours is 1 or 6 or 12 or 24;
+    internal static int ReadInterval(JsonElement root,int fallback=6)
+    {
+        if(!root.TryGetProperty("checkIntervalHours",out var value))return fallback;
+        UpdatePackage.Check(value.ValueKind==JsonValueKind.Number && value.TryGetInt32(out int hours) && ValidInterval(hours),"更新检查频率无效。");
+        return value.GetInt32();
+    }
+    internal static void Save(string path,UpdatePreferences preferences)
+    {UpdatePackage.Check(ValidInterval(preferences.CheckIntervalHours),"更新检查频率无效。");Atomic(path,JsonSerializer.SerializeToUtf8Bytes(preferences,Json));}
     internal static UpdatePreferences Load(string path,string channel,out string notice)
     {
         notice="";
         try
         {
             using var input=File.OpenRead(path);using var doc=JsonDocument.Parse(UpdatePackage.ReadLimited(input,4096));var root=doc.RootElement;UpdatePackage.Unique(root);
-            UpdatePackage.Check(root.EnumerateObject().Count()==4,"更新设置格式无效。");
+            UpdatePackage.Check(root.EnumerateObject().Count()==(root.TryGetProperty("checkIntervalHours",out _) ? 5 : 4),"更新设置格式无效。");
             string savedChannel=root.GetProperty("channel").GetString(),stamp=root.GetProperty("checkedAt").GetString();
             UpdatePackage.Check(savedChannel is "beta" or "stable" && stamp!=null && stamp.Length<=64 && (stamp.Length==0 || DateTimeOffset.TryParse(stamp,out _)),"更新设置内容无效。");
-            return new(root.GetProperty("autoCheck").GetBoolean(),root.GetProperty("autoDownload").GetBoolean(),savedChannel,stamp);
+            return new(root.GetProperty("autoCheck").GetBoolean(),root.GetProperty("autoDownload").GetBoolean(),savedChannel,stamp,ReadInterval(root));
         }
         catch(Exception error) when(error is FileNotFoundException or DirectoryNotFoundException){return new(true,false,channel,"");}
         catch(Exception error) when(MetadataError(error))
