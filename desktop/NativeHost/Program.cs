@@ -40,6 +40,11 @@ internal static class NativeHost
             using var rootLock=new UpdateRootLock(paths.Root);
             if(!rootLock.Acquired)throw new InvalidOperationException("此目录中的弹幕伴侣正在运行或更新，请先退出该实例。");
             NativeRuntime.ValidateApplication(paths);
+            if(smoke==0 && !check && updateHandshake==null)
+            {
+                try{if(UpdateIdentity.DistributionFor(paths.Root,Directory.Exists(Path.Combine(paths.Root,"api")) ? "includeAPI" : "standard")=="portable")UpdateRegistration.InitializePortable(paths.Root);}
+                catch(Exception error) when(UpdateStorage.MetadataError(error)){Console.Error.WriteLine("Update registration unavailable: "+error.GetType().Name);}
+            }
             NativeRuntime.LoadMediaProjection(paths.Root);
             if(check){Console.WriteLine("PASS: native executable payload and projection dependencies.");return 0;}
             NativeRuntime.ConfigureBrowserEnvironment(paths,debugPort);

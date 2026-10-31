@@ -10,6 +10,7 @@ namespace Popcorn;
 
 internal sealed class UpdateService : IDisposable
 {
+    private const string UnavailableNotice="发行包不完整或文件身份登记缺失／失效，自动更新不可用。请保留原目录；安装版卸载登记后安装到新的空目录，Portable 使用 GitHub 完整 ZIP 解压到新的空目录。开发和候选包也不执行自动更新。";
     private readonly ApplicationPaths paths;
     private readonly UpdateIdentity identity;
     private readonly UpdateTransport transport;
@@ -35,6 +36,7 @@ internal sealed class UpdateService : IDisposable
     private int checkFailures;
     private bool serverBackoff;
     private string retryNotice="";
+    private bool corruptionPending;
     internal Task AutomaticCompletion=>automaticTask;
     public event Action Changed;
     public UpdateSnapshot View {get{lock(sync)return view;}}
@@ -48,11 +50,12 @@ internal sealed class UpdateService : IDisposable
         retryFile=Path.Combine(cacheRoot,"retry.json");
         var retry=UpdateRetryStorage.Load(retryFile,this.clock.GetUtcNow(),out retryNotice);
         checkFailures=retry.Failures;
+        corruptionPending=retry.UnconfirmedCorruption;
         attemptedAt=retry.AttemptedAt>this.clock.GetUtcNow() ? this.clock.GetUtcNow() : retry.AttemptedAt;
         if(retry.NotBefore>this.clock.GetUtcNow()){failureStartedAt=this.clock.GetTimestamp();failureDelay=retry.NotBefore-this.clock.GetUtcNow();serverBackoff=retry.ServerLimited;}
         preferences=UpdateStorage.Load(preferencesFile,UpdateVersion.TryParse(this.identity.Version,out var version) && version.Stable ? "stable" : "beta",out string notice);
         view=new(this.identity.Supported ? "idle" : "unavailable",this.identity.Version,"",this.identity.Variant,this.identity.Distribution,preferences.Channel,
-            preferences.AutoCheck,preferences.AutoDownload,preferences.CheckedAt,0,0,"",this.identity.Supported ? notice+retryNotice : "开发、候选或不完整的发行包不执行自动更新，请使用 GitHub 正式发行包。",0,this.identity.Supported,false,UpdateMaintenance.LastResult(paths),preferences.CheckIntervalHours);
+            preferences.AutoCheck,preferences.AutoDownload,preferences.CheckedAt,0,0,"",this.identity.Supported ? notice+retryNotice : UnavailableNotice,0,this.identity.Supported,false,UpdateMaintenance.LastResult(paths),preferences.CheckIntervalHours);
     }
     private void Change(Func<UpdateSnapshot,UpdateSnapshot> change)
     {
@@ -71,7 +74,7 @@ internal sealed class UpdateService : IDisposable
             var next=new UpdatePreferences(payload.GetProperty("autoCheck").GetBoolean(),payload.GetProperty("autoDownload").GetBoolean(),channel,preferences.CheckedAt,UpdateStorage.ReadInterval(payload,preferences.CheckIntervalHours));
             UpdateStorage.Save(preferencesFile,next);bool changed=next.Channel!=preferences.Channel;preferences=next;
             if(changed){UpdateDownload discarded;lock(sync){selected=null;discarded=downloaded;downloaded=null;}if(discarded!=null)UpdateMaintenance.TryCleanupOperation(paths,discarded.Operation);}
-            Change(v=>v with{Channel=channel,AutoCheck=next.AutoCheck,AutoDownload=next.AutoDownload,CheckIntervalHours=next.CheckIntervalHours,Message=retryNotice,State=changed ? identity.Supported ? "idle" : "unavailable" : v.State,
+            Change(v=>v with{Channel=channel,AutoCheck=next.AutoCheck,AutoDownload=next.AutoDownload,CheckIntervalHours=next.CheckIntervalHours,Message=identity.Supported ? retryNotice : UnavailableNotice,State=changed ? identity.Supported ? "idle" : "unavailable" : v.State,
                 AvailableVersion=changed ? "" : v.AvailableVersion,Notes=changed ? "" : v.Notes,DownloadedBytes=changed ? 0 : v.DownloadedBytes,TotalBytes=changed ? 0 : v.TotalBytes,CanInstall=changed ? false : v.CanInstall});
             return View;
         }
@@ -80,7 +83,7 @@ internal sealed class UpdateService : IDisposable
     private async Task<UpdateSnapshot> Execute(string state,Func<CancellationToken,Task> action,bool automatic=false)
     {
         if(View.State=="applying")throw new InvalidOperationException("正在准备安装更新，请稍候。");
-        if(!identity.Supported)throw new InvalidOperationException("此开发、候选或不完整的发行包不支持自动更新。");
+        if(!identity.Supported)throw new InvalidOperationException(UnavailableNotice);
         if(!await operation.WaitAsync(0).ConfigureAwait(false))throw new InvalidOperationException("更新操作正在进行，请稍候。");
         if(View.State=="applying"){operation.Release();throw new InvalidOperationException("正在准备安装更新，请稍候。");}
         if(automatic && NextAutomaticDelay()!=TimeSpan.Zero){operation.Release();return View;}
@@ -98,6 +101,8 @@ internal sealed class UpdateService : IDisposable
     private Task<UpdateSnapshot> Check(bool automatic)=>Execute("checking",async token=>
     {
         lock(sync){lastCheckAttempt=clock.GetTimestamp();attemptedAt=clock.GetUtcNow();}
+        // A crash during HTTP must not erase the configured check cadence.
+        PersistRetry(preserveNotice:true);
         var release=await transport.DiscoverAsync(identity.Version,preferences.Channel,identity.Variant=="includeAPI",identity.Distribution,token).ConfigureAwait(false);
         lock(sync){selected=release;if(release==null || downloaded?.Version!=release.Version)downloaded=null;}
         bool assetLimited;lock(sync)assetLimited=serverBackoff && FailureRemaining()>TimeSpan.Zero;
@@ -125,14 +130,14 @@ internal sealed class UpdateService : IDisposable
     }
     private void ResetFailure()
     {
-        lock(sync){checkFailures=0;if(!serverBackoff || FailureRemaining()<=TimeSpan.Zero){failureStartedAt=null;failureDelay=TimeSpan.Zero;serverBackoff=false;}}
+        lock(sync){checkFailures=0;corruptionPending=false;if(!serverBackoff || FailureRemaining()<=TimeSpan.Zero){failureStartedAt=null;failureDelay=TimeSpan.Zero;serverBackoff=false;}}
         string oldNotice=retryNotice;PersistRetry();
         if(oldNotice.Length>0 || retryNotice.Length>0)Change(v=>v with{Message=(oldNotice.Length>0 && v.Message.EndsWith(oldNotice,StringComparison.Ordinal) ? v.Message[..^oldNotice.Length] : v.Message)+retryNotice});
     }
-    private void PersistRetry()
+    private void PersistRetry(bool preserveNotice=false)
     {
-        UpdateRetry retry;lock(sync){var remaining=FailureRemaining();retry=remaining>TimeSpan.Zero ? new(UpdateRetryStorage.Deadline(clock.GetUtcNow(),remaining),checkFailures,serverBackoff,attemptedAt) : new(DateTimeOffset.MinValue,checkFailures,false,attemptedAt);}
-        try{UpdateRetryStorage.Save(retryFile,retry);retryNotice="";}
+        UpdateRetry retry;lock(sync){var remaining=FailureRemaining();retry=remaining>TimeSpan.Zero ? new(UpdateRetryStorage.Deadline(clock.GetUtcNow(),remaining),checkFailures,serverBackoff,attemptedAt,corruptionPending) : new(DateTimeOffset.MinValue,checkFailures,false,attemptedAt,corruptionPending);}
+        try{UpdateRetryStorage.Save(retryFile,retry);if(!preserveNotice && !corruptionPending)retryNotice="";}
         catch(Exception error) when(UpdateStorage.MetadataError(error)){retryNotice="检查退避未能保存，重启后可能重新检查。";}
     }
     public Task<UpdateSnapshot> DownloadAsync()=>Execute("downloading",DownloadCore);

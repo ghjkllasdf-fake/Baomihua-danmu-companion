@@ -35,6 +35,7 @@ internal static class UpdateMaintenanceTests
             foreach(string phase in new[]{"prepared","armed","applying","repair-required","complete"})
             {
                 string worker=UpdateStorage.CreateOperation(cache,"worker"),apply=UpdateStorage.CreateOperation(UpdateInstalledOwnership.ParentFor(paths.Root),"direct-update");
+                _=new UpdateMetadataAuthority(paths.Root,apply,true);
                 var job=new UpdateJob(paths.Root,paths.DataRoot,"unit",new UpdateDownload("",new string('a',64),1,"0.1.1-beta.7","standard","portable",legacy),false,Path.GetFileName(worker));
                 UpdateStorage.Atomic(Path.Combine(worker,"worker.json"),JsonSerializer.SerializeToUtf8Bytes(new{schemaVersion=2,kind="direct-overwrite",job,applyDirectory=apply,workerPid=int.MaxValue,workerStartTicks=0},UpdateStorage.Json));
                 UpdateStorage.Atomic(Path.Combine(apply,"journal.json"),JsonSerializer.SerializeToUtf8Bytes(new{schemaVersion=2,kind="direct-overwrite",targetRoot=paths.Root,phase}));

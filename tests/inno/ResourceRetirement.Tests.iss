@@ -1,4 +1,5 @@
 #define UninstallKey "ResourceRetirementTests-not-used"
+#define AppVersion "1"
 [Setup]
 AppId=DanmuResourceRetirementTests
 AppName=Resource retirement tests

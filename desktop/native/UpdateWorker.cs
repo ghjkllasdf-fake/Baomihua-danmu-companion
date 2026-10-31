@@ -25,6 +25,8 @@ internal static class UpdateWorker
         return paths;
     }
     private static string SafeError(Exception error)=>error is InvalidDataException or InvalidOperationException or ArgumentException ? error.Message[..Math.Min(error.Message.Length,500)] : "更新组件遇到文件、权限或启动问题，未确认更新成功。";
+    internal static string RepairAdvice(string distribution)=>distribution=="installer" ? "请退出伴侣，用同版本完整安装器在原安装位置修复；遇到外来文件冲突时不要强行覆盖。" :
+        "请退出伴侣，将同版本完整 ZIP 解压到新的空目录运行；保留原目录，不要混合覆盖外来文件。安装器不能在 Portable 目录内修复。";
     private static void Outcome(ApplicationPaths paths,string id,string status,string version,string detail="")=>UpdateStorage.Atomic(Path.Combine(paths.ProfileRoot,"updates","last-result.json"),JsonSerializer.SerializeToUtf8Bytes(new{
         operationId=id,status,version,detail,completedAt=DateTimeOffset.UtcNow.ToString("O")}));
     internal static async Task<int> RunAsync(string id,int parent)
@@ -49,7 +51,7 @@ internal static class UpdateWorker
         }
         catch(Exception error)
         {
-            if(paths!=null && directory.Length>0)try{UpdateStorage.RemoveOwned(UpdateInstalledOwnership.ParentFor(paths.Root),directory);}catch(Exception failure) when(UpdateStorage.MetadataError(failure)){}
+            if(paths!=null && directory.Length>0 && UpdateApply.CleanupUnapplied(paths.Root,directory))try{UpdateStorage.RemoveOwned(UpdateInstalledOwnership.ParentFor(paths.Root),directory);}catch(Exception failure) when(UpdateStorage.MetadataError(failure)){}
             await UpdatePipe.WriteAsync(pipe,new{ready=false,error=SafeError(error)},CancellationToken.None);return 1;
         }
         bool parentExited=false,healthy=false;
@@ -95,7 +97,7 @@ internal static class UpdateWorker
                 try{Outcome(paths,id,"not-applied",apply.Previous.Version,detail);}catch(Exception error) when(UpdateStorage.MetadataError(error)){}
                 Finish(paths,job,directory,"not-applied");return 1;
             }
-            const string repair="已开始原位覆盖，未确认新版正常运行；不提供备份或回滚。请用同版本安装器修复；Portable 遇到外来文件冲突时，不要全部覆盖，请将完整包解压到新的空目录运行。";
+            string repair="已开始原位覆盖，未确认新版正常运行；不提供备份或回滚。"+RepairAdvice(job.Download.Distribution);
             try{apply.SetPhase("repair-required");Outcome(paths,id,"repair-required",job.Download.Version,repair);}catch(Exception error) when(UpdateStorage.MetadataError(error)){}
             MessageBox.Show(repair+"\r\n原目录："+paths.Root,"爆米花弹幕伴侣",MessageBoxButtons.OK,MessageBoxIcon.Error);return 1;
         }
@@ -125,6 +127,7 @@ internal static class UpdateWorker
         try
         {
             UpdateMaintenance.Complete(paths,Path.Combine(paths.ProfileRoot,"updates",job.OperationId),terminal);
+            if(terminal=="not-applied" && !UpdateApply.CleanupUnapplied(paths.Root,directory))return;
             UpdateStorage.RemoveOwned(UpdateInstalledOwnership.ParentFor(paths.Root),directory);UpdateMaintenance.TryCleanupOperation(paths,job.Download.Operation);
         }
         catch(Exception error) when(UpdateStorage.MetadataError(error)){}

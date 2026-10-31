@@ -36,6 +36,7 @@ internal sealed record UpdateIdentity(string Version,string Variant,string Distr
         {
             var package=UpdatePackage.Read(paths.Root,version,variant);
             UpdatePackage.Check(package.Files.Any(f=>f.Path=="DanmuCompanion.Updater.exe") && File.Exists(Path.Combine(paths.Root,"DanmuCompanion.Updater.exe")),"当前包缺少原生更新组件。");
+            if(!UpdateRegistration.Legacy(package.Version))UpdateRegistration.RequireReady(paths.Root,package);
             return new UpdateIdentity(version,variant,DistributionFor(paths.Root,variant),true);
         }
         catch(Exception error) when(UpdateStorage.MetadataError(error))

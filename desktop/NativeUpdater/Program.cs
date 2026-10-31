@@ -13,7 +13,7 @@ internal static class NativeUpdater
         try
         {
             Console.OutputEncoding=new System.Text.UTF8Encoding(false);
-            if(args.Length==0){MessageBox.Show("此组件由主程序启动，不提供旧版本恢复。更新未完成时，请用同版本完整安装器修复；Portable 若有外来文件冲突，请勿全部覆盖，可完整解压到新的空目录运行。","爆米花弹幕伴侣");return 0;}
+            if(args.Length==0){MessageBox.Show("此组件由主程序启动，不提供旧版本恢复。安装版更新未完成时，用同版本完整安装器在原位置修复；Portable 请将同版本完整 ZIP 解压到新的空目录，保留原目录，不要混合覆盖外来文件。安装器不能在 Portable 目录内修复。","爆米花弹幕伴侣");return 0;}
             if((args.Length==2 || args.Length==6) && args[0]=="--launch-installed")
             {
                 UpdatePackage.Check(args.Length==2 || args[2]=="--profile" && args[4]=="--data-root","安装后启动参数无效。");
@@ -44,14 +44,6 @@ internal static class NativeUpdater
                 var apply=UpdateApply.Load(args[2],AppContext.BaseDirectory);UpdatePackage.Check(string.Equals(apply.Root,UpdatePackage.SafeRoot(args[1]),StringComparison.OrdinalIgnoreCase),"安装验证目录不匹配。");
                 apply.AcceptInstalled();
                 if(args[0]=="--finish-install"){apply.CompleteMetadata();UpdateStorage.RemoveOwned(UpdateInstalledOwnership.ParentFor(apply.Root),apply.Directory);}
-                return 0;
-            }
-            if(args.Length==1 && args[0]=="--record-installed-ownership")
-            {
-                var paths=new ApplicationPaths(AppContext.BaseDirectory);var identity=UpdateIdentity.Load(paths);
-                UpdatePackage.Check(identity.Supported && identity.Distribution=="installer","安装文件登记仅由当前有效安装执行。");
-                var package=UpdatePackage.VerifyDirectory(paths.Root,identity.Version,identity.Variant);
-                UpdateInstalledOwnership.Save(paths.Root,package.Owned.Select(file=>new UpdateOwnedFile(file.Path,UpdateFileIdentity.Read(UpdatePackage.SafeFile(paths.Root,file.Path)))).ToArray());
                 return 0;
             }
             if(args.Length==2 && args[0]=="--retire-resources")

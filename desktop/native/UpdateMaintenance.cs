@@ -94,11 +94,13 @@ internal static class UpdateMaintenance
                     using var journal=UpdateStorage.ReadJson(Path.Combine(apply,"journal.json"),4096);var value=journal.RootElement;
                     UpdatePackage.Check(value.GetProperty("schemaVersion").GetInt32()==2 && value.GetProperty("kind").GetString()=="direct-overwrite" &&
                         string.Equals(UpdatePackage.SafeRoot(value.GetProperty("targetRoot").GetString()),paths.Root,StringComparison.OrdinalIgnoreCase),"覆盖更新清理目标无效。");
-                    if(value.GetProperty("phase").GetString() is not ("prepared" or "not-applied" or "complete"))
+                    string phase=value.GetProperty("phase").GetString();
+                    if(phase is not ("prepared" or "not-applied" or "complete"))
                     {
                         using var completion=UpdateStorage.ReadJson(Path.Combine(directory,"complete.json"),4096);var flag=completion.RootElement;
                         if(flag.GetProperty("schemaVersion").GetInt32()!=2 || flag.GetProperty("operationId").GetString()!=Path.GetFileName(directory) || flag.GetProperty("terminal").GetString()!="not-applied")return;
                     }
+                    if(phase!="complete" && !UpdateApply.CleanupUnapplied(paths.Root,apply))return;
                     UpdateStorage.RemoveOwned(UpdateInstalledOwnership.ParentFor(paths.Root),apply);
                 }
                 else

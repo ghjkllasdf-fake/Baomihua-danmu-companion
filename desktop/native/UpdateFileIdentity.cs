@@ -43,17 +43,30 @@ internal static class UpdateFileIdentity
     internal static bool CanReplace(string path)
     {
         using var file=CreateFile(@"\\?\"+Path.GetFullPath(path),0x10000|0x80000000,1,IntPtr.Zero,3,0x200000,IntPtr.Zero);
-        return !file.IsInvalid;
+        var attributes=new byte[8];return !file.IsInvalid && GetFileInformationByHandleEx(file,9,attributes,8) && (BitConverter.ToUInt32(attributes)&0x411)==0;
     }
     internal static FileStream OpenGuard(string path)
+        =>Open(path,0x80000000,3);
+    internal static FileStream OpenRenameGuard(string path)
+        =>Open(path,0x80000000|0x10000,3);
+    internal static FileStream CreateOwned(string path)
+        =>Open(path,0xC0000000|0x10000,1,FileAccess.ReadWrite);
+    private static FileStream Open(string path,uint access,uint creation,FileAccess mode=FileAccess.Read)
     {
-        var file=CreateFile(@"\\?\"+Path.GetFullPath(path),0x80000000,1,IntPtr.Zero,3,0x200000,IntPtr.Zero);
+        var file=CreateFile(@"\\?\"+Path.GetFullPath(path),access,1,IntPtr.Zero,creation,0x200000,IntPtr.Zero);
         try
         {
             UpdatePackage.Check(!file.IsInvalid,"无法锁定将运行的更新文件。");var attributes=new byte[8];
             UpdatePackage.Check(GetFileInformationByHandleEx(file,9,attributes,8) && (BitConverter.ToUInt32(attributes)&0x410)==0,"将运行的更新文件是链接或目录，未执行。");
-            var input=new FileStream(file,FileAccess.Read);file=null;return input;
+            var input=new FileStream(file,mode);file=null;return input;
         }
         finally{file?.Dispose();}
+    }
+    internal static void Rename(FileStream source,string target)
+    {
+        string full=Path.GetFullPath(target);byte[] name=System.Text.Encoding.Unicode.GetBytes(full);
+        int lengthOffset=IntPtr.Size==8 ? 16 : 8,nameOffset=lengthOffset+4;var information=new byte[nameOffset+name.Length];
+        BitConverter.GetBytes((uint)name.Length).CopyTo(information,lengthOffset);name.CopyTo(information,nameOffset);
+        UpdatePackage.Check(SetFileInformationByHandle(source.SafeFileHandle,3,information,(uint)information.Length),"目标文件被占用或新对象抢占，未移动或覆盖外来文件。");
     }
 }

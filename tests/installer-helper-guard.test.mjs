@@ -40,8 +40,13 @@ Compression=lzma2/fast
 [Files]
 Source: "${stage}\\*"; DestDir: "{app}"; Flags: dontcopy
 [Code]
+#define AppVersion "1.0"
 #include "${join(root, 'installer/DestinationGuard.iss')}"
 #include "${join(root, 'installer/UpdateJournal.iss')}"
+procedure AddIncomingPayloadFiles(Files: TStringList);
+begin
+${files.map(file => "  Files.Add('" + file.path + "');").join('\n')}
+end;
 #include "${trust}"
 #include "${join(root, 'installer/HelperGuard.iss')}"
 procedure DeinitializeSetup;

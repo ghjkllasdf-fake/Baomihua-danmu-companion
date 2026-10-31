@@ -76,9 +76,6 @@ Name: "{autodesktop}\{#ProductName}"; Filename: "{app}\DanmuCompanion.exe"; Work
 [Run]
 Filename: "{code:TrustedHelperName}"; Parameters: "--launch-installed ""{app}"""; Description: "启动爆米花弹幕伴侣"; Flags: postinstall skipifsilent
 
-[UninstallRun]
-Filename: "{app}\DanmuCompanion.exe"; Parameters: "--remove-startup"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "RemoveOwnedStartup"
-
 [Code]
 #include "DestinationGuard.iss"
 #include "WebView2Prerequisite.iss"
@@ -120,6 +117,7 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var Allowed: TStringList;
 begin
+  if CurUninstallStep = usUninstall then RemoveOwnedStartupShortcut;
   if CurUninstallStep <> usPostUninstall then Exit;
   Allowed := TStringList.Create;
   try

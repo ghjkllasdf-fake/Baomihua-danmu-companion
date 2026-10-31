@@ -2,8 +2,23 @@ var AllowRegisteredRepair: Boolean;
 function LocalDriveType(RootPath: String): Integer;
   external 'GetDriveTypeW@kernel32.dll stdcall';
 
-function PathAttributes(Path: String): LongWord;
+function RawPathAttributes(Path: String): LongWord;
   external 'GetFileAttributesW@kernel32.dll stdcall';
+function GuardNativePath(Path: String): String;
+begin
+  Result := ExpandFileName(Path);
+  if Copy(Result, 1, 4) = '\\?\' then Exit;
+  if Copy(Result, 1, 2) = '\\' then Result := '\\?\UNC\' + Copy(Result, 3, MaxInt)
+  else Result := '\\?\' + Result;
+end;
+function PathAttributes(Path: String): LongWord;
+begin Result := RawPathAttributes(GuardNativePath(Path)); end;
+function GuardFileExists(Path: String): Boolean;
+var Attributes: LongWord;
+begin Attributes := PathAttributes(Path); Result := (Attributes <> $FFFFFFFF) and ((Attributes and $10) = 0); end;
+function GuardDirExists(Path: String): Boolean;
+var Attributes: LongWord;
+begin Attributes := PathAttributes(Path); Result := (Attributes <> $FFFFFFFF) and ((Attributes and $10) <> 0); end;
 
 function PathComponentProblem(Path: String): String;
 var
@@ -43,7 +58,7 @@ begin
   Result := '';
   Owned := TStringList.Create;
   try
-    if not FileExists(AddBackslash(Destination) + 'install-files.txt') then
+    if not GuardFileExists(AddBackslash(Destination) + 'install-files.txt') then
     begin
       Result := '原安装缺少文件所有权清单，请先卸载后安装到新的空目录。';
       Exit;
@@ -54,7 +69,7 @@ begin
       Target := AddBackslash(Destination) + Incoming[Index];
       Result := PathComponentProblem(Target);
       if Result <> '' then Exit;
-      if DirExists(Target) or (FileExists(Target) and (Owned.IndexOf(Incoming[Index]) < 0)) then
+      if GuardDirExists(Target) or (GuardFileExists(Target) and (Owned.IndexOf(Incoming[Index]) < 0)) then
       begin
         Result := '新版本文件与原安装目录中的外来文件冲突，未覆盖原文件。请先卸载，再选择新的空目录。';
         Exit;
@@ -62,7 +77,7 @@ begin
       Parent := ExtractFileDir(Target);
       while CompareText(Parent, RemoveBackslashUnlessRoot(Destination)) <> 0 do
       begin
-        if FileExists(Parent) then
+        if GuardFileExists(Parent) then
         begin
           Result := '新版本子目录与已有文件冲突，请改用新的空目录。';
           Exit;
@@ -93,7 +108,7 @@ begin
     Result := '请选择专用的安装子目录，不要直接使用磁盘根目录。';
     Exit;
   end;
-  if FileExists(Target) then
+  if GuardFileExists(Target) then
   begin
     Result := '目标位置是文件，请选择专用的安装文件夹。';
     Exit;
@@ -108,13 +123,13 @@ begin
     Result := '本程序已安装在其他目录。请使用原目录重装，或先卸载旧安装再选择新目录，以免留下无法正常卸载的旧文件。';
     Exit;
   end;
-  if not DirExists(Target) then Exit;
+  if not GuardDirExists(Target) then Exit;
   if AllowRegisteredRepair and ((Registered = '') or (CompareText(Target, Registered) = 0)) then Exit;
   if (Registered <> '') and (CompareText(Target, Registered) = 0) and
-     (AllowRegisteredRepair or (FileExists(Target + '\DanmuCompanion.exe') and
-     FileExists(Target + '\manifest.json') and FileExists(Target + '\unins000.exe'))) then Exit;
+     (AllowRegisteredRepair or (GuardFileExists(Target + '\DanmuCompanion.exe') and
+     GuardFileExists(Target + '\manifest.json') and GuardFileExists(Target + '\unins000.exe'))) then Exit;
   // An enumeration failure is not proof of an empty directory.
-  if not FindFirst(AddBackslash(Target) + '*', Entry) then
+  if not FindFirst(GuardNativePath(AddBackslash(Target) + '*'), Entry) then
   begin
     Result := '无法确认目标文件夹为空，请选择新的专用子目录。';
     Exit;

@@ -145,6 +145,47 @@ internal static class UpdateFrequencyTests
         var isolatedClock=new Clock();var isolated=new Handler();using var unit=Service(root,"isolated",isolatedClock,isolated,"unit");unit.StartAutomatic();isolatedClock.Advance(TimeSpan.FromDays(2));
         Check(isolated.Requests==0 && isolatedClock.NextDelay==null,"Non-app profiles must never schedule automatic checks.");
     }
+    private static async Task PendingAttemptDurability(string root)
+    {
+        foreach(int hours in new[]{24,168,720})
+        {
+            var clock=new Clock();var handler=new Handler{Block=true};string name="pending-attempt-"+hours;
+            using var service=Service(root,name,clock,handler);Save(service,true,hours);
+            var started=clock.GetUtcNow();var pending=service.CheckAsync();
+            try
+            {
+                await Until(()=>handler.Requests==1,"The durability fixture must enter a pending HTTP request.");
+                Check(StoredRetry(root,name,clock).AttemptedAt==started,"The actual attempt must be durable before HTTP completes or the process can crash.");
+                var restartedHandler=new Handler();using var restarted=Service(root,name,clock,restartedHandler);
+                restarted.StartAutomatic();clock.Advance(TimeSpan.FromSeconds(20));
+                await Until(()=>clock.NextDelay!=null,"A restarted service must retain pending-attempt cadence freshness.");
+                Check(restartedHandler.Requests==0,"A lost in-flight HTTP request must not bypass daily, weekly or monthly cadence on restart.");
+                await Stop(restarted,clock);
+            }
+            finally{service.Cancel();await pending;await Stop(service,clock);}
+        }
+        var quotaClock=new Clock();string quotaName="pending-quota";
+        string retryFile=Path.Combine(root,quotaName+"-data","app","updates","retry.json");
+        var until=quotaClock.GetUtcNow().AddDays(3);UpdateRetryStorage.Save(retryFile,new(until,2,true));
+        var quotaHandler=new Handler{Block=true};using var quota=Service(root,quotaName,quotaClock,quotaHandler);
+        var quotaAttempt=quotaClock.GetUtcNow();var quotaPending=quota.CheckAsync();
+        try
+        {
+            await Until(()=>quotaHandler.Requests==1,"The quota fixture must reach pending manual HTTP.");
+            var stored=StoredRetry(root,quotaName,quotaClock);
+            Check(stored.AttemptedAt==quotaAttempt && stored.NotBefore==until && stored.Failures==2 && stored.ServerLimited,
+                "Persisting the in-flight attempt must retain the existing server deadline and failure budget.");
+        }
+        finally{quota.Cancel();await quotaPending;await Stop(quota,quotaClock);}
+        var failedClock=new Clock();string failedName="pending-save-failure";
+        string blockedFile=Path.Combine(root,failedName+"-data","app","updates","retry.json");Directory.CreateDirectory(blockedFile);
+        var failedHandler=new Handler{Block=true};using var failed=Service(root,failedName,failedClock,failedHandler);
+        var failedPending=failed.CheckAsync();
+        await Until(()=>failedHandler.Requests==1,"A retry-state write failure must not disable explicit manual checking.");
+        failed.Cancel();await failedPending;
+        Check(failed.View.Message.Contains("未能保存") && Directory.Exists(blockedFile),"Failed attempt persistence must remain visible and must not replace a foreign directory.");
+        await Stop(failed,failedClock);
+    }
     private static async Task StartupMaintenance(string root)
     {
         foreach(bool enabled in new[]{false,true})
@@ -231,10 +272,12 @@ internal static class UpdateFrequencyTests
             {
                 noticeHandler.Block=true;var manual=noticeService.CheckAsync();await Until(()=>noticeHandler.Requests==1,"A corrupt retry record must still permit manual metadata requests.");noticeService.Cancel();await manual;
                 Check(noticeService.View.Message.Contains(notice) && noticeService.View.Message.Contains("已取消"),"Cancel must preserve the independent corruption diagnostic and its actual wait.");noticeHandler.Block=false;
+                using(var restarted=Service(root,name,noticeClock,new Handler()))
+                    Check(restarted.View.Message.Contains("无法读取") && StoredRetry(root,name,noticeClock).UnconfirmedCorruption,"A canceled or crashed pending HTTP request must retain unconfirmed corruption diagnostics across restart.");
             }
             noticeService.StartAutomatic();noticeClock.Advance(TimeSpan.FromSeconds(20));
             await Until(()=>noticeClock.NextDelay!=null,"Retained diagnostic must agree with the retained wait.");Check(noticeHandler.Requests==1 && noticeClock.NextDelay>TimeSpan.FromHours(5),"Preference save must not bypass diagnosed retry deferral.");
-            if(corrupt){noticeHandler.Status=HttpStatusCode.OK;await noticeService.CheckAsync();Check(!noticeService.View.Message.Contains(notice),"A successful retry record repair must clear, not perpetuate, the independent diagnostic.");}
+            if(corrupt){noticeHandler.Status=HttpStatusCode.OK;await noticeService.CheckAsync();Check(!noticeService.View.Message.Contains(notice) && !StoredRetry(root,name,noticeClock).UnconfirmedCorruption,"A successful retry record repair must clear, not perpetuate, the independent diagnostic.");}
             await Stop(noticeService,noticeClock);
         }
     }
@@ -359,7 +402,7 @@ internal static class UpdateFrequencyTests
     internal static async Task Run()
     {
         string root=Path.Combine(Path.GetTempPath(),"DanmuUpdateFrequency-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
-        try{Preferences(root);RetryStorage(root);await RetryRegressions(root);await Scheduling(root);await DisabledAndCancellation(root);await StartupMaintenance(root);await LateWorkerMaintenance(root);await Backoff(root);await DownloadQuotaAndRestart(root);}
+        try{Preferences(root);RetryStorage(root);await PendingAttemptDurability(root);await RetryRegressions(root);await Scheduling(root);await DisabledAndCancellation(root);await StartupMaintenance(root);await LateWorkerMaintenance(root);await Backoff(root);await DownloadQuotaAndRestart(root);}
         finally
         {
             if(!Path.GetFullPath(root).StartsWith(Path.GetFullPath(Path.GetTempPath())+"DanmuUpdateFrequency-",StringComparison.OrdinalIgnoreCase))throw new Exception("Unsafe frequency fixture cleanup.");

@@ -118,7 +118,7 @@ try {
       const outcome = await waitJson(resultFile, () => true);
       assert.equal(outcome.status, mode.startsWith('health-failure') ? 'repair-required' : mode === 'preflight-failure' ? 'not-applied' : 'complete');
       assert.equal(outcome.version, mode === 'preflight-failure' ? '0.1.1-beta.6' : '0.1.1-beta.7');
-      if (mode.startsWith('health-failure')) assert.match(outcome.detail, /安装器.*修复/);
+      if (mode.startsWith('health-failure')) assert.match(outcome.detail, /完整 ZIP.*新的空目录/);
       else assert.equal(outcome.detail, '', 'Zero-write failure must actually reverify the unmodified old app.');
       assert.equal(await readFile(join(application, 'user.txt'), 'utf8'), 'foreign bytes must survive');
       assert.equal(await readFile(preferences, 'utf8'), personal, 'Actual saved display settings must survive customer update and cleanup.');
@@ -134,13 +134,19 @@ try {
         await assert.rejects(() => stat(join(parentResult.transaction, 'backup')), { code: 'ENOENT' });
         if (mode.startsWith('health-failure')) {
           assert.equal(JSON.parse(await readFile(join(application, 'manifest.json'))).version, '0.1.1-beta.7', 'Failed applied update must not restore the old manifest.');
-          for (const path of await walkFiles(next)) await copyFile(join(next, path), join(application, path));
+          const collision = join(application, 'PresentationCore.dll');await rename(collision, collision + '.saved');
+          await writeFile(collision, 'foreign same-name repair sentinel');const foreignBefore = await fileHash(collision);
+          const failedManifest = await fileHash(join(application, 'manifest.json'));
+          const repairRoot = join(scenario, 'repaired-new-empty-directory');applications.push(repairRoot);
+          run(join(root, 'scripts/NativeReleaseTools/bin/Release/net10.0/win-x64/NativeReleaseTools.exe'), ['extract', archive, repairRoot]);
           const repaired = join(scenario, 'repair-smoke.json');
-          run(join(application, 'DanmuCompanion.exe'), ['--smoke-seconds', '3', '--profile', 'update-runtime', '--data-root', dataRoot, '--result', repaired]);
+          run(join(repairRoot, 'DanmuCompanion.exe'), ['--smoke-seconds', '3', '--profile', 'update-runtime', '--data-root', dataRoot, '--result', repaired]);
           assert.equal(JSON.parse(await readFile(repaired)).Ready, true, 'Complete incoming package extraction must actually repair UI/probe health.');
           assert.equal(await readFile(preferences, 'utf8'), personal);
           assert.equal(await readFile(join(application, 'user.txt'), 'utf8'), 'foreign bytes must survive');
-          checks.push('real failed-health payload repaired by complete incoming extraction at original root, without old bytes or settings loss');
+          assert.equal(await fileHash(collision), foreignBefore, 'New-empty-directory repair must never overwrite a same-name foreign file in the failed root.');
+          assert.equal(await fileHash(join(application, 'manifest.json')), failedManifest, 'Customer repair must preserve the failed original root unchanged.');
+          checks.push('real failed-health Portable repaired using complete ZIP in a new empty directory; original root, same-name foreign files and saved settings survive');
         }
       }
     }

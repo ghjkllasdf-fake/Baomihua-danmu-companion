@@ -15,6 +15,8 @@ internal sealed class UpdatePayloadGuard : IDisposable
 {
     private readonly List<FileStream> streams=new();
     private readonly UpdateDirectories directories=new();
+    internal UpdateOwnedFile[] Identities=>streams.Select((stream,index)=>new UpdateOwnedFile(names[index],UpdateFileIdentity.Read(stream))).ToArray();
+    private readonly List<string> names=new();
     internal UpdatePayloadGuard(string root,UpdatePackage package,Func<UpdateFile,bool> include=null)
     {
         try
@@ -23,7 +25,7 @@ internal sealed class UpdatePayloadGuard : IDisposable
             foreach(var file in package.Owned)
                 if(include==null || include(file))
                 {
-                    string path=directories.File(root,file.Path);streams.Add(UpdateLauncher.GuardExecutable(path,file));
+                    string path=directories.File(root,file.Path);streams.Add(UpdateLauncher.GuardExecutable(path,file));names.Add(file.Path);
                 }
         }
         catch{Dispose();throw;}
