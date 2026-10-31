@@ -13,9 +13,12 @@ internal sealed class UpdateService : IDisposable
     private readonly ApplicationPaths paths;
     private readonly UpdateIdentity identity;
     private readonly UpdateTransport transport;
-    private readonly string preferencesFile,cacheRoot;
+    private readonly TimeProvider clock;
+    private readonly int startupJitter;
+    private readonly string preferencesFile,cacheRoot,retryFile;
     private readonly object sync=new();
     private readonly SemaphoreSlim operation=new(1,1);
+    private readonly SemaphoreSlim scheduleChanged=new(0,1);
     private readonly CancellationTokenSource lifetime=new();
     private CancellationTokenSource active;
     private UpdatePreferences preferences;
@@ -23,22 +26,37 @@ internal sealed class UpdateService : IDisposable
     private UpdateRelease selected;
     private UpdateDownload downloaded;
     private bool started,disposed;
+    private Task automaticTask=Task.CompletedTask;
+    private Task workerCompletion=Task.CompletedTask;
+    private long automaticStartedAt;
+    private long? lastCheckAttempt,failureStartedAt;
+    private TimeSpan failureDelay;
+    private int checkFailures;
+    private bool serverBackoff;
+    private string retryNotice="";
+    internal Task AutomaticCompletion=>automaticTask;
     public event Action Changed;
     public UpdateSnapshot View {get{lock(sync)return view;}}
     public UpdateDownload Downloaded {get{lock(sync)return downloaded;}}
-    public UpdateService(ApplicationPaths paths,UpdateIdentity identity=null,UpdateTransport transport=null)
+    public UpdateService(ApplicationPaths paths,UpdateIdentity identity=null,UpdateTransport transport=null,TimeProvider clock=null,int? startupJitter=null)
     {
-        this.paths=paths;this.identity=identity??UpdateIdentity.Load(paths);this.transport=transport??new UpdateTransport();
+        this.clock=clock??TimeProvider.System;this.startupJitter=startupJitter??Random.Shared.Next(10);
+        if(this.startupJitter is <0 or >9)throw new ArgumentOutOfRangeException(nameof(startupJitter));
+        this.paths=paths;this.identity=identity??UpdateIdentity.Load(paths);this.transport=transport??new UpdateTransport(clock:this.clock);
         cacheRoot=Path.Combine(paths.ProfileRoot,"updates");preferencesFile=Path.Combine(cacheRoot,"preferences.json");
+        retryFile=Path.Combine(cacheRoot,"retry.json");
+        var retry=UpdateRetryStorage.Load(retryFile,this.clock.GetUtcNow(),out retryNotice);
+        checkFailures=retry.Failures;
+        if(retry.NotBefore>this.clock.GetUtcNow()){failureStartedAt=this.clock.GetTimestamp();failureDelay=retry.NotBefore-this.clock.GetUtcNow();serverBackoff=retry.ServerLimited;}
         preferences=UpdateStorage.Load(preferencesFile,UpdateVersion.TryParse(this.identity.Version,out var version) && version.Stable ? "stable" : "beta",out string notice);
         view=new(this.identity.Supported ? "idle" : "unavailable",this.identity.Version,"",this.identity.Variant,this.identity.Distribution,preferences.Channel,
-            preferences.AutoCheck,preferences.AutoDownload,preferences.CheckedAt,0,0,"",this.identity.Supported ? notice : "开发、候选或不完整的发行包不执行自动更新，请使用 GitHub 正式发行包。",0,this.identity.Supported,false,UpdateMaintenance.LastResult(paths),preferences.CheckIntervalHours);
+            preferences.AutoCheck,preferences.AutoDownload,preferences.CheckedAt,0,0,"",this.identity.Supported ? notice+retryNotice : "开发、候选或不完整的发行包不执行自动更新，请使用 GitHub 正式发行包。",0,this.identity.Supported,false,UpdateMaintenance.LastResult(paths),preferences.CheckIntervalHours);
     }
     private void Change(Func<UpdateSnapshot,UpdateSnapshot> change)
     {
         lock(sync){if(disposed)return;view=change(view) with{Revision=view.Revision+1};}Changed?.Invoke();
     }
-    private void State(string state,string message="")=>Change(v=>v with{State=state,Message=message,CanInstall=state=="ready" && identity.Supported && File.Exists(Path.Combine(paths.Root,"DanmuCompanion.Updater.exe"))});
+    private void State(string state,string message="")=>Change(v=>v with{State=state,Message=message[..Math.Min(message.Length,500-retryNotice.Length)]+retryNotice,CanInstall=state=="ready" && identity.Supported && File.Exists(Path.Combine(paths.Root,"DanmuCompanion.Updater.exe"))});
     public UpdateSnapshot SetPreferences(JsonElement payload)
     {
         if(View.State=="applying")throw new InvalidOperationException("正在交接更新安装，不能修改更新设置。");
@@ -47,41 +65,74 @@ internal sealed class UpdateService : IDisposable
         if(!operation.Wait(0))throw new InvalidOperationException("更新操作进行中，请完成或取消后再修改设置。");
         try
         {
+            if(View.State=="applying")throw new InvalidOperationException("正在交接更新安装，不能修改更新设置。");
             var next=new UpdatePreferences(payload.GetProperty("autoCheck").GetBoolean(),payload.GetProperty("autoDownload").GetBoolean(),channel,preferences.CheckedAt,UpdateStorage.ReadInterval(payload,preferences.CheckIntervalHours));
             UpdateStorage.Save(preferencesFile,next);bool changed=next.Channel!=preferences.Channel;preferences=next;
             if(changed){UpdateDownload discarded;lock(sync){selected=null;discarded=downloaded;downloaded=null;}if(discarded!=null)UpdateMaintenance.TryCleanupOperation(paths,discarded.Operation);}
-            Change(v=>v with{Channel=channel,AutoCheck=next.AutoCheck,AutoDownload=next.AutoDownload,CheckIntervalHours=next.CheckIntervalHours,Message="",State=changed ? identity.Supported ? "idle" : "unavailable" : v.State,
+            Change(v=>v with{Channel=channel,AutoCheck=next.AutoCheck,AutoDownload=next.AutoDownload,CheckIntervalHours=next.CheckIntervalHours,Message=retryNotice,State=changed ? identity.Supported ? "idle" : "unavailable" : v.State,
                 AvailableVersion=changed ? "" : v.AvailableVersion,Notes=changed ? "" : v.Notes,DownloadedBytes=changed ? 0 : v.DownloadedBytes,TotalBytes=changed ? 0 : v.TotalBytes,CanInstall=changed ? false : v.CanInstall});
             return View;
         }
-        finally{operation.Release();}
+        finally{operation.Release();WakeAutomatic();}
     }
-    private async Task<UpdateSnapshot> Execute(string state,Func<CancellationToken,Task> action)
+    private async Task<UpdateSnapshot> Execute(string state,Func<CancellationToken,Task> action,bool automatic=false)
     {
         if(View.State=="applying")throw new InvalidOperationException("正在准备安装更新，请稍候。");
         if(!identity.Supported)throw new InvalidOperationException("此开发、候选或不完整的发行包不支持自动更新。");
         if(!await operation.WaitAsync(0).ConfigureAwait(false))throw new InvalidOperationException("更新操作正在进行，请稍候。");
+        if(View.State=="applying"){operation.Release();throw new InvalidOperationException("正在准备安装更新，请稍候。");}
+        if(automatic && NextAutomaticDelay()!=TimeSpan.Zero){operation.Release();return View;}
         using var token=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);lock(sync)active=token;
         State(state);
         try{await action(token.Token).ConfigureAwait(false);}
         catch(OperationCanceledException)
-        {State(token.IsCancellationRequested ? selected==null ? "idle" : "available" : "failed",token.IsCancellationRequested ? "更新操作已取消。" : "更新请求超时，请重试。");}
+        {if(state=="checking" && !token.IsCancellationRequested)RecordFailure(null);State(token.IsCancellationRequested ? selected==null ? "idle" : "available" : "failed",token.IsCancellationRequested ? "更新操作已取消。" : "更新请求超时，请重试。");}
         catch(Exception error) when(UpdateStorage.MetadataError(error) || error is System.Net.Http.HttpRequestException)
-        {State("failed",error is InvalidDataException or InvalidOperationException ? error.Message[..Math.Min(error.Message.Length,500)] : "检查或下载失败，请确认网络与磁盘空间后重试。");}
-        finally{lock(sync)active=null;operation.Release();}
+        {if(state=="checking" || error is UpdateRateLimitException)RecordFailure(error);State("failed",error is InvalidDataException or InvalidOperationException ? error.Message[..Math.Min(error.Message.Length,400)] : "检查或下载失败，请确认网络与磁盘空间后重试。");}
+        finally{lock(sync)active=null;operation.Release();WakeAutomatic();}
         return View;
     }
-    public Task<UpdateSnapshot> CheckAsync()=>Execute("checking",async token=>
+    public Task<UpdateSnapshot> CheckAsync()=>Check(false);
+    private Task<UpdateSnapshot> Check(bool automatic)=>Execute("checking",async token=>
     {
+        lock(sync)lastCheckAttempt=clock.GetTimestamp();
         var release=await transport.DiscoverAsync(identity.Version,preferences.Channel,identity.Variant=="includeAPI",identity.Distribution,token).ConfigureAwait(false);
         lock(sync){selected=release;if(release==null || downloaded?.Version!=release.Version)downloaded=null;}
-        if(release!=null && Downloaded==null)await RestoreDownload(release,token).ConfigureAwait(false);
-        string stamp=DateTimeOffset.UtcNow.ToString("O");preferences=preferences with{CheckedAt=stamp};
+        bool assetLimited;lock(sync)assetLimited=serverBackoff && FailureRemaining()>TimeSpan.Zero;
+        if(release!=null && Downloaded==null && !assetLimited)await RestoreDownload(release,token).ConfigureAwait(false);
+        string stamp=clock.GetUtcNow().ToString("O");preferences=preferences with{CheckedAt=stamp};
         try{UpdateStorage.Save(preferencesFile,preferences);}catch(IOException){}catch(UnauthorizedAccessException){}
         Change(v=>v with{AvailableVersion=release?.Version??"",Notes=release?.Notes??"",CheckedAt=stamp,DownloadedBytes=downloaded==null ? 0 : v.DownloadedBytes,TotalBytes=release==null ? 0 : release.Artifact.Size+(release.Archive?.Size??0)});
-        State(release==null ? "current" : downloaded==null ? "available" : "ready");
-        if(release!=null && downloaded==null && preferences.AutoDownload)await DownloadCore(token).ConfigureAwait(false);
-    });
+        State(release==null ? "current" : downloaded==null ? "available" : "ready",assetLimited && release!=null && downloaded==null ? "发现更新；附件自动下载等待 GitHub 限流期限结束。" : "");
+        if(release!=null && downloaded==null && preferences.AutoDownload && !assetLimited)await DownloadCore(token).ConfigureAwait(false);
+        ResetFailure();
+    },automatic);
+    private TimeSpan FailureRemaining()=>failureStartedAt.HasValue ? failureDelay-clock.GetElapsedTime(failureStartedAt.Value) : TimeSpan.Zero;
+    private void RecordFailure(Exception error)
+    {
+        lock(sync)
+        {
+            var remaining=FailureRemaining();serverBackoff=error is UpdateRateLimitException || serverBackoff && remaining>TimeSpan.Zero;
+            checkFailures=Math.Min(checkFailures+1,3);failureDelay=TimeSpan.FromHours(6*(1<<(checkFailures-1)));
+            if(error is UpdateRateLimitException limited && limited.RetryAfter>failureDelay)failureDelay=limited.RetryAfter;
+            if(remaining>failureDelay)failureDelay=remaining;
+            var maximum=DateTimeOffset.MaxValue-clock.GetUtcNow();if(failureDelay>maximum)failureDelay=maximum;
+            failureStartedAt=clock.GetTimestamp();
+        }
+        PersistRetry();
+    }
+    private void ResetFailure()
+    {
+        lock(sync){checkFailures=0;if(!serverBackoff || FailureRemaining()<=TimeSpan.Zero){failureStartedAt=null;failureDelay=TimeSpan.Zero;serverBackoff=false;}}
+        string oldNotice=retryNotice;PersistRetry();
+        if(oldNotice.Length>0 || retryNotice.Length>0)Change(v=>v with{Message=(oldNotice.Length>0 && v.Message.EndsWith(oldNotice,StringComparison.Ordinal) ? v.Message[..^oldNotice.Length] : v.Message)+retryNotice});
+    }
+    private void PersistRetry()
+    {
+        UpdateRetry retry;lock(sync){var remaining=FailureRemaining();retry=remaining>TimeSpan.Zero ? new(UpdateRetryStorage.Deadline(clock.GetUtcNow(),remaining),checkFailures,serverBackoff) : new(DateTimeOffset.MinValue,checkFailures,false);}
+        try{UpdateRetryStorage.Save(retryFile,retry);retryNotice="";}
+        catch(Exception error) when(UpdateStorage.MetadataError(error)){retryNotice="检查退避未能保存，重启后可能重新检查。";}
+    }
     public Task<UpdateSnapshot> DownloadAsync()=>Execute("downloading",DownloadCore);
     private async Task DownloadCore(CancellationToken token)
     {
@@ -167,32 +218,72 @@ internal sealed class UpdateService : IDisposable
         using var token=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);lock(sync)active=token;State("applying","正在预检查更新，完成后退出并安装。");
         try{return await UpdateLauncher.PrepareAsync(paths,downloaded,reopen,token.Token);}
         catch(Exception error){State("failed","更新预检查未通过，原程序继续运行。"+(error is InvalidDataException or InvalidOperationException ? error.Message[..Math.Min(error.Message.Length,400)] : ""));throw new InvalidOperationException(View.Message);}
-        finally{lock(sync)active=null;operation.Release();}
+        finally{lock(sync)active=null;operation.Release();WakeAutomatic();}
     }
-    internal void InstallFailed()=>State("failed","安装交接未完成，原程序继续运行，请重试。");
+    internal void InstallFailed(){State("failed","安装交接未完成，原程序继续运行，请重试。");WakeAutomatic();}
     public Uri ReleasePage {get{lock(sync)return new Uri("https://github.com/"+UpdateCatalog.Repository+"/releases"+(selected==null ? "" : "/tag/"+Uri.EscapeDataString(selected.Tag)));}}
     public void StartAutomatic()
     {
-        lock(sync){if(started || disposed || !identity.Supported || Path.GetFileName(paths.ProfileRoot)!="app")return;started=true;}
-        _=AutomaticLoop();
+        lock(sync){if(started || disposed || !identity.Supported || Path.GetFileName(paths.ProfileRoot)!="app")return;started=true;automaticStartedAt=clock.GetTimestamp();automaticTask=AutomaticLoop();}
+    }
+    private void WakeAutomatic()
+    {try{scheduleChanged.Release();}catch(SemaphoreFullException){}}
+    private TimeSpan NextAutomaticDelay()
+    {
+        lock(sync)
+        {
+            if(!view.AutoCheck)return Timeout.InfiniteTimeSpan;
+            var interval=TimeSpan.FromHours(view.CheckIntervalHours);
+            var remaining=TimeSpan.FromSeconds(20+startupJitter)-clock.GetElapsedTime(automaticStartedAt);
+            void Extend(TimeSpan wait){if(wait>remaining)remaining=wait;}
+            var now=clock.GetUtcNow();
+            if(DateTimeOffset.TryParse(view.CheckedAt,out var checkedAt) && checkedAt<=now)Extend(interval-(now-checkedAt));
+            if(lastCheckAttempt.HasValue)Extend(interval-clock.GetElapsedTime(lastCheckAttempt.Value));
+            if(failureStartedAt.HasValue)Extend(failureDelay-clock.GetElapsedTime(failureStartedAt.Value));
+            return remaining>TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        }
+    }
+    private async Task WaitAutomatic(TimeSpan delay)
+    {
+        if(delay==Timeout.InfiniteTimeSpan){await scheduleChanged.WaitAsync(lifetime.Token).ConfigureAwait(false);return;}
+        using var wait=CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token);
+        var timer=Task.Delay(delay>TimeSpan.FromDays(1) ? TimeSpan.FromDays(1) : delay,clock,wait.Token);
+        var changed=scheduleChanged.WaitAsync(wait.Token);
+        await Task.WhenAny(timer,changed).ConfigureAwait(false);
+        // Cancel and observe the loser too: an abandoned waiter can swallow the next preference change.
+        wait.Cancel();
+        try{await Task.WhenAll(timer,changed).ConfigureAwait(false);}catch(OperationCanceledException) when(!lifetime.IsCancellationRequested){}
     }
     private async Task AutomaticLoop()
     {
         try
         {
-            await Task.Delay(TimeSpan.FromSeconds(20+Random.Shared.Next(10)),lifetime.Token).ConfigureAwait(false);
+            // One startup maintenance pass is independent of auto-check; disabled checks have no recurring timer.
+            await Task.Delay(TimeSpan.FromSeconds(20+startupJitter),clock,lifetime.Token).ConfigureAwait(false);
+            await Task.Run(()=>
+            {
+                // A healthy host can appear before its updater exits. Observe that exact worker once, without polling.
+                workerCompletion=UpdateMaintenance.ObserveWorkers(paths,()=>
+                {Maintain();Change(v=>v with{LastResult=UpdateMaintenance.LastResult(paths)});},lifetime.Token,MaintenanceFailed);
+                Maintain();
+            },lifetime.Token).ConfigureAwait(false);
+            Change(v=>v with{LastResult=UpdateMaintenance.LastResult(paths)});
             while(!lifetime.IsCancellationRequested)
             {
-                await Task.Run(()=>UpdateMaintenance.Cleanup(paths,Downloaded?.Operation),lifetime.Token).ConfigureAwait(false);
+                var delay=NextAutomaticDelay();
+                if(delay!=TimeSpan.Zero){await WaitAutomatic(delay).ConfigureAwait(false);continue;}
+                await Task.Run(Maintain,lifetime.Token).ConfigureAwait(false);
                 Change(v=>v with{LastResult=UpdateMaintenance.LastResult(paths)});
-                var current=View;
-                bool due=!DateTimeOffset.TryParse(current.CheckedAt,out var checkedAt) || checkedAt>DateTimeOffset.UtcNow || DateTimeOffset.UtcNow-checkedAt>=TimeSpan.FromHours(6);
-                if(current.AutoCheck && due){try{await CheckAsync().ConfigureAwait(false);}catch(InvalidOperationException){}}
-                await Task.Delay(TimeSpan.FromHours(6),lifetime.Token).ConfigureAwait(false);
+                try{await Check(true).ConfigureAwait(false);}
+                catch(InvalidOperationException){await scheduleChanged.WaitAsync(lifetime.Token).ConfigureAwait(false);}
             }
         }
         catch(OperationCanceledException){}catch(ObjectDisposedException){}
+        finally{await workerCompletion.ConfigureAwait(false);}
     }
+    private void MaintenanceFailed()=>Change(v=>v with{Message="更新缓存维护未完成，已保留现有文件；版本检查仍可继续。"+retryNotice});
+    private void Maintain()
+    {try{UpdateMaintenance.Cleanup(paths,Downloaded?.Operation,lifetime.Token);}catch(Exception error) when(UpdateStorage.MetadataError(error)){MaintenanceFailed();}}
     public void Dispose()
     {
         lock(sync){if(disposed)return;disposed=true;lifetime.Cancel();try{active?.Cancel();}catch(ObjectDisposedException){}}

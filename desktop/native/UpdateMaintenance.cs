@@ -1,7 +1,10 @@
 using System;
 using System.Diagnostics;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Popcorn;
 
@@ -13,15 +16,58 @@ internal static class UpdateMaintenance
         try{using var doc=UpdateStorage.ReadJson(Path.Combine(directory,"complete.json"),4096);return doc.RootElement.GetProperty("schemaVersion").GetInt32()==1 && doc.RootElement.GetProperty("operationId").GetString()==Path.GetFileName(directory);}
         catch(Exception error) when(UpdateStorage.MetadataError(error)){return false;}
     }
-    private static bool Running(JsonElement record,string helper)
+    private static Process OpenWorker(JsonElement record,string helper)
     {
+        Process worker=null;
         try
         {
-            using var worker=Process.GetProcessById(record.GetProperty("workerPid").GetInt32());
-            return !worker.HasExited && worker.StartTime.ToUniversalTime().Ticks==record.GetProperty("workerStartTicks").GetInt64() &&
-                string.Equals(worker.MainModule?.FileName,helper,StringComparison.OrdinalIgnoreCase);
+            int pid=record.GetProperty("workerPid").GetInt32();long ticks=record.GetProperty("workerStartTicks").GetInt64();
+            worker=Process.GetProcessById(pid);_=worker.Handle;
+            if(!worker.HasExited && worker.StartTime.ToUniversalTime().Ticks==ticks &&
+                string.Equals(worker.MainModule?.FileName,helper,StringComparison.OrdinalIgnoreCase))return worker;
         }
-        catch(Exception error) when(error is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception){return false;}
+        catch(System.ComponentModel.Win32Exception){worker?.Dispose();throw;}
+        catch(Exception error) when(error is ArgumentException or InvalidOperationException){}
+        worker?.Dispose();return null;
+    }
+    internal static bool Running(JsonElement record,string helper,Func<JsonElement,string,Process> query=null)
+    {
+        try{using var worker=(query??OpenWorker)(record,helper);return worker!=null;}
+        // Inaccessible is not exited: keep recovery/cleanup fail-closed on process-query errors.
+        catch(System.ComponentModel.Win32Exception){return true;}
+    }
+    internal static Task ObserveWorkers(ApplicationPaths paths,Action completed,CancellationToken token,Action failed=null,IEnumerable<string> directories=null)
+    {
+        string cache=Cache(paths);if(!Directory.Exists(cache))return Task.CompletedTask;
+        var waits=new List<Task>();
+        try
+        {
+            foreach(string directory in directories??Directory.EnumerateDirectories(cache))
+            {
+                if(token.IsCancellationRequested)break;
+                try
+                {
+                    if(!UpdateStorage.Owns(cache,directory) || !File.Exists(Path.Combine(directory,"recovery.json")))continue;
+                    using var record=UpdateStorage.ReadJson(Path.Combine(directory,"recovery.json"),16384);var job=record.RootElement.GetProperty("job").Deserialize<UpdateJob>(UpdateStorage.Json);
+                    UpdatePackage.Check(job!=null && job.OperationId==Path.GetFileName(directory) && string.Equals(UpdatePackage.SafeRoot(job.ApplicationRoot),UpdatePackage.SafeRoot(paths.Root),StringComparison.OrdinalIgnoreCase),"更新观察操作不属于此应用目录。");
+                    var worker=OpenWorker(record.RootElement,UpdatePackage.SafeFile(directory,"helper/DanmuCompanion.Updater.exe"));
+                    if(worker!=null)waits.Add(Observe(worker));
+                }
+                catch(Exception error) when(UpdateStorage.MetadataError(error)){}
+                catch(System.ComponentModel.Win32Exception){failed?.Invoke();}
+            }
+        }
+        catch(Exception error) when(UpdateStorage.MetadataError(error)){failed?.Invoke();}
+        return Task.WhenAll(waits);
+        async Task Observe(Process worker)
+        {
+            using(worker)
+            {
+                try{await worker.WaitForExitAsync(token).ConfigureAwait(false);if(!token.IsCancellationRequested)completed();}
+                catch(OperationCanceledException) when(token.IsCancellationRequested){}
+                catch(Exception error) when(UpdateStorage.MetadataError(error) || error is System.ComponentModel.Win32Exception){}
+            }
+        }
     }
     private static (string Transaction,string Phase,bool Running) Inspect(ApplicationPaths paths,string directory)
     {
@@ -74,11 +120,12 @@ internal static class UpdateMaintenance
         }
         catch(Exception error) when(UpdateStorage.MetadataError(error)){}
     }
-    internal static void Cleanup(ApplicationPaths paths,string preserve=null)
+    internal static void Cleanup(ApplicationPaths paths,string preserve=null,CancellationToken token=default)
     {
         string cache=Cache(paths);if(!Directory.Exists(cache))return;
         foreach(string directory in Directory.EnumerateDirectories(cache))
         {
+            if(token.IsCancellationRequested)break;
             try
             {
                 if(!UpdateStorage.Owns(cache,directory))continue;

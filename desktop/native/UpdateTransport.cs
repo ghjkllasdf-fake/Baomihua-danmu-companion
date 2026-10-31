@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -14,14 +15,18 @@ internal sealed record UpdateText(byte[] Body,string ETag,bool NotModified)
 {
     public string Text=>Encoding.UTF8.GetString(Body);
 }
+internal sealed class UpdateRateLimitException(TimeSpan retryAfter) : InvalidOperationException("GitHub 暂时限制请求，请稍后重试。")
+{public TimeSpan RetryAfter {get;}=retryAfter;}
 
 internal sealed class UpdateTransport : IDisposable
 {
     private readonly HttpClient client;
+    private readonly TimeProvider clock;
     private string cacheKey="",cacheTag="";
     private UpdateRelease cached;
-    public UpdateTransport(HttpMessageHandler handler=null)
+    public UpdateTransport(HttpMessageHandler handler=null,TimeProvider clock=null)
     {
+        this.clock=clock??TimeProvider.System;
         client=new HttpClient(handler??new HttpClientHandler{AllowAutoRedirect=false,UseDefaultCredentials=false}){Timeout=Timeout.InfiniteTimeSpan};
         client.DefaultRequestHeaders.UserAgent.ParseAdd("DanmuCompanion-Updater/1.0");
         client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
@@ -48,7 +53,14 @@ internal sealed class UpdateTransport : IDisposable
                 var location=response.Headers.Location;response.Dispose();UpdatePackage.Check(location!=null,"GitHub 重定向缺少下载地址。");uri=location.IsAbsoluteUri ? location : new Uri(uri,location);continue;
             }
             if(response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.TooManyRequests)
-            {response.Dispose();throw new InvalidOperationException("GitHub 暂时限制请求，请稍后重试。");}
+            {
+                var now=clock.GetUtcNow();var retry=response.Headers.RetryAfter;
+                TimeSpan wait=retry?.Delta??(retry?.Date is DateTimeOffset date ? date-now : TimeSpan.Zero);
+                if(response.Headers.TryGetValues("X-RateLimit-Remaining",out var remaining) && remaining.Contains("0") &&
+                    response.Headers.TryGetValues("X-RateLimit-Reset",out var resets) && long.TryParse(resets.FirstOrDefault(),out long seconds) && seconds is >=0 and <=253402300799)
+                {var reset=DateTimeOffset.FromUnixTimeSeconds(seconds)-now;if(reset>wait)wait=reset;}
+                response.Dispose();throw new UpdateRateLimitException(wait>TimeSpan.Zero ? wait : TimeSpan.Zero);
+            }
             if(response.StatusCode!=HttpStatusCode.OK && response.StatusCode!=HttpStatusCode.NotModified)
             {int status=(int)response.StatusCode;response.Dispose();if(status>=500)throw new HttpRequestException("GitHub 下载源暂时不可用。");throw new InvalidDataException("GitHub 更新请求失败，请稍后重试。");}
             return response;
