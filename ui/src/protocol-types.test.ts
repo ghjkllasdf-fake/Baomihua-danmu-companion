@@ -13,6 +13,7 @@ it('typechecks valid commands and rejects missing context, uncorrelated commands
     "request('update-settings', { settings: defaultSettings });",
     "request('get-local-api', {});",
     "request('set-local-sources', { sources: ['douban'] });",
+    "request('prepare-portable', {});",
     "const result: Promise<{count: number}> = request('comments', {apiBase:'http://fixture.invalid/token', value:'1', expectedMediaRevision:0});",
   ];
   const bad = [
@@ -23,6 +24,8 @@ it('typechecks valid commands and rejects missing context, uncorrelated commands
     "request('hello', {path:'arbitrary'});",
     "request('get-local-api');",
     "request('set-local-sources', { sources: [1] });",
+    "request('prepare-portable');",
+    "request('prepare-portable', { targetPath: 'untrusted' });",
     "const wrong: Promise<string> = request('search', {apiBase:'http://fixture.invalid/token', value:'1'});",
     "const kind = Math.random() > .5 ? 'search' : 'comments'; request(kind, {apiBase:'http://fixture.invalid/token',value:'1'});",
   ];

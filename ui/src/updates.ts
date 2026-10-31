@@ -1,4 +1,5 @@
 export type UpdatePhase = 'unavailable' | 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'verifying' | 'ready' | 'applying' | 'failed';
+export type PortableSetupState = 'none' | 'required' | 'preparing' | 'prepared';
 export const updateCheckIntervals = [24, 168, 720] as const;
 export type CheckIntervalHours = typeof updateCheckIntervals[number];
 export const defaultCheckIntervalHours: CheckIntervalHours = 24;
@@ -10,6 +11,7 @@ export interface UpdatePreferences {
 export interface UpdateSnapshot extends UpdatePreferences {
   state: UpdatePhase; currentVersion: string; availableVersion: string; variant: 'standard' | 'includeAPI'; distribution: 'portable' | 'installer';
   checkedAt: string; downloadedBytes: number; totalBytes: number; notes: string; message: string; revision: number; supported: boolean; canInstall: boolean; lastResult: string;
+  portableSetupState?: PortableSetupState;
 }
 const object = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 const exact = (v: object, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
@@ -40,7 +42,10 @@ export function validUpdatePreferences(v: unknown): v is UpdatePreferences {
 export function validUpdateSnapshot(v: unknown): v is UpdateSnapshot {
   if (!object(v)) return false;
   const interval = Object.hasOwn(v, 'checkIntervalHours');
-  if (!exact(v, ['state', 'currentVersion', 'availableVersion', 'variant', 'distribution', 'channel', 'autoCheck', 'autoDownload', 'checkedAt', 'downloadedBytes', 'totalBytes', 'notes', 'message', 'revision', 'supported', 'canInstall', 'lastResult', ...(interval ? ['checkIntervalHours'] : [])])) return false;
+  const setup = Object.hasOwn(v, 'portableSetupState');
+  if (!exact(v, ['state', 'currentVersion', 'availableVersion', 'variant', 'distribution', 'channel', 'autoCheck', 'autoDownload', 'checkedAt', 'downloadedBytes', 'totalBytes', 'notes', 'message', 'revision', 'supported', 'canInstall', 'lastResult', ...(interval ? ['checkIntervalHours'] : []), ...(setup ? ['portableSetupState'] : [])])) return false;
+  if (setup && (typeof v.portableSetupState !== 'string' || !['none', 'required', 'preparing', 'prepared'].includes(v.portableSetupState))) return false;
+  if (setup && v.portableSetupState !== 'none' && (v.distribution !== 'portable' || v.supported !== false || v.canInstall !== false || v.availableVersion !== '' || !v.currentVersion)) return false;
   if (!['unavailable', 'idle', 'checking', 'current', 'available', 'downloading', 'verifying', 'ready', 'applying', 'failed'].includes(String(v.state)) ||
     !['standard', 'includeAPI'].includes(String(v.variant)) || !['portable', 'installer'].includes(String(v.distribution)) ||
     !validUpdatePreferences({ autoCheck: v.autoCheck, autoDownload: v.autoDownload, channel: v.channel, ...(interval ? { checkIntervalHours: v.checkIntervalHours } : {}) }) ||

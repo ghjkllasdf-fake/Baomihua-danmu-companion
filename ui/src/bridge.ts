@@ -66,6 +66,8 @@ export function request<C extends HostRequest>(...command: C): Promise<Result<C[
   const payload: unknown = command[1] ?? {};
   if (!validPayload(type, payload)) return Promise.reject(new HostCommandError('请求参数无效，未发送给宿主。', 'invalid-payload'));
   if (type !== 'hello' && !stateReady) return Promise.reject(new HostCommandError('尚未完成安全握手，请重新打开新版工作台。', 'host-not-ready'));
+  if (type === 'prepare-portable' && (connection.status !== 'ready' || !connection.hello.capabilities.includes('github-update-v1') || !connection.hello.capabilities.includes('portable-setup-v1')))
+    return Promise.reject(new HostCommandError('宿主不支持准备免安装版，请使用新版发行包。', 'unsupported-capability'));
   if (['get-update', 'check-update', 'download-update', 'cancel-update', 'set-update-preferences', 'install-update', 'open-update-page'].includes(type) &&
     (connection.status !== 'ready' || !connection.hello.capabilities.includes('github-update-v1')))
     return Promise.reject(new HostCommandError('宿主不支持 GitHub 更新，请使用新版发行包。', 'unsupported-capability'));

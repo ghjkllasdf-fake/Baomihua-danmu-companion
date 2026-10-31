@@ -9,6 +9,42 @@ export const updateFixture: UpdateSnapshot = {
   notes: '更新说明', message: '', revision: 1, supported: true, canInstall: false, lastResult: '',
 };
 describe('update state boundary', () => {
+  it('accepts only the optional closed Portable preparation states and preserves legacy snapshots', () => {
+    const setup = { ...updateFixture, state: 'unavailable', supported: false, canInstall: false, availableVersion: '', totalBytes: 0 };
+    for (const portableSetupState of ['required', 'preparing', 'prepared']) {
+      expect(validUpdateSnapshot({ ...setup, portableSetupState })).toBe(true);
+      expect(hasUpdate({ ...setup, portableSetupState })).toBe(false);
+    }
+    expect(validUpdateSnapshot({ ...updateFixture, portableSetupState: 'none' })).toBe(true);
+    expect(validUpdateSnapshot(updateFixture)).toBe(true);
+    for (const portableSetupState of ['failed', 'unknown', '', null, undefined, true, 1, {}, ['required']])
+      expect(validUpdateSnapshot({ ...setup, portableSetupState })).toBe(false);
+    expect(validUpdateSnapshot({ ...setup, portableSetupState: 'required', targetPath: 'untrusted' })).toBe(false);
+  });
+  it('rejects preparation states that contradict Portable identity or available update authority', () => {
+    const setup = { ...updateFixture, state: 'unavailable', supported: false, canInstall: false, availableVersion: '', totalBytes: 0, portableSetupState: 'required' };
+    for (const patch of [{ distribution: 'installer' }, { distribution: 'unknown' }, { supported: true }, { canInstall: true }, { currentVersion: '' }])
+      expect(validUpdateSnapshot({ ...setup, ...patch })).toBe(false);
+    expect(validUpdateSnapshot({ ...updateFixture, portableSetupState: 'required' })).toBe(false);
+    expect(validUpdateSnapshot({ ...updateFixture, distribution: 'installer', portableSetupState: 'none' })).toBe(true);
+  });
+  it('requires the update capability before accepting a Portable preparation handshake', () => {
+    const hello = { protocolVersion: 1, apiBase: '', settings: defaultSettings, settingsRevision: 0, stateSequence: 0, update: updateFixture };
+    expect(validHello({ ...hello, capabilities: ['media-context-v1', 'portable-setup-v1'] })).toBe(false);
+    expect(validHello({ ...hello, capabilities: ['media-context-v1', 'github-update-v1', 'portable-setup-v1'] })).toBe(true);
+  });
+  it('accepts an empty preparation command and full outcome snapshots, never a path or mere acknowledgement', () => {
+    const outcome = { ...updateFixture, state: 'unavailable', supported: false, availableVersion: '', totalBytes: 0, portableSetupState: 'prepared' };
+    expect(validPayload('prepare-portable', {})).toBe(true);
+    for (const payload of [{ path: 'untrusted' }, { target: 'untrusted' }, { confirmed: true }, null])
+      expect(validPayload('prepare-portable', payload)).toBe(false);
+    expect(validResult('prepare-portable', outcome)).toBe(true);
+    expect(validResult('prepare-portable', { ...outcome, portableSetupState: 'required' })).toBe(true);
+    expect(validResult('prepare-portable', { ...updateFixture, portableSetupState: 'none' })).toBe(true);
+    expect(validResult('prepare-portable', updateFixture)).toBe(false);
+    expect(validResult('prepare-portable', { accepted: true })).toBe(false);
+    expect(validResult('prepare-portable', { portableSetupState: 'prepared' })).toBe(false);
+  });
   it('offers only daily, weekly and fixed thirty-day monthly checks with daily as default', () => {
     expect(updateCheckIntervals).toEqual([24, 168, 720]);
     expect(defaultCheckIntervalHours).toBe(24);

@@ -4,7 +4,7 @@ import { defaultCheckIntervalHours, hasUpdate, updateBusy, updateCheckIntervals 
 import { UpdateBadge } from './UpdateBadge';
 
 export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
-  const { snapshot: state, error, pending, check, download, cancel, save, install, openRelease } = controller;
+  const { snapshot: state, error, pending, portableSetupSupported, portableSetupSnapshotValid, preparePortable, check, download, cancel, save, install, openRelease } = controller;
   const [confirm, setConfirm] = useState(false);
   const confirmation = useRef<HTMLDivElement>(null);
   useEffect(() => { setConfirm(false); }, [state?.availableVersion, state?.state]);
@@ -13,11 +13,13 @@ export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
     requestAnimationFrame(() => confirmation.current?.scrollIntoView({ block: 'center' }));
   }
   const available = hasUpdate(state);
-  const summaryText = error ? '需重试' : !state ? '未连接' : {
+  const setupState = portableSetupSupported && state?.distribution === 'portable' ? state.portableSetupState ?? 'none' : 'none';
+  const setupActive = setupState !== 'none';
+  const summaryText = setupActive ? { required: '需准备', preparing: '准备中', prepared: '文件已准备', none: '' }[setupState] : error ? '需重试' : !state ? '未连接' : {
     unavailable: '不可用', idle: state.currentVersion, checking: '检查中', current: state.currentVersion,
     available: state.availableVersion, downloading: '下载中', verifying: '校验中', ready: '待重启', applying: '安装中', failed: '需重试',
   }[state.state];
-  const heading = <summary className="update-summary" aria-label={available ? `软件更新，有新版本 ${state?.availableVersion}` : '软件更新'}>
+  const heading = <summary className="update-summary" aria-label={setupActive ? `软件更新，${summaryText}` : available ? `软件更新，有新版本 ${state?.availableVersion}` : '软件更新'}>
     <span id="update-heading" className={`update-title update-label${available ? ' has-update' : ''}`}>软件更新{available && <UpdateBadge />}</span>
     <span className="update-summary-state" aria-hidden="true">{summaryText}</span>
     <svg className="update-disclosure" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="m4 2.5 3.5 3.5-3.5 3.5" /></svg>
@@ -40,7 +42,15 @@ export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
   }}>
     {heading}
     <div className="update-body">
-    <div className="update-build"><span>当前版本 <span className="update-version">{state.currentVersion || '开发版本'}</span></span><span>{state.variant === 'includeAPI' ? '内置 API 版' : '普通版'} · {state.distribution === 'installer' ? '安装版' : '便携版'}</span></div>
+    <div className="update-build"><span>当前版本 <span className="update-version">{state.currentVersion || '开发版本'}</span></span><span>{state.variant === 'includeAPI' ? '内置 API 版' : '普通版'} · {state.distribution === 'installer' ? '安装版' : state.supported || setupActive ? '便携版' : '更新不可用'}</span></div>
+    {setupActive ? <>
+      <p className="update-message" role={error ? 'alert' : 'status'}>{error || state.message || {
+        required: '当前目录归属未确认，自动更新已停用，弹幕仍可使用。请在新空目录准备免安装版，原目录不改动。',
+        preparing: '正在准备免安装版。原目录保持不变，请勿重复操作。',
+        prepared: '文件已准备。请退出当前程序，从所选目录启动免安装版。', none: '',
+      }[setupState]}</p>
+      <div className="update-actions"><button type="button" className="primary" disabled={pending || !portableSetupSnapshotValid || setupState !== 'required'} aria-busy={pending || setupState === 'preparing'} onClick={() => void preparePortable()}>{setupState === 'prepared' ? '文件已准备' : pending || setupState === 'preparing' ? '正在准备…' : '准备免安装版'}</button></div>
+    </> : <>
     <div className="update-preferences">
       <label className="update-toggle"><span>自动检查更新</span><input type="checkbox" role="switch" checked={state.autoCheck} disabled={prefsDisabled} onChange={event => void save({ ...preferences, autoCheck: event.target.checked })} /></label>
       <label className="update-channel"><span>检查频率</span><select value={state.checkIntervalHours ?? defaultCheckIntervalHours} disabled={prefsDisabled || !state.autoCheck || !frequencySupported} aria-describedby={!frequencySupported ? 'update-frequency-notice' : undefined} onChange={event => {
@@ -67,6 +77,7 @@ export function UpdatePanel(controller: ReturnType<typeof useUpdates>) {
       <button type="button" className="text-button" disabled={busy} onClick={() => void openRelease()}>打开 GitHub Release</button>
     </div>
     {confirm && state.state === 'ready' && <div ref={confirmation} className="update-confirm" role="group" aria-label="确认更新安装"><p>更新至 {state.availableVersion}？弹幕伴侣会退出并重新启动，播放器不受控制。</p><p className="update-muted">原位覆盖，不备份旧版本；个人设置保留。</p><p className="update-muted">{repairGuidance}</p><div className="update-actions"><button type="button" className="primary" disabled={busy || !state.canInstall} onClick={() => void install(state.availableVersion)}>确认重启并更新</button><button type="button" className="text-button" onClick={() => setConfirm(false)}>暂不更新</button></div></div>}
+    </>}
     </div>
   </details>;
 }
