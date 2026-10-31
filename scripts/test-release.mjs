@@ -44,7 +44,7 @@ function setupArgs(target, log) {
 async function uninstall() {
   if (!ownedInstallation()) throw new Error('Refusing to uninstall a location not owned by this test.');
   run(join(install, 'unins000.exe'), ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', `/LOG=${join(evidence, 'uninstall.log')}`]);
-  for (let i = 0; i < 50 && registered() !== null; i++) await delay(200);
+  for (let i = 0; i < 50 && (registered() !== null || existsSync(join(install, 'DanmuCompanion.exe')) || existsSync(link)); i++) await delay(200);
   assert.equal(registered(), null, 'Uninstall registration must be removed.');
 }
 
