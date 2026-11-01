@@ -1,11 +1,22 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, copyFile, stat, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, win32 } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory, nativePublishEntry, retainedResourceCultures } from '../scripts/release-lib.mjs';
+
+test('release verification normalizes the trailing separator returned by Inno registration', async () => {
+  const source = await readFile(new URL('../scripts/test-release.mjs', import.meta.url), 'utf8');
+  const implementation = source.match(/function registered\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(implementation);
+  const actual = new Function('run', 'tools', 'includeApi', 'resolve', implementation + '\nreturn registered();');
+  for (const input of [null, 'C:\\Program Files\\Danmu', 'C:\\Program Files\\Danmu\\']) {
+    const result = actual(() => ({ stdout: JSON.stringify({ location: input }) }), 'controlled tool', false, win32.resolve);
+    assert.equal(result, input === null ? null : 'C:\\Program Files\\Danmu');
+  }
+});
 
 test('retired updater executable, assembly and configuration files are excluded from the payload', () => {
   for (const path of ['DanmuCompanion.Updater.exe', 'DanmuCompanion.Updater.dll', 'DanmuCompanion.Updater.deps.json', 'DanmuCompanion.Updater.runtimeconfig.json']) assert.equal(allowedEntry(path), false);

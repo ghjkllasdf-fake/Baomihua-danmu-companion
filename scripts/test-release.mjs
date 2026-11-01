@@ -35,7 +35,8 @@ function run(exe, args, expected = 0) {
   return result;
 }
 function registered() {
-  return JSON.parse(run(tools, ['installation-location', ...(includeApi ? ['includeAPI'] : [])]).stdout).location;
+  const location = JSON.parse(run(tools, ['installation-location', ...(includeApi ? ['includeAPI'] : [])]).stdout).location;
+  return location === null ? null : resolve(location);
 }
 function ownedInstallation() { return registered()?.toLowerCase() === install.toLowerCase(); }
 function setupArgs(target, log) {
