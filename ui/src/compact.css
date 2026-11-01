@@ -61,13 +61,14 @@
 .mini-app .result-list { max-height: 160px; }
 .mini-app .episodes { margin-top: 12px; }
 .mini-app .types { display: flex; flex-wrap: wrap; padding: 10px 0; gap: 12px; border: 0; }
-.mini-app .types legend { float: none; width: 100%; margin-bottom: 8px; }
+.mini-app .source-types { font-size: 12px; }
+.mini-app .manual-sync { margin-top: 6px; }
 .mini-app .advanced { margin-top: 8px; }
 .mini-app .advanced, .mini-app .manual-sync { padding-top: 10px; }
 .mini-app .advanced .range-control { grid-template-columns: 90px minmax(0, 1fr) 58px; }
 .mini-app summary { min-height: 28px; }
 .mini-app summary span { float: none; display: block; font-size: 11px; }
-.mini-app .local-api { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.mini-app .local-api { margin-top: 14px; border-top: 1px solid var(--line); border-bottom: 0; padding-top: 12px; }
 .mini-app .local-api .api-heading { display: none; }
 .mini-footer { flex-shrink: 0; border-top: 1px solid var(--line); background: var(--surface); padding: 8px 16px; }
 .mini-app .playback-strip { background: transparent; color: var(--ink); padding: 0; gap: 8px; align-items: center; }

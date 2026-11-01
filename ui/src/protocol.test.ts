@@ -6,6 +6,16 @@ const api = { apiBase: 'http://fixture.invalid/token', value: '10' };
 const snapshot = { settings: defaultSettings, settingsRevision: 0 };
 const hello = { ...snapshot, apiBase: '', stateSequence: 4, protocolVersion: 1, capabilities: ['future-addition', 'media-context-v1'] };
 describe('command contract boundary', () => {
+  it('only accepts known tray views and host-defined logical sizes', () => {
+    expect(validPayload('set-tray-view', { view: 'home' })).toBe(true);
+    expect(validPayload('set-tray-view', { view: 'settings', height: 1 })).toBe(false);
+    expect(validPayload('set-tray-view', { view: 'other' })).toBe(false);
+    expect(validResult('set-tray-view', { view: 'home', width: 380, height: 430 })).toBe(true);
+    expect(validResult('set-tray-view', { view: 'home', width: 380, height: 510 })).toBe(true);
+    expect(validResult('set-tray-view', { view: 'search', width: 380, height: 540 })).toBe(true);
+    expect(validResult('set-tray-view', { view: 'settings', width: 380, height: 430 })).toBe(false);
+    expect(validResult('set-tray-view', { view: 'home', width: 1, height: 430 })).toBe(false);
+  });
   it('only accepts a boolean startup choice and a confirmed boolean result', () => {
     expect(validPayload('get-startup', {})).toBe(true);
     expect(validPayload('set-startup', { enabled: false })).toBe(true);

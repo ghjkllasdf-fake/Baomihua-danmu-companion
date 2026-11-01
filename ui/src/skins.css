@@ -49,6 +49,7 @@
 :root[data-skin=fluent] .mini-app{border-color:#cddae5}
 :root[data-skin=fluent] .mini-toolbar{background:#e8f0f7}
 :root[data-skin=fluent] .display-settings{background:#fff;border:1px solid #e0e8ef;border-radius:8px;padding:2px 9px 5px}
+:root[data-skin=fluent] .display-settings[data-view=advanced]{background:transparent;border:0;border-radius:0;padding:0}
 :root[data-skin=fluent] .mini-app .region-control legend{width:63px;font-size:12px}
 :root[data-skin=fluent] .mini-app .segments{margin-left:69px;gap:3px}
 :root[data-skin=fluent] .mini-app .segments button{gap:4px;padding:5px 3px}
