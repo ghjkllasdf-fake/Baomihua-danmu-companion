@@ -8,7 +8,7 @@
 
 它是配合播放器使用的小工具，不提供影视资源。获取弹幕需要联网。
 
-**[下载 Beta7](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.2.0)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
+**[下载 0.2 正式版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.2.0)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
 
 **0.2 正式版**：includeAPI 取消本地弹幕拉取次数限流。全新配置默认使用第一款皮肤、0.6 倍弹幕速度、100% 不透明度、零描边、100% 阴影，开启等比缩放并使用密集弹幕；已有保存偏好不变。详见 [更新记录](CHANGELOG.md)。
 

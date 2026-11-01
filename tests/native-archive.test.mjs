@@ -13,6 +13,26 @@ function run(...args) {
 function pass(result) { assert.equal(result.status, 0, result.stderr ?? result.error?.message); }
 function fail(result) { assert.equal(result.status, 1, 'Expected explicit verifier failure, not success or a crash.'); }
 
+test('native archives accept stable and beta manifests and reject unsupported or unsafe versions', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'DanmuNativeStable-'));
+  const payload = join(root, 'payload'); await mkdir(payload);
+  try {
+    await writeFile(join(payload, 'sample.txt'), 'controlled source and runtime bytes');
+    const records = [{ path: 'sample.txt', length: Buffer.byteLength('controlled source and runtime bytes'), sha256: await fileHash(join(payload, 'sample.txt')) }];
+    for (const [index, version] of ['0.2.0', '0.1.1-beta.7'].entries()) {
+      for (const variant of ['standard', 'corresponding-source']) {
+        await writeFile(join(payload, 'manifest.json'), JSON.stringify({ schemaVersion: 1, version, variant, sourceCommit: 'a'.repeat(40), files: records }));
+        const zip = join(root, `${index}-${variant}.zip`);
+        pass(run('pack', payload, zip)); pass(run('verify', zip));
+      }
+    }
+    for (const version of ['0.2', '0.2.0-rc.1', '0.2.0-beta.0', '../0.2.0', '0.2.0;cmd', 'v0.2.0']) {
+      await writeFile(join(payload, 'manifest.json'), JSON.stringify({ schemaVersion: 1, version, sourceCommit: 'a'.repeat(40), files: records }));
+      fail(run('pack', payload, join(root, 'rejected.zip')));
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('native ZIP tool verifies final bytes, rejects mutations and never overwrites', async () => {
   const root = await mkdtemp(join(tmpdir(), 'DanmuNativeArchive-'));
   const payload = join(root, 'payload');
