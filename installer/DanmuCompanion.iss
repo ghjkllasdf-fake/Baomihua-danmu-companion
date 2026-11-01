@@ -52,6 +52,7 @@ AppMutex=Local\BaomihuaDanmuCompanion
 CloseApplications=no
 RestartApplications=no
 SetupLogging=yes
+UninstallLogMode=append
 
 [Languages]
 Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
@@ -69,60 +70,39 @@ Name: "{group}\{#ProductName}"; Filename: "{app}\DanmuCompanion.exe"; WorkingDir
 Name: "{autodesktop}\{#ProductName}"; Filename: "{app}\DanmuCompanion.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\DanmuCompanion.exe"; Description: "启动爆米花弹幕伴侣（后台托盘）"; Flags: nowait postinstall skipifsilent
-
-[UninstallRun]
-Filename: "{app}\DanmuCompanion.exe"; Parameters: "--remove-startup"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "RemoveOwnedStartup"
+Filename: "{app}\DanmuCompanion.exe"; Description: "启动爆米花弹幕伴侣"; Flags: nowait postinstall skipifsilent
 
 [Code]
 #include "DestinationGuard.iss"
 #include "WebView2Prerequisite.iss"
 #include PayloadFileList
+#include "StartupCleanup.iss"
 
 function DestinationProblem: String;
-var
-  Registered: String;
-  Incoming: TStringList;
+var Registered: String; Incoming: TStringList;
 begin
   Registered := '';
-  if RegKeyExists(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#UninstallKey}') and
-    (not RegQueryStringValue(HKCU64,
-    'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#UninstallKey}',
-    'InstallLocation', Registered) or (Registered = '')) then
-  begin
-    Result := '已存在安装登记，但无法确认原安装位置。请先修复或卸载旧安装，未覆盖现有文件。';
-    Exit;
-  end;
+  RegQueryStringValue(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#UninstallKey}', 'InstallLocation', Registered);
   Result := DestinationProblemForDrive(WizardDirValue, Registered,
     LocalDriveType(AddBackslash(ExtractFileDrive(WizardDirValue))));
   if Result = '' then Result := LegacyPrivateBrowserProblem(WizardDirValue);
-  if (Result = '') and FileExists(AddBackslash(WizardDirValue) + 'unins000.exe') then
-  begin
-    Incoming := TStringList.Create;
-    try
-      AddIncomingPayloadFiles(Incoming);
-      Result := PayloadCollisionProblem(WizardDirValue, Incoming);
-    finally
-      Incoming.Free;
-    end;
-  end;
+  if Result <> '' then Exit;
+  Incoming := TStringList.Create;
+  try
+    AddIncomingPayloadFiles(Incoming);
+    Result := PayloadPathsProblem(WizardDirValue, Incoming);
+  finally Incoming.Free; end;
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
-var
-  Problem: String;
+var Problem: String;
 begin
   Result := True;
-  if CurPageID = wpSelectDir then
-  begin
-    Problem := DestinationProblem;
-    if Problem <> '' then
-    begin
-      if not WizardSilent then MsgBox(Problem, mbError, MB_OK);
-      Log(Problem);
-      Result := False;
-    end;
-  end;
+  if CurPageID <> wpSelectDir then Exit;
+  Problem := DestinationProblem;
+  if Problem = '' then Exit;
+  if not WizardSilent then MsgBox(Problem, mbError, MB_OK);
+  Log(Problem); Result := False;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -130,8 +110,12 @@ var ExitCode: Integer; Started: Boolean;
 begin
   Result := DestinationProblem;
   if (Result <> '') or HasSharedWebView2 then Exit;
-  Log('Shared WebView2 Runtime is missing or outdated; invoking bundled Microsoft bootstrapper.');
   ExtractTemporaryFile('MicrosoftEdgeWebview2Setup.exe');
   Started := Exec(ExpandConstant('{tmp}\MicrosoftEdgeWebview2Setup.exe'), '/silent /install', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
   Result := BrowserPrerequisiteResult(Started, ExitCode, HasSharedWebView2);
+end;
+
+procedure CurUninstallStepChanged(Step: TUninstallStep);
+begin
+  if Step = usUninstall then RemoveStartupShortcut(ExpandConstant('{app}'));
 end;

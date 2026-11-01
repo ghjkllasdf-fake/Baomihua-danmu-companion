@@ -3,10 +3,29 @@ import { createReadStream } from 'node:fs';
 import { readdir, lstat, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
+export const retainedResourceCultures = Object.freeze(['en', 'zh-Hans', 'zh-Hant']);
+export function nativePublishEntry(path) {
+  if (!path.includes('/')) return true;
+  const resource = /^([a-z]{2}(?:-[A-Za-z0-9]+)?)\/[A-Za-z0-9_.-]+\.resources\.dll$/.exec(path);
+  if (!resource) throw new Error(`Unexpected native publish subdirectory: ${path}`);
+  return retainedResourceCultures.includes(resource[1]);
+}
+
 export function releaseNames(version, includeApi = false) {
   if (!/^\d+\.\d+\.\d+-beta\.[1-9]\d*$/.test(version)) throw new Error('Invalid beta version.');
   const base = `DanmuCompanion-${version}-win-x64${includeApi ? '-includeAPI' : ''}`;
   return { base, installer: `${base}-setup.exe`, portable: `${base}-portable.zip` };
+}
+
+export function renderApiNotice(files, template, version) {
+  releaseNames(version);
+  const path = 'api/THIRD-PARTY-NOTICES.md';
+  if (files.filter(record => record.path === path).length !== 1 || !template.includes('DanmuCompanion-VERSION-corresponding-source.zip'))
+    throw new Error('Current API notice template or prepared notice record is missing.');
+  const bytes = Buffer.from(template.replaceAll('DanmuCompanion-VERSION-corresponding-source.zip', `DanmuCompanion-${version}-corresponding-source.zip`)
+    .replaceAll('https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases.', `https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v${version}.`), 'utf8');
+  const generated = { path, length: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+  return { bytes, files: files.map(record => record.path === path ? generated : record) };
 }
 
 export function releaseVersions(properties, version) {
@@ -40,6 +59,7 @@ export function candidateApiDirectory(path, includeApi, allowDirty, explicitOutp
 }
 
 export function allowedEntry(path, apiEntries = null) {
+  if (/(^|\/)DanmuCompanion\.Updater(?:\.|$)/i.test(path)) return false;
   if (!path || path.startsWith('/') || /[\\:\x00-\x1f<>"|?*]/.test(path)) return false;
   const parts = path.split('/');
   if (parts.some(part => !part || part === '.' || part === '..' || /[. ]$/.test(part) ||
@@ -50,7 +70,8 @@ export function allowedEntry(path, apiEntries = null) {
   if (path.startsWith('api/')) return apiEntries?.has(path) ?? false;
   return /^(DanmuCompanion(?:\.Probe)?\.exe|MicrosoftEdgeWebview2Setup\.exe|createdump\.exe|README\.md|LICENSE|DISTRIBUTION-LICENSE\.txt|THIRD-PARTY-NOTICES\.md|install-files\.txt|manifest\.json)$/.test(path) ||
     /^DanmuCompanion(?:\.Probe)?\.(?:deps|runtimeconfig)\.json$/.test(path) ||
-    /^(?:[a-z]{2}(?:-[A-Za-z0-9]+)?\/)?[A-Za-z0-9_.-]+\.dll$/.test(path) ||
+    /^[A-Za-z0-9_.-]+\.dll$/.test(path) ||
+    /^(?:en|zh-Hans|zh-Hant)\/[A-Za-z0-9_.-]+\.resources\.dll$/.test(path) ||
     /^assets\/(?:app|tray)\.ico$/.test(path) ||
     /^ui\/dist\/(?:index\.html|favicon\.ico|assets\/[A-Za-z0-9_.-]+\.(?:js|css|svg|png|jpg|webp|woff2))$/.test(path) ||
     /^licenses\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\.(?:txt|rtf|json|nuspec|html|md)$/.test(path);

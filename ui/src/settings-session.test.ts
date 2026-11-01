@@ -18,6 +18,18 @@ const flush = () => vi.advanceTimersByTimeAsync(0);
 afterEach(() => { sessions.splice(0).forEach(session => session.dispose()); vi.useRealTimers(); });
 
 describe('settings save authority and recovery', () => {
+  it('sends shadow edits to the host and retains confirmed strength through later edits and failures', async () => {
+    const { session, calls } = fixture();
+    session.edit({ shadowStrength: .75 }); await vi.advanceTimersByTimeAsync(16);
+    expect(calls[0].payload).toEqual({ settings: { ...defaultSettings, shadowStrength: .75 } });
+    calls[0].resolve(saved(1, { shadowStrength: .75 })); await flush();
+    session.edit({ fontSize: 40 }); await vi.advanceTimersByTimeAsync(16);
+    expect(calls[1].payload).toEqual({ settings: { ...defaultSettings, shadowStrength: .75, fontSize: 40 } });
+    calls[1].reject(new HostCommandError('not saved', 'settings-not-applied')); await flush();
+    expect(session.view().settings.shadowStrength).toBe(.75);
+    session.edit({ shadowStrength: 0 }); await vi.advanceTimersByTimeAsync(16);
+    expect(calls[2].payload).toEqual({ settings: { ...defaultSettings, shadowStrength: 0 } });
+  });
   it('delivers current settings during sustained input instead of waiting for input to stop', async () => {
     const { session, calls } = fixture();
     for (let index = 0; index < 20; index++) {

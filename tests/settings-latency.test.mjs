@@ -148,7 +148,7 @@ test('a wider calibration proving an inconsistent offset cannot be discarded', (
   assert.throws(() => assessSettingsLatency(evidence));
 });
 
-test('both sides must contain exactly the current fourteen valid settings fields', () => {
+test('both sides must contain the complete current valid settings fields', () => {
   for (const settings of [{ fontSize: 29 }, { ...defaultSettings, fontSize: 999 }, { ...defaultSettings, enabled: 'true' }]) {
     const evidence = fixture(); evidence.edits[0].expectedSettings = settings; evidence.deliveries[0].settings = settings;
     assert.throws(() => assessSettingsLatency(evidence));

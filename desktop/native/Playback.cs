@@ -7,6 +7,7 @@ public sealed class PlayerProbe : IDisposable
 {
     private readonly ProbeSupervisor supervisor;
     public PlayerSample Latest=>supervisor.Latest;
+    internal bool ReceivedFrame=>supervisor.ReceivedFrame;
     public event Action SampleUpdated {add=>supervisor.Updated+=value;remove=>supervisor.Updated-=value;}
     public PlayerProbe(string projectRoot)
     {

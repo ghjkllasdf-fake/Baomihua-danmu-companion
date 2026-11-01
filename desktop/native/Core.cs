@@ -137,6 +137,7 @@ public sealed class DanmakuSettings
     public double SpeedMultiplier { get; set; } = .8;
     public double Opacity { get; set; } = 0.85;
     public double OutlineWidth { get; set; } = 0;
+    public double ShadowStrength { get; set; } = .45;
     public int Density { get; set; } = 60;
     public bool Rolling { get; set; } = true;
     public bool Top { get; set; } = true;
@@ -149,7 +150,7 @@ public sealed class DanmakuSettings
     {
         if (!new[] { .25, .5, .75, 1.0 }.Contains(AreaFraction) ||
             !InRange(FontSize,16,64) || !InRange(SpeedMultiplier,.5,2) || !InRange(Opacity,.1,1) ||
-            !InRange(OutlineWidth,0,3) || !InRange(OffsetMs,-30000,30000) ||
+            !InRange(OutlineWidth,0,3) || !InRange(ShadowStrength,0,1) || !InRange(OffsetMs,-30000,30000) ||
             !new[] { 30,60,100 }.Contains(Density) || Keywords == null || Keywords.Length > 2000)
             throw new ArgumentException("Invalid danmaku settings.");
     }

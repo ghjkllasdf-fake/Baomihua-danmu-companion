@@ -44,7 +44,8 @@ test('four real skins preview offline without storage, keep the compact jobs, an
     await expect(page.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('.appearance-status')).toContainText('预览');
     await page.getByRole('button', { name: '返回设置', exact: true }).click();
-    await expect(page.getByRole('slider')).toHaveCount(4);
+    await expect(page.getByRole('slider')).toHaveCount(5);
+    await expect(page.getByRole('slider', { name: '阴影强度', exact: true })).toHaveValue('0.45');
     await expect(page.locator('.preview')).toHaveCount(0);
     const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
     expect(axe.violations).toEqual([]);
@@ -106,6 +107,10 @@ test('touch skin controls preserve the existing large input targets and forced-c
     await page.getByRole('button', { name: 'B · 流光玻璃', exact: true }).click();
     await page.getByRole('button', { name: '返回设置', exact: true }).click();
     expect((await slider.boundingBox())!.height).toBeGreaterThanOrEqual(40);
+    await page.getByRole('button', { name: '更多设置', exact: true }).click();
+    const back = page.getByRole('button', { name: '返回', exact: true });
+    expect((await back.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await back.click();
     await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
     expect(await page.locator('.mini-toolbar').evaluate(node => getComputedStyle(node).backdropFilter)).toBe('none');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -165,25 +170,27 @@ for (const label of ['B · 流光玻璃', 'C · WinUI']) {
       await page.getByRole('button', { name: '返回设置', exact: true }).click();
       await page.getByRole('button', { name: '更多设置', exact: true }).click();
       await page.screenshot({ path: testInfo.outputPath('more.png') });
-      await expect(navigation).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
-      await expect(navigation).toHaveCSS('backdrop-filter', 'none');
+      await expect(navigation).toHaveCount(0);
+      await expect(page.getByRole('button', { name: '返回设置', exact: true })).toHaveCount(0);
 
       await page.setViewportSize({ width: 320, height: 340 });
       await page.locator('.manual-sync summary').click();
       const content = page.locator('.more-view');
-      const before = (await navigation.boundingBox())!;
-      const scroll = await content.evaluate(node => {
+      const back = page.getByRole('button', { name: '返回', exact: true });
+      const before = (await back.boundingBox())!;
+      const scroll = await page.locator('.panel-main').evaluate(node => {
         node.scrollTop = node.scrollHeight;
         return { top: node.scrollTop, maximum: node.scrollHeight - node.clientHeight };
       });
       expect(scroll.maximum).toBeGreaterThan(0);
       expect(scroll.top).toBe(scroll.maximum);
-      const after = (await navigation.boundingBox())!;
+      const after = (await back.boundingBox())!;
       expect(after.y).toBe(before.y);
-      expect((await content.boundingBox())!.y).toBeGreaterThanOrEqual(after.y + after.height);
-      await expect(page.getByRole('button', { name: '返回设置', exact: true })).toBeInViewport({ ratio: 1 });
+      const bounds = (await content.boundingBox())!;
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual((await page.locator('.mini-footer').boundingBox())!.y);
+      await expect(back).toBeInViewport({ ratio: 1 });
       await page.screenshot({ path: testInfo.outputPath('more-scrolled-narrow.png') });
-      await page.getByRole('button', { name: '返回设置', exact: true }).click();
+      await back.click();
       await expect(page.getByRole('slider', { name: '弹幕字号', exact: true })).toBeVisible();
     });
   }

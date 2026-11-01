@@ -4,7 +4,7 @@
 
 ## 原生 Beta 构建（当前）
 
-当前入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`，版本由 `desktop/NativeCommon.props` 固定。用户运行、采样、自启动、WebView2 前置环境安装和卸载无需 PowerShell。本文的 PowerShell 命令仅用于开发环境准备和补充测试，发行构建使用下面的原生入口。
+当前入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`，版本由 `desktop/NativeCommon.props` 固定。用户运行、采样、自启动、更新、WebView2 前置环境安装和卸载无需 PowerShell。本文的 PowerShell 命令仅用于开发环境准备和补充测试，发行构建使用下面的原生入口。
 
 本地工具由 `native-toolchain.json` 固定：.NET SDK 10.0.403／运行时 10.0.14、WebView2 SDK 1.0.4314.35、Windows 投影 10.0.26100.84、微软 Evergreen Bootstrapper 1.3.307.15、Inno Setup 7.1.1。当前仅使用系统共享 Evergreen Runtime，不下载或分发历史 Fixed Runtime。按清单的官方来源准备 `.deps` 原始归档及对应解压目录；构建器校验归档、投影 DLL、引导程序和编译器，不修改全局 SDK。Node/npm 与 UI 依赖见后文和 `ui/package-lock.json`。
 
@@ -16,11 +16,11 @@ npm.cmd --prefix ui run test:e2e
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release
 node --test tests/release-package.test.mjs tests/native-archive.test.mjs tests/installer-guard.test.mjs tests/browser-prerequisite.test.mjs tests/source-state.test.mjs
 node scripts/check-release-mutation.mjs
-node scripts/build-release.mjs --version 0.1.1-beta.6
-node scripts/test-release.mjs --version 0.1.1-beta.6
+node scripts/build-release.mjs --version 0.1.1-beta.7
+node scripts/test-release.mjs --version 0.1.1-beta.7
 ```
 
-运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.1.1-beta.6/`，两个版本来自同一 manifest payload；应用文件不得超过 210 MiB，且白名单拒绝私有浏览器目录。
+运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.1.1-beta.7/`，两个版本来自同一 manifest payload；应用文件不得超过 210 MiB，且白名单拒绝私有浏览器目录。
 
 `test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝孤立旧安装、原位重装、卸载和外来文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
 
@@ -30,7 +30,9 @@ node scripts/test-release.mjs --version 0.1.1-beta.6
 
 ### 多季匹配回归
 
-`SeriesIdentity` 将已知季数归一为“片名 第N季”，沿用现有采样协议、媒体版本、旧请求隔离和来源绑定链路，不增加不兼容的消息字段。`CachedSeasonReader` 只解析当前用户爆米花既有首页缓存中的最近播放项，核对片名、集数、分集名、文件名季号和时长；跳过非首页端点，拒绝过期、损坏、矛盾和超预算数据。`LibrarySeasonReader` 可从同一播放器进程的详情页补足证据，并在同窗连续下一集时沿用已确认季数。详情页省略秒数的分钟值、以 `:00` 结束的列表时长按截断的分钟区间校验；其他时长继续使用两秒误差。此规则仍须唯一同名季标题、同季文件名及当前集完整分集名共同成立，不放宽首页缓存或矛盾证据。两者不写入播放器文件或持久化观看记录。只有季数明确后才将候选交给数量比较／抽样；未知而存在多个季时拒绝猜测。
+`SeriesIdentity` 将已知季数归一为“片名 第N季”，沿用现有采样协议、媒体版本、旧请求隔离和来源绑定链路，不增加不兼容的消息字段。`CachedSeasonReader` 只解析当前用户爆米花既有的首页及最近观看相册缓存，核对片名、集数、分集名、文件名季号和时长。首页使用哈希文件名的 `/v2/homepage`；最近观看使用限定名称的 `/v3/albums` 缓存，且相册类型和 ID 必须同时为 `recent_play`。无关命名缓存不打开，其他端点不解码；继续拒绝过期、损坏、矛盾和超预算数据。首页停留在旧集时，可由最近观看相册中的当前集提供证据，不依赖打开详情页。
+
+`LibrarySeasonReader` 可从同一播放器进程的详情页补足证据，并在同窗连续下一集时沿用已确认季数。详情页省略秒数的分钟值、以 `:00` 结束的列表时长按截断的分钟区间校验；其他时长继续使用两秒误差。此规则仍须唯一同名季标题、同季文件名及当前集完整分集名共同成立，不放宽缓存或矛盾证据。两者不写入播放器文件或持久化观看记录。只有季数明确后才将候选交给数量比较／抽样；未知而存在多个季时拒绝猜测。若首页和最近观看缓存都缺少当前集，且无详情页证据，仍需刷新播放器元数据、打开对应季详情或手动选择，不会猜季。两种续播入口的真实检查只覆盖已观察到的缓存组合，不代表完全无最近观看缓存的冷启动也已验收。
 
 ```text
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release -- --season-match-tests
@@ -46,7 +48,38 @@ node scripts/test-release.mjs --version 0.1.1-beta.6
 
 `--packaged-shutdown ABS_INCLUDEAPI_PAYLOAD SECONDS` 只验证观察器定时结束、原生握手与关闭收尾，不要求视频或弹幕出现，不能代替播放验收。观察器防止跨 Dispatcher 取样时的计时器重入，关闭前先停止取样；启动未完成或提前退出仍视为失败。
 
+### 中英文资源
+
+`NativeHost`、`NativeProbe` 共用 `SatelliteResourceLanguages=en;zh-Hans;zh-Hant`；发行合并再独立过滤并通过 payload 白名单核对。当前 .NET 程序输出只生成 `zh-Hans`、`zh-Hant` 目录，英语使用主程序集的 neutral 默认资源，区域文化回退由 .NET 处理。只裁剪程序随附的 .NET 卫星资源，不修改系统、共享 WebView2 或依赖许可证；不新增语言选择器。旧版本文件由 Inno 的合并安装日志在卸载时清理，不添加资源身份台账。
+
+普通安装和原位升级直接由 Inno 复制程序文件，卸载使用文件名安装日志；不经额外原生写入器，也不逐文件保存磁盘身份。个人设置位于独立的数据目录，默认不随程序卸载删除。
+
+```text
+tests\NativeDistribution\bin\Release\net10.0-windows\win-x64\NativeDistribution.Tests.exe --resource-fallback-tests ABS_PAYLOAD
+```
+
+该只读测试从指定输出加载实际 WinForms 资源，核对中文简／繁体、英语及被裁剪文化的 neutral 回退；它不更改 OS 语言。最终 ZIP、安装后文件、两份 manifest 和 install-files 列表仍须分别检查。
+
 ## 开发工具与补充回归
+
+### GitHub 新版本提醒与手动安装
+
+更新源固定为本项目 GitHub Releases，不使用第三方版本服务器或内置 GitHub Token。ReleaseNoticeService、ReleaseNoticeTransport 和 ReleaseNoticeCatalog 只读取受限大小的版本列表，按语义版本和 stable／beta 通道选择新版。Release 地址由固定仓库与已验证 tag 构造，不使用远端正文或 html_url 导航；版本检查不依赖附件、独立 updater manifest 或安装身份登记。
+
+自动检查仅在干净、版本一致的发行包和正常 app 配置中启动；候选／源码及隔离测试配置不自动联网。首次检查约 20–30 秒后，默认每天，可选择每天／每周／每月（24／168／720 小时，每月固定 30 天）。关闭后没有循环检查或后台维护计时器；手动检查仍可用。上次尝试、网络退避和 GitHub 限流期限持久化，重启不能绕过检查间隔或服务端期限。旧 1／6／12 小时偏好迁移为每天，旧 autoDownload 设置忽略，并在下一次保存时去除。
+
+新契约为 github-release-notice-v1，只接受 get-update、check-update、cancel-update、set-update-preferences、open-update-page。快照不包含下载进度、安装权限或 Portable 准备状态；偏好只接收 autoCheck、channel、checkIntervalHours。旧下载、安装、重启更新、Portable 准备、更新 worker --pipe 和安装器 UPDATEJOURNAL 在线交接不再接受；启动也不执行旧程序／历史更新目录清理。
+
+普通安装器由当前用户运行，直接使用 Inno 的文件复制、同 AppId 原位升级和合并卸载日志。用户负责安装目录内同名私人或替换文件；程序不维护磁盘身份、归属台账、修复 journal 或安装后启动交接组件。安装器只保留基本路径检查、共享 WebView2 前置提示和指向本安装的开机快捷方式清理，不递归擦除安装目录或系统运行时。
+
+发布资产共六个：普通版和 includeAPI 的安装 EXE／Portable ZIP、对应源码及统一 SHA256SUMS.txt。manifest 只保留在 payload 中供版本和发布校验使用，不再单独发布。最终验收重点是安装／升级／卸载、实际弹幕播放与进程退出、公开源文件和包的隐私检查，最终字节仍须交 debugger 独立质量控制和发布检查。
+
+```text
+.deps\dotnet\dotnet.exe build tests/NativeDistribution/NativeDistribution.csproj -c Release --no-restore
+tests\NativeDistribution\bin\Release\net10.0-windows\win-x64\NativeDistribution.Tests.exe --release-notice-tests
+node --test tests/release-notice-contract.test.mjs
+node --test tests/lightweight-installer.test.mjs tests/lightweight-installer-contract.test.mjs
+```
 
 Node.js / npm 固定为 26.7.0 / 11.19.0，React / React DOM 为 19.3.1，TypeScript / Vite 为 6.0.3 / 8.3.5。原生版本由 `native-toolchain.json` 与 `desktop/NativeCommon.props` 固定。
 
@@ -58,12 +91,14 @@ Node.js / npm 固定为 26.7.0 / 11.19.0，React / React DOM 为 19.3.1，TypeSc
 
 `scripts/Test-Native.ps1 -Module all` 先运行 NativeDistribution，再执行共享 C# 逻辑、渲染和真实窗口回归。开机启动的隔离 EXE 快捷方式、旧启动项迁移和所有权检查由 NativeStartupTests 覆盖；包路径、完整性与进程退出由当前发布工具测试和最终包验证覆盖。测试会短暂打开自有窗口，不控制真实播放器。
 
+Windows 安装器与发布工具回归共用本地 SDK、编译器和磁盘，完整 Node 测试按文件串行运行；不增加测试内部时限，不跳过用例。并行运行发生的超时记录仍保留，单独重跑不能替代完整测试通过。
+
 ```powershell
 .\.deps\pwsh\pwsh.exe -NoProfile -STA -File scripts/Test-Native.ps1 -Module all
 .\.deps\pwsh\pwsh.exe -NoProfile -STA -File scripts/Test-WebViewPrivacy.ps1
 .\.deps\pwsh\pwsh.exe -NoProfile -STA -File tests/Test-SetupArchive.ps1
 npm.cmd --prefix ui run test:latency
-node --test tests/*.test.mjs
+node --test --test-concurrency=1 tests/*.test.mjs
 node --test backend/tests/*.test.mjs
 ```
 

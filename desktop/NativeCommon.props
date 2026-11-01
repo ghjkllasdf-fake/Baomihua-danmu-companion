@@ -7,15 +7,16 @@
     <UseWindowsForms>true</UseWindowsForms>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>disable</ImplicitUsings>
+    <SatelliteResourceLanguages>en;zh-Hans;zh-Hant</SatelliteResourceLanguages>
     <Nullable>disable</Nullable>
     <Deterministic>true</Deterministic>
     <PublishTrimmed>false</PublishTrimmed>
     <PublishAot>false</PublishAot>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <RestorePackagesPath>$(MSBuildThisFileDirectory)..\.deps\nuget</RestorePackagesPath>
-    <Version>0.1.1-beta.6</Version>
+    <Version>0.1.1-beta.7</Version>
     <AssemblyVersion>0.1.1.0</AssemblyVersion>
-    <FileVersion>0.1.1.6</FileVersion>
+    <FileVersion>0.1.1.7</FileVersion>
     <Copyright>Copyright (c) 2026 ghjkllasdf-fake and contributors</Copyright>
     <Product>Baomihua Danmu Companion</Product>
   </PropertyGroup>

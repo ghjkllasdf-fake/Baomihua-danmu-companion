@@ -13,6 +13,7 @@ internal static class NativeHost
         int smoke=0,debugPort=0;string profile="app",dataRoot=null,result=null;bool check=false,open=false,removeStartup=false;
         try
         {
+            Console.OutputEncoding=new System.Text.UTF8Encoding(false);
             for(int i=0;i<args.Length;i++)
             {
                 string Value()=>++i<args.Length ? args[i] : throw new ArgumentException("Missing option value.");

@@ -8,11 +8,11 @@
 
 它是配合播放器使用的小工具，不提供影视资源。获取弹幕需要联网。
 
-**[下载 Beta6](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.1.1-beta.6)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
+**[下载 Beta7](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.1.1-beta.7)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
 
-**Beta6 更新**：更新应用、托盘和浏览器图标；修复直接选集识季、大幅跳转后弹幕反复入场的问题，加入四套皮肤和来源批量选择。详见 [更新记录](CHANGELOG.md)。
+**Beta7 更新**：新增 GitHub 新版本提醒，可选每天、每周或每月检查；发现新版后可打开 Release 页面自行下载。程序不提供在线下载安装替换，并精简中英文语言资源。详见 [更新记录](CHANGELOG.md)。
 
-**2026-10-30 图标补发**：版本号仍为 `0.1.1-beta.6`，安装包和 Portable 已重新构建。已下载早期 Beta6 的用户，请退出旧版后重新下载；Portable 请解压到新文件夹。
+**升级提示**：请先从托盘退出旧版，再自行下载并安装新版；Portable 请完整解压到新文件夹。无需清除个人设置。
 
 ## 能做什么
 
@@ -32,15 +32,15 @@
 
 **没有自己的弹幕服务，选 includeAPI 安装版。** 它会自动启动包内的本机服务，无需填写地址。已有可用弹幕 API 的用户可以选普通版，文件更小。
 
-本文对应 `0.1.1-beta.6`：
+本文对应 `0.1.1-beta.7`：
 
 | 版本 | 适合谁 | 安装包 | 免安装包 |
 |---|---|---|---|
-| includeAPI 版 | 想直接使用，不自行部署服务 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.6/DanmuCompanion-0.1.1-beta.6-win-x64-includeAPI-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.6/DanmuCompanion-0.1.1-beta.6-win-x64-includeAPI-portable.zip) |
-| 普通版 | 已有兼容的弹幕 API 地址 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.6/DanmuCompanion-0.1.1-beta.6-win-x64-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.6/DanmuCompanion-0.1.1-beta.6-win-x64-portable.zip) |
+| includeAPI 版 | 想直接使用，不自行部署服务 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.7/DanmuCompanion-0.1.1-beta.7-win-x64-includeAPI-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.7/DanmuCompanion-0.1.1-beta.7-win-x64-includeAPI-portable.zip) |
+| 普通版 | 已有兼容的弹幕 API 地址 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.7/DanmuCompanion-0.1.1-beta.7-win-x64-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.1.1-beta.7/DanmuCompanion-0.1.1-beta.7-win-x64-portable.zip) |
 
 - **安装版**：运行下载的安装包，按提示完成安装，再从开始菜单打开“爆米花弹幕伴侣”或“爆米花弹幕伴侣 includeAPI”。默认安装到当前用户目录。
-- **Portable 版**：把 ZIP **完整解压**到本地可写文件夹，再运行其中的 `DanmuCompanion.exe`。请保留整个文件夹，不要只复制 EXE，也不要在压缩软件里直接运行。
+- **Portable 版**：把 ZIP **完整解压**到本地可写文件夹，再运行其中的 `DanmuCompanion.exe`。无需额外准备或登记即可检查新版本；升级时退出旧版并解压到新文件夹，不要只复制 EXE 或在压缩软件里直接运行。
 
 程序使用系统的 **Microsoft WebView2 Evergreen Runtime（124 或更新版本）**。缺少时，安装版会联网补装；Portable 用户请先运行包内的 `MicrosoftEdgeWebview2Setup.exe`。其他运行环境已随包提供，无需另装 .NET、Node 或 PowerShell。
 

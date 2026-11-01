@@ -12,11 +12,17 @@ import { LocalApiConnection } from './components/LocalApiConnection';
 import { validAutomaticMatch, type AutomaticMatchStatus } from './automatic-match';
 import { useAppearance } from './use-appearance';
 import { SkinPicker } from './components/SkinPicker';
+import { useUpdates } from './use-updates';
+import { UpdatePanel } from './components/UpdatePanel';
+import { UpdateBadge } from './components/UpdateBadge';
+import './update.css';
 
 export function App() {
   const [view, setView] = useState<'display' | 'sources' | 'more' | 'appearance'>('display'), [canHide, setCanHide] = useState(false);
   const appearance = useAppearance();
+  const updates = useUpdates();
   const mainHeading = useRef<HTMLHeadingElement>(null), viewHeading = useRef<HTMLHeadingElement>(null);
+  const mainPanel = useRef<HTMLElement>(null);
   const [settings, setSettings] = useState(defaultSettings), [playback, setPlayback] = useState(initialPlayback);
   const player = playback.player;
   const [connectionStatus, setConnectionStatus] = useState<Connection['status']>('checking'), [apiBase, setApiBase] = useState('');
@@ -128,13 +134,17 @@ export function App() {
     automaticMatch && !['waiting', 'manual'].includes(automaticMatch.state) ? automaticMatch.message : '';
   const manualSearchRequired = connected && automaticMatching && automaticMatch?.state === 'failed' &&
     Boolean(player.title.trim() && apiBase.trim()) && (!localApi || localApi.state === 'ready');
+  const footerHasUpdate = view !== 'more' && updates.available;
   async function hide() {
     if (!canHide) return;
     try { await request('hide'); } catch { setError('面板收起失败，请重试。'); }
   }
   function navigate(next: typeof view) {
     setView(next);
-    requestAnimationFrame(() => (next === 'display' ? mainHeading.current : viewHeading.current)?.focus());
+    requestAnimationFrame(() => {
+      if (mainPanel.current) mainPanel.current.scrollTop = 0;
+      (next === 'display' ? mainHeading.current : viewHeading.current)?.focus();
+    });
   }
   return <div className="app-shell mini-app" onKeyDown={event => {
     if (event.key === 'Escape' && !event.defaultPrevented && !event.nativeEvent.isComposing) { event.preventDefault(); void hide(); }
@@ -147,8 +157,8 @@ export function App() {
     </header>
     {!inDesktop && <div className="preview-banner" role="status">浏览器预览模式：未连接桌面宿主或播放器。</div>}
     {shownError && <div className="app-error" role="alert">{shownError}<button aria-label="关闭提示" onClick={() => { setConnectionError(''); setError(''); settingsSession.current?.dismissMessage(); }}>×</button></div>}
-    <main id="main" className="panel-main">
-      {view !== 'display' && <nav className="panel-navigation" aria-label="面板导航"><button className="text-button" onClick={() => navigate('display')} aria-label="返回设置">← 返回设置</button><h2 ref={viewHeading} tabIndex={-1}>{view === 'sources' ? '手动搜索' : view === 'appearance' ? '外观与皮肤' : '更多设置'}</h2></nav>}
+    <main id="main" className="panel-main" ref={mainPanel}>
+      {(view === 'sources' || view === 'appearance') && <nav className="panel-navigation" aria-label="面板导航"><button className="text-button" onClick={() => navigate('display')} aria-label="返回设置">← 返回设置</button><h2 ref={viewHeading} tabIndex={-1}>{view === 'sources' ? '手动搜索' : '外观与皮肤'}</h2></nav>}
       <div hidden={view !== 'appearance'}><SkinPicker {...appearance} /></div>
       <div hidden={view !== 'display'} className="display-view">
         {!localApi && (!inDesktop || connected) && <ApiConnection apiBase={apiBase} saved={apiSaved} available={connected && apiPersistence} notice={apiNotice} onSaved={(base, saved) => { setApiBase(base); setApiSaved(saved); setApiNotice(''); }} />}
@@ -156,16 +166,25 @@ export function App() {
         <DisplaySettings settings={settings} update={update} view="basic" />
       </div>
       <div hidden={view !== 'sources'} className="source-view"><SourcePanel apiBase={localApi && localApi.state !== 'ready' ? '' : apiBase} connected={connected && (!localApi || localApi.state === 'ready')} playback={playback} getPlayback={() => latestPlayback.current} onLoaded={setCount} automaticMatching={automaticMatching} automaticStatus={automaticMatch} active={view === 'sources'} /></div>
-      <div hidden={view !== 'more'} className="more-view">
+      <div id="more-settings" hidden={view !== 'more'} className="more-view">
+        {view === 'more' && <h2 className="sr-only" ref={viewHeading} tabIndex={-1}>更多设置</h2>}
         <DisplaySettings settings={settings} update={update} view="advanced" />
         {localApi && <LocalApiConnection localApi={localApi} available={connected} onApply={applyLocalSources} />}
         <details className="manual-sync"><summary>手动时间校准 <span>{auto ? '自动同步中，无需手动校准' : '播放器未公开时间时使用'}</span></summary><div className="manual-controls"><label htmlFor="manual-time">视频当前时间</label><input id="manual-time" value={manual} onChange={e => setManual(e.target.value)} disabled={auto} /><button className="secondary" disabled={!connected || auto} onClick={() => void manualClock(true)}>校时并播放</button><button className="text-button" disabled={!connected || auto} onClick={() => void manualClock(false)}>校时并暂停</button></div></details>
+        <UpdatePanel {...updates} />
       </div>
     </main>
     <footer className="mini-footer">
       <section className="playback-strip" aria-label="播放器连接状态"><div className="playback-title"><strong>{player.title || '等待爆米花开始播放'}</strong>{player.title && <small>{playbackStatus(player)}{player.episodeNumber ? ` · 第 ${player.episodeNumber} 集` : ''}</small>}</div>{player.positionMs !== null && <span className="timecode">{formatTime(player.positionMs)}</span>}</section>
       <p id="match-status" className="match-status" role="status">{matchNotice}</p>
-      <div className="footer-actions"><button className="more-link" onClick={() => navigate('more')}>更多设置 <span aria-hidden="true">›</span></button><button className={`manual-source-link${manualSearchRequired ? ' needs-attention' : ''}`} aria-label="手动搜索 / 换源" aria-describedby={manualSearchRequired ? 'match-status' : undefined} onClick={() => navigate(view === 'sources' ? 'display' : 'sources')}>手动搜索 / 换源{manualSearchRequired && <span className="manual-source-prompt" aria-hidden="true">需处理</span>}</button></div>
+      <div className="footer-actions">
+        <button className="more-link" aria-controls="more-settings" aria-expanded={view === 'more'} aria-label={view === 'more' ? '返回' : updates.available ? `更多设置，有新版本 ${updates.snapshot?.availableVersion}` : '更多设置'} onClick={() => navigate(view === 'more' ? 'display' : 'more')}>
+          <span className={`more-label update-label${footerHasUpdate ? ' has-update' : ''}`}>{view === 'more' ? '返回' : '更多设置'}{footerHasUpdate && <UpdateBadge />}</span>
+          <svg className="more-chevron" data-direction={view === 'more' ? 'back' : 'forward'} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="m4.5 2.5 3.5 3.5-3.5 3.5" /></svg>
+        </button>
+        <button className={`manual-source-link${manualSearchRequired ? ' needs-attention' : ''}`} aria-label="手动搜索 / 换源" aria-describedby={manualSearchRequired ? 'match-status' : undefined} onClick={() => navigate(view === 'sources' ? 'display' : 'sources')}>手动搜索 / 换源{manualSearchRequired && <span className="manual-source-prompt" aria-hidden="true">需处理</span>}</button>
+      </div>
+      <span className="update-announcement" role="status">{updates.available ? `发现新版本 ${updates.snapshot?.availableVersion}，请打开更多设置查看更新。` : ''}</span>
       <div className="footer-meta"><span className="footer-status">{connected ? '桌面宿主已连接' : inDesktop ? connectionStatus === 'failed' ? '宿主连接不可用' : '正在连接桌面宿主…' : '仅界面预览'}</span><span>{count ? `${count.toLocaleString()} 条弹幕已准备` : settingsStatusText[settingsStatus]}</span></div>
       {settingsStatus === 'unknown' && <button className="text-button" onClick={() => settingsSession.current?.retryRecovery()}>重新同步设置</button>}
     </footer>

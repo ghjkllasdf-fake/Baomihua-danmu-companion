@@ -41,6 +41,8 @@ try {
 } finally {$surface.Detach()}
 $surface=New-Surface
 try {
+    # Reserve enough lanes for all eight shadow-padded sprites; this fixture tests atomic publication, not lane exhaustion.
+    $settings=[Popcorn.DanmakuSettings]::new();$settings.AreaFraction=1;$surface.Configure($settings)
     $comments=[Popcorn.Comment[]]::new(8)
     for($i=0;$i -lt 8;$i++){$comments[$i]=[Popcorn.Comment]::new(10000,1,0xffffff,('原子入场-'+$i))}
     $surface.Load($comments);$surface.UpdateClock(10000,$false,[Popcorn.Monotonic]::Now,1,$false,0)
@@ -50,5 +52,6 @@ try {
         Assert ($snapshot.ActiveCount -eq 0) 'An initial incremental layout must not publish incomplete rows from top to bottom.'
     }
     Assert ($step -lt 100 -and $snapshot.ActiveCount -eq 8) 'The complete staged layout must be published within bounded work.'
+    Assert (@($snapshot.Y | Sort-Object -Unique).Count -eq 8) 'The atomic fixture must provide eight distinct lanes for the eight simultaneous sprites.'
     'PASS: initial incremental construction publishes the complete layout without vertical row-by-row flashing.'
 } finally {$surface.Detach()}

@@ -20,6 +20,9 @@ public sealed class DesktopHarness : IDisposable
     public readonly FakeOverlay overlay=new();
     public FakeTray tray=new();
     public FakeStartup startup=new();
+    public FakeUpdater updater=new();
+    public bool Visible=>!Hidden;
+    public FormWindowState WindowState=>FormWindowState.Normal;
     public string commentSourceTitle="";
     public AutomaticMatcher automaticMatcher;
     public readonly SyncClock sync=new();
@@ -111,6 +114,25 @@ public sealed class FakeOverlay
 }
 public sealed class FakeTray { public void Update(string title,int episode,string source,int count) { } }
 public sealed class FakeStartup { public bool Enabled;public bool SetEnabled(bool value)=>Enabled=value; }
+// Update side effects are outside this playback harness; dedicated native updater tests use the real service.
+public enum FormWindowState { Normal,Minimized }
+public sealed class FakeUpdater
+{
+    public object View=>new{state="unavailable",supported=false};
+    public void StartAutomatic() { }
+    public object SetPreferences(JsonElement payload)=>throw new NotSupportedException();
+    public Task<object> CheckAsync()=>throw new NotSupportedException();
+    public Task<object> DownloadAsync()=>throw new NotSupportedException();
+    public void Cancel()=>throw new NotSupportedException();
+    public Uri ReleasePage=>throw new NotSupportedException();
+    public Task<UpdateLease> PrepareInstallAsync(string version,bool visible)=>throw new NotSupportedException();
+    public void InstallFailed()=>throw new NotSupportedException();
+}
+public sealed class UpdateLease : IDisposable
+{
+    public Task CommitAsync()=>throw new NotSupportedException();
+    public void Dispose()=>throw new NotSupportedException();
+}
 // Appearance storage and native material are external to this playback-handler
 // harness. Real writes/painting are covered by the dedicated appearance tests.
 // Unexpected calls here fail rather than manufacture a successful visual update.

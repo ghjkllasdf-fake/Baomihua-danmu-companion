@@ -13,6 +13,9 @@ it('typechecks valid commands and rejects missing context, uncorrelated commands
     "request('update-settings', { settings: defaultSettings });",
     "request('get-local-api', {});",
     "request('set-local-sources', { sources: ['douban'] });",
+    "request('check-update');",
+    "request('open-update-page');",
+    "request('set-update-preferences', {autoCheck:true, channel:'beta', checkIntervalHours:24});",
     "const result: Promise<{count: number}> = request('comments', {apiBase:'http://fixture.invalid/token', value:'1', expectedMediaRevision:0});",
   ];
   const bad = [
@@ -23,6 +26,12 @@ it('typechecks valid commands and rejects missing context, uncorrelated commands
     "request('hello', {path:'arbitrary'});",
     "request('get-local-api');",
     "request('set-local-sources', { sources: [1] });",
+    "request('prepare-portable');",
+    "request('prepare-portable', { targetPath: 'untrusted' });",
+    "request('prepare-portable', {});",
+    "request('download-update');",
+    "request('install-update', {version:'0.1.1-beta.10'});",
+    "const retiredPreferences: import('./updates').UpdatePreferences = {autoCheck:true, autoDownload:false, channel:'beta', checkIntervalHours:24};",
     "const wrong: Promise<string> = request('search', {apiBase:'http://fixture.invalid/token', value:'1'});",
     "const kind = Math.random() > .5 ? 'search' : 'comments'; request(kind, {apiBase:'http://fixture.invalid/token',value:'1'});",
   ];

@@ -154,10 +154,11 @@ export async function buildFromReviewedTree({ root, tree, inventoryPath, output,
     if (ignored.error || ignored.status !== 0) throw new Error('Source archive output must be outside the project or Git-ignored.');
   }
   const listed = run('git', ['ls-files', '--stage', '-z'], root).split('\0').filter(Boolean);
+  const projectBlobs = new Map();
   const tracked = listed.map(line => {
-    const match = /^(100644|100755) [a-f0-9]{40,64} 0\t(.+)$/.exec(line);
+    const match = /^(100644|100755) ([a-f0-9]{40,64}) 0\t(.+)$/.exec(line);
     if (!match) throw new Error('Tracked source contains a symlink, submodule or unmerged entry.');
-    assertSourcePath(match[2]); return match[2];
+    assertSourcePath(match[3]); projectBlobs.set(match[3], match[2]); return match[3];
   });
   if (!tracked.includes(relative(root, inventoryPath).replaceAll('\\', '/'))) throw new Error('Source inventory must be tracked by Git.');
   const input = JSON.parse(await readFile(inventoryPath, 'utf8'));
@@ -174,13 +175,20 @@ export async function buildFromReviewedTree({ root, tree, inventoryPath, output,
         const source = join(base, path), destination = join(target, path);
         if (!(await lstat(source)).isFile()) throw new Error('Source input must be an ordinary file.');
         await mkdir(dirname(destination), { recursive: true });
-        await copyFile(source, destination, constants.COPYFILE_EXCL);
+        if (base === root) {
+          // Git clean filters can hide CRLF differences; ship canonical blobs without decoding binary assets.
+          const blob = spawnSync('git', ['cat-file', 'blob', projectBlobs.get(path)], {
+            cwd: root, windowsHide: true, maxBuffer: 512 * 1024 * 1024,
+          });
+          if (blob.error || blob.status !== 0) throw new Error('Cannot read canonical committed source bytes.');
+          await writeFile(destination, blob.stdout, { flag: 'wx' });
+        } else await copyFile(source, destination, constants.COPYFILE_EXCL);
       }
     }
     await sourceInventory(dependencies, input.files, archives);
     const files = await sourceInventory(stage, null, archives.map(record => ({ ...record, path: 'third-party/' + record.path })));
     const manifest = { schemaVersion: 1, version, variant: 'corresponding-source', sourceCommit: before.head,
-      sourceDirty: false, inputInventorySha256: await fileHash(inventoryPath), files };
+      sourceDirty: false, inputInventorySha256: await fileHash(join(project, relative(root, inventoryPath))), files };
     const json = JSON.stringify(manifest, null, 2) + '\n';
     if (files.length > 131072 || Buffer.byteLength(json) > 32 * 1024 * 1024 ||
         files.some(file => file.length > 512 * 1024 * 1024) || files.reduce((total, file) => total + file.length, 0) > 2 * 1024 ** 3)

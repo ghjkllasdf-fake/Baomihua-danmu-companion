@@ -19,6 +19,7 @@ public sealed class DesktopWindow : Form
     private CoreWebView2Controller controller;
     private CoreWebView2 core;
     private readonly ApiClient api;
+    private readonly ReleaseNoticeService updater;
     private readonly AutomaticMatcher automaticMatcher;
     private readonly EmbeddedApiService localApi;
     private readonly string localSourcesFile;
@@ -68,6 +69,7 @@ public sealed class DesktopWindow : Form
         Text="爆米花 · 弹幕面板"; ClientSize=new Size(380,540);FormBorderStyle=FormBorderStyle.None;
         ShowInTaskbar=false;StartPosition=FormStartPosition.Manual;BackColor=Color.FromArgb(245,243,235);
         var paths=new ApplicationPaths(root,dataProfile,userDataRoot);
+        updater=new ReleaseNoticeService(paths);updater.Changed+=QueueUpdateState;
         string data=paths.ProfileRoot; Directory.CreateDirectory(data);browserData=paths.BrowserData;
         preferences=paths.Preferences;
         appearancePreferences=paths.AppearancePreferences;
@@ -94,7 +96,7 @@ public sealed class DesktopWindow : Form
         overlay=new OverlayHost(); overlay.SetSettings(Settings);
         probe=new PlayerProbe(root); probe.SampleUpdated+=QueuePlayerUpdate; sample=probe.Latest;
         startup=new StartupRegistration(root);
-        tray=new DesktopTray(root,OpenWorkbench,RequestExit,(anchor,wasVisible)=>{if(wasVisible || Visible)HideWorkbench();else OpenWorkbench();},()=>Visible);
+        tray=new DesktopTray(root,OpenWorkbench,RequestExit,(anchor,wasVisible)=>{if(wasVisible || Visible)HideWorkbench();else OpenWorkbenchAt(anchor);},()=>Visible);
         flyout=new TrayFlyout(this,()=>tray.MenuVisible);
         automaticMatcher=new AutomaticMatcher(api.FetchAsync,ApplyAutomaticMatch,OnAutomaticState,message=>tray.ShowFailure(message),localApi==null ? 0 : 3);
         CommentsLoaded+=comments=>overlay.SetComments(comments,presentationTicket);
@@ -107,6 +109,7 @@ public sealed class DesktopWindow : Form
     {
         if(closing)return;
         closing=true;timer.Stop();timer.Dispose();automaticMatcher?.Dispose();flyout?.Dispose();tray?.Dispose();
+        if(updater!=null){updater.Changed-=QueueUpdateState;updater.Dispose();}
         if(localApi!=null){localApi.Changed-=QueueLocalApiUpdate;localApi.Dispose();}
         pending.Cancel();pending.Dispose();api.Dispose();
         if(probe!=null){probe.SampleUpdated-=QueuePlayerUpdate;probe.Dispose();}
@@ -141,9 +144,14 @@ public sealed class DesktopWindow : Form
     public void OpenWorkbench()
     {
         if(closing || IsDisposed)return;
-        openRequested=true;
         var screen=Screen.PrimaryScreen;
-        flyout.Open(tray.Anchor??new Point(screen.Bounds.Right-24,screen.Bounds.Bottom-1));
+        OpenWorkbenchAt(tray.Anchor??new Point(screen.Bounds.Right-24,screen.Bounds.Bottom-1));
+    }
+    private void OpenWorkbenchAt(Point anchor)
+    {
+        if(closing || IsDisposed)return;
+        openRequested=true;
+        flyout.Open(anchor);
         UpdateBrowserPresentation();
     }
     public void HideWorkbench(){if(!closing && !IsDisposed)flyout.Hide();}
@@ -283,7 +291,12 @@ public sealed class DesktopWindow : Form
         double now=Monotonic.Now; sync.Tick(now);
         Send(new { type="state", sequence, data=new { settings=Settings,settingsRevision,
             player=PlaybackSnapshot.Capture(sample,sync,now,sequence,mediaRevision),
-            commentCount=CommentCount, notice=Failure,automaticMatch=automaticMatcher?.Status,localApi=localApi?.View,appearance=Appearance } });
+            commentCount=CommentCount, notice=Failure,automaticMatch=automaticMatcher?.Status,localApi=localApi?.View,appearance=Appearance,update=updater.View } });
+    }
+    private void QueueUpdateState()
+    {
+        if(closing || IsDisposed || !IsHandleCreated)return;
+        try{BeginInvoke(new Action(()=>{if(!closing)PushState();}));}catch(InvalidOperationException){}
     }
     private void QueueLocalApiUpdate()
     {
@@ -318,8 +331,20 @@ public sealed class DesktopWindow : Form
             type=msg.GetProperty("type").GetString()??"";
             var payload=msg.GetProperty("payload");
             object result;
-            if (type=="hello") { Ready=true; result=new { apiBase, apiSaved=localApi==null && apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=localApi==null ? new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","appearance-v1" } : new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","embedded-api-v1","appearance-v1" },localApi=localApi?.View,appearance=Appearance }; }
+            if (type=="hello") { Ready=true; updater.StartAutomatic(); result=new { apiBase, apiSaved=localApi==null && apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=localApi==null ? new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","appearance-v1","github-release-notice-v1" } : new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","embedded-api-v1","appearance-v1","github-release-notice-v1" },localApi=localApi?.View,appearance=Appearance,update=updater.View }; }
             else if (type=="get-settings") result=new { settings=Settings,settingsRevision };
+            else if(type is "get-update" or "set-update-preferences" or "check-update" or "cancel-update" or "open-update-page")
+            {
+                commandCode="update-command-failed";
+                bool write=type=="set-update-preferences";
+                if(payload.ValueKind!=JsonValueKind.Object || (!write && payload.EnumerateObject().Any()))throw new ArgumentException("更新命令参数无效。");
+                if(write)result=updater.SetPreferences(payload);
+                else if(type=="check-update")result=await updater.CheckAsync();
+                else if(type=="cancel-update"){updater.Cancel();result=updater.View;}
+                else if(type=="open-update-page")
+                {System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(updater.ReleasePage.AbsoluteUri){UseShellExecute=true});result=new{opened=true};}
+                else result=updater.View;
+            }
             else if(type is "get-appearance" or "set-appearance")
             {
                 if(type=="set-appearance")
@@ -461,7 +486,7 @@ public sealed class DesktopWindow : Form
             }
             else throw new ArgumentException("不支持的命令。");
             if(requestNoticeTicket>0 && manualNoticeTicket==requestNoticeTicket)manualNoticeTicket=0;
-            if (epoch!=documentEpoch) return;
+            if (epoch!=documentEpoch || closing)return;
             Send(new { type="response", id, ok=true, data=result, settingsRevision }); PushState();
         }
         catch (Exception ex)

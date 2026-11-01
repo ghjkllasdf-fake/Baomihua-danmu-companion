@@ -7,7 +7,7 @@ $desktop=[Popcorn.DesktopHarness]::new()
 try{
     $desktop.Message('contract-hello','hello',@{})
     $initial=$desktop.Reply('contract-hello').GetProperty('data').Clone()
-    $settings=[Popcorn.DanmakuSettings]::new(); $settings.FontSize=40
+    $settings=[Popcorn.DanmakuSettings]::new(); $settings.FontSize=40; $settings.ShadowStrength=0.75
     $desktop.Message('contract-save','update-settings',@{ settings=$settings })
     $saved=$desktop.Reply('contract-save').Clone()
     $desktop.Message('contract-read','get-settings',@{})

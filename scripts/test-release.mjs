@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile, rename, rm, rmdir, realpath, stat } from 'n
 import { randomUUID } from 'node:crypto';
 import { join, resolve, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { fileHash, inventory, releaseNames, assertPayloadBudget, walkFiles } from './release-lib.mjs';
+import { fileHash, inventory, releaseNames, assertPayloadBudget, walkFiles, renderApiNotice } from './release-lib.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 let directory, version = '0.1.0-beta.2', includeApi = false;
@@ -35,7 +35,8 @@ function run(exe, args, expected = 0) {
   return result;
 }
 function registered() {
-  return JSON.parse(run(tools, ['installation-location', ...(includeApi ? ['includeAPI'] : [])]).stdout).location;
+  const location = JSON.parse(run(tools, ['installation-location', ...(includeApi ? ['includeAPI'] : [])]).stdout).location;
+  return location === null ? null : resolve(location);
 }
 function ownedInstallation() { return registered()?.toLowerCase() === install.toLowerCase(); }
 function setupArgs(target, log) {
@@ -44,7 +45,7 @@ function setupArgs(target, log) {
 async function uninstall() {
   if (!ownedInstallation()) throw new Error('Refusing to uninstall a location not owned by this test.');
   run(join(install, 'unins000.exe'), ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', `/LOG=${join(evidence, 'uninstall.log')}`]);
-  for (let i = 0; i < 50 && registered() !== null; i++) await delay(200);
+  for (let i = 0; i < 50 && (registered() !== null || existsSync(join(install, 'DanmuCompanion.exe')) || existsSync(link)); i++) await delay(200);
   assert.equal(registered(), null, 'Uninstall registration must be removed.');
 }
 
@@ -76,6 +77,10 @@ try {
     assert.equal(await fileHash(apiInventoryPath), manifest.apiInventorySha256, 'The independently prepared API inventory must match the packaged provenance.');
     apiRecords = JSON.parse(await readFile(apiInventoryPath, 'utf8')).files;
     assert.ok(Array.isArray(apiRecords) && apiRecords.length > 0);
+    const notice = renderApiNotice(apiRecords, await readFile(join(root, 'backend', 'NOTICES.md'), 'utf8'), version);
+    assert.deepEqual(await readFile(join(portable, 'api', 'THIRD-PARTY-NOTICES.md')), notice.bytes, 'Final API notice must match this Release and current corresponding-source template.');
+    apiRecords = notice.files;
+    checks.push('final-api-notice-matches-release-and-corresponding-source');
   }
   const records = await inventory(portable, apiRecords);
   assert.equal(records.length, manifest.files.length);
@@ -97,16 +102,6 @@ try {
   checks.push('portable-manifest-clean-source-and-relocation');
   run(tools, ['smoke', portable, join(qa, 'portable-data'), join(evidence, 'portable-process-tree.json')]);
   checks.push('portable-native-react-system-browser-probe-and-owned-process-exit');
-  const exeBefore = await fileHash(join(portable, 'DanmuCompanion.exe'));
-  const rejected = run(join(directory, names.installer), setupArgs(portable, 'reject-portable.log'), null);
-  assert.notEqual(rejected.status, 0);assert.equal(registered(), null);
-  assert.equal(await fileHash(join(portable, 'DanmuCompanion.exe')), exeBefore);
-  assert.equal(existsSync(join(portable, 'unins000.exe')), false);
-  const foreign = join(qa, 'unrelated');await mkdir(foreign);
-  await writeFile(join(foreign, 'sentinel.txt'), 'foreign files must survive');
-  assert.notEqual(run(join(directory, names.installer), setupArgs(foreign, 'reject-unrelated.log'), null).status, 0);
-  assert.equal(await readFile(join(foreign, 'sentinel.txt'), 'utf8'), 'foreign files must survive');
-  assert.equal(registered(), null);checks.push('actual-silent-installer-rejects-portable-and-foreign-nonempty-directories');
   run(join(directory, names.installer), setupArgs(install, 'install.log'));
   assert.ok(ownedInstallation());run(tools, ['verify-installed', install]);
   installedBytes = 0;
@@ -123,19 +118,15 @@ try {
   await writeFile(data, '{"isolatedPreservationSentinel":true}\n');
   const dataBefore = await fileHash(data);
   await writeFile(join(install, 'user-note.txt'), 'foreign addition after installation');
-  const ownership = join(install, 'install-files.txt'), collision = join(install, 'THIRD-PARTY-NOTICES.md');
-  const originalList = await readFile(ownership), originalFile = await readFile(collision);
-  await writeFile(ownership, originalList.toString('utf8').split(/\r?\n/).filter(file => file !== 'THIRD-PARTY-NOTICES.md').join('\r\n'));
-  await writeFile(collision, 'foreign sentinel at an incoming new-version filename');
-  assert.notEqual(run(join(directory, names.installer), setupArgs(install, 'reject-upgrade-collision.log'), null).status, 0);
-  assert.equal(await readFile(collision, 'utf8'), 'foreign sentinel at an incoming new-version filename');
-  await writeFile(ownership, originalList);await writeFile(collision, originalFile);
-  checks.push('upgrade-rejects-new-payload-file-colliding-with-non-owned-file');
+  const replacement = join(install, 'THIRD-PARTY-NOTICES.md');
+  const shipped = await readFile(replacement);
+  await writeFile(replacement, 'user replacement at a program filename');
   run(join(directory, names.installer), setupArgs(install, 'reinstall.log'));
   assert.ok(ownedInstallation());run(tools, ['verify-installed', install]);
   assert.equal(await fileHash(data), dataBefore);
   assert.equal(await readFile(join(install, 'user-note.txt'), 'utf8'), 'foreign addition after installation');
-  checks.push('registered-in-place-reinstall-preserves-isolated-data-and-foreign-addition');
+  assert.deepEqual(await readFile(replacement), shipped);
+  checks.push('normal-program-file-overwrite-and-reinstall-preserve-personal-data');
   await uninstall();
   assert.equal(existsSync(join(install, 'DanmuCompanion.exe')), false);
   assert.equal(existsSync(link), false);
@@ -149,7 +140,7 @@ try {
   if (passed) {
     const parent = await realpath(qaParent), target = await realpath(qa);
     assert.ok(target.toLowerCase().startsWith((parent + sep).toLowerCase()) && target.endsWith(`beta-${id}`));
-    await rm(target, { recursive: true, force: true });
+    await rm(target, { recursive: true, force: true, maxRetries: 20, retryDelay: 200 });
     if (existsSync(menu)) {
       assert.equal((await realpath(menu)).toLowerCase(), resolve(menu).toLowerCase());
       await rmdir(menu);

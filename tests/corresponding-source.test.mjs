@@ -144,6 +144,35 @@ test('reviewed source archive is verified, refuses overwrite, dirty source and s
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('source project bytes come from committed blobs even with clean mixed-line-ending worktree files', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'DanmuCanonicalSource-'));
+  const project = join(root, 'project'), tree = join(project, '.deps', 'sources'), extracted = join(root, 'extracted');
+  const tool = resolve('scripts/NativeReleaseTools/bin/Release/net10.0/win-x64/NativeReleaseTools.exe');
+  const git = (...args) => { const result = spawnSync('git', args, { cwd: project, windowsHide: true }); assert.equal(result.status, 0); return result.stdout; };
+  try {
+    await mkdir(tree, { recursive: true });
+    await writeFile(join(project, '.gitignore'), '.deps/\n');
+    await writeFile(join(project, '.gitattributes'), '*.txt text eol=lf\n*.ico -text\n');
+    await writeFile(join(project, 'mixed.txt'), 'one\ntwo\nthree\n');
+    const icon = Buffer.from([0, 0, 1, 0, 13, 10, 0, 255]);
+    await writeFile(join(project, 'sample.ico'), icon);
+    await writeFile(join(tree, 'dependency.js'), 'reviewed dependency');
+    await writeFile(join(project, 'source-inventory.json'), JSON.stringify({ schemaVersion: 1, files: await sourceInventory(tree) }));
+    git('init', '-q'); git('add', '.'); git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'canonical source fixture');
+    const canonical = git('show', 'HEAD:mixed.txt');
+    await writeFile(join(project, 'mixed.txt'), 'one\r\ntwo\nthree\r\n');
+    git('add', 'mixed.txt');
+    assert.equal(git('status', '--porcelain').length, 0, 'Git regards normalized mixed line endings as unchanged.');
+    const output = join(root, 'source.zip');
+    await buildFromReviewedTree({ root: project, tree, inventoryPath: join(project, 'source-inventory.json'), output, version: '0.1.1-beta.7', tool });
+    assert.equal(spawnSync(tool, ['verify', output], { windowsHide: true }).status, 0);
+    await mkdir(extracted);
+    assert.equal(spawnSync('tar.exe', ['-xf', output, '-C', extracted], { windowsHide: true }).status, 0);
+    assert.deepEqual(await readFile(join(extracted, 'project', 'mixed.txt')), canonical, 'Archive project bytes must equal commit blobs, not normalized-only worktree bytes.');
+    assert.deepEqual(await readFile(join(extracted, 'project', 'sample.ico')), icon, 'Binary source must not undergo text decoding or line-ending conversion.');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('modified upstream must equal the original plus exactly the reviewed patch', async () => {
   const root = await mkdtemp(join(tmpdir(), 'DanmuSourcePatch-'));
   try {

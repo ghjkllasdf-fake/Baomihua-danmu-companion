@@ -4,7 +4,7 @@ import { cp, mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { fileHash, inventory, releaseNames, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory, walkFiles, assertPayloadBudget, validateApiProvenance } from './release-lib.mjs';
+import { fileHash, inventory, releaseNames, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory, walkFiles, assertPayloadBudget, validateApiProvenance, nativePublishEntry, renderApiNotice } from './release-lib.mjs';
 import { sourceState, requireSameSource } from './source-state.mjs';
 import { constants } from 'node:fs';
 
@@ -26,7 +26,7 @@ const { fileVersion } = releaseVersions(await readFile(join(root, 'desktop', 'Na
 const guidePath = join(root, 'docs', includeApi ? 'INCLUDEAPI-USER-GUIDE.md' : 'BETA-USER-GUIDE.md');
 assertReleaseGuide(await readFile(guidePath, 'utf8'), version);
 const lock = JSON.parse(await readFile(join(root, 'native-toolchain.json'), 'utf8'));
-const env = { ...process.env, DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1',
+const env = { ...process.env, DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_GENERATE_ASPNET_CERTIFICATE: 'false', DOTNET_NOLOGO: '1',
   DOTNET_CLI_HOME: join(root, '.deps', 'dotnet-home') };
 function run(exe, arguments_, capture = false) {
   const result = spawnSync(exe, arguments_, { cwd: root, env, windowsHide: true,
@@ -62,6 +62,7 @@ for (const [project, directory] of [['NativeHost', 'host'], ['NativeProbe', 'pro
   run(dotnet, ['publish', `desktop/${project}/${project}.csproj`, '--no-restore', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-o', published]);
   for (const relative of await walkFiles(published)) {
     if (/\.(?:pdb|xml)$/i.test(relative)) continue;
+    if (!nativePublishEntry(relative)) continue;
     const source = join(published, relative), target = join(payload, relative);
     await mkdir(dirname(target), { recursive: true });
     if (existsSync(target)) {
@@ -91,6 +92,9 @@ if (includeApi) {
   ({ sourceDirty, customDanAny } = releaseSourceStatus(Boolean(source.status), provenance.customDanAny, allowDirty));
   apiInventorySha256 = await fileHash(inventoryPath);
   await cp(join(apiSource, 'api'), join(payload, 'api'), { recursive: true });
+  const notice = renderApiNotice(apiInventory, await readFile(join(root, 'backend', 'NOTICES.md'), 'utf8'), version);
+  await writeFile(join(payload, 'api', 'THIRD-PARTY-NOTICES.md'), notice.bytes);
+  apiInventory = notice.files;
 }
 async function copyLicense(source, component, name) {
   const directory = join(payload, 'licenses', component);

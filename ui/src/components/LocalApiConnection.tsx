@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { defaultLocalSources, safeLocalApiText, type LocalApi } from '../model';
 
 export function LocalApiConnection({ localApi, available, onApply }: { localApi: LocalApi; available: boolean; onApply(sources: string[]): Promise<void> }) {
   const [draft, setDraft] = useState(localApi.sources), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const emptyNotice = useRef<HTMLParagraphElement>(null);
   const sourceKey = localApi.sources.join(',');
   const availableKey = localApi.availableSources.map(source => source.id).join(',');
   useEffect(() => { setDraft(sourceKey.split(',')); }, [sourceKey, availableKey]);
+  useEffect(() => {
+    if (!draft.length && emptyNotice.current && !emptyNotice.current.closest('[hidden]')) emptyNotice.current.scrollIntoView({ block: 'nearest' });
+  }, [draft.length]);
   const chosen = new Set(draft), listed = [...draft, ...localApi.availableSources.map(source => source.id).filter(id => !chosen.has(id))];
   const labels = new Map(localApi.availableSources.map(source => [source.id, safeLocalApiText(source.label, source.id)]));
   const defaults = defaultLocalSources.filter(id => labels.has(id));
@@ -42,7 +46,7 @@ export function LocalApiConnection({ localApi, available, onApply }: { localApi:
           <button type="button" className="secondary" disabled={!available || busy || draft.length === listed.length} onClick={() => { setDraft(listed); setError(''); }}>全选</button>
           <button type="button" className="secondary" disabled={!available || busy || draft.length === 0} onClick={() => { setDraft([]); setError(''); }}>全不选</button>
         </div>
-        {!draft.length && <p className="api-status error local-source-empty" role="status">请至少启用一个来源。</p>}
+        {!draft.length && <p ref={emptyNotice} className="api-status error local-source-empty" role="status">请至少启用一个来源。</p>}
         <ul className="local-source-list">{listed.map(id => {
           const label = labels.get(id) || id, index = draft.indexOf(id), selected = index !== -1;
           return <li key={id}><label><input type="checkbox" aria-label={`启用 ${label}`} checked={selected} disabled={!available || busy} onChange={() => toggle(id)} /><span>{label}</span></label>

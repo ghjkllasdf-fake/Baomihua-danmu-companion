@@ -1,5 +1,6 @@
 import { defaultSettings, validHello, validLocalApi, validLocalSources, validSettings, validSettingsSnapshot, type Hello, type LocalApi, type Settings, type SettingsSnapshot } from './model';
 import { validAppearance, validAppearanceSnapshot, type Appearance, type AppearanceSnapshot } from './appearance';
+import { validUpdatePreferences, validUpdateSnapshot, type UpdatePreferences, type UpdateSnapshot } from './updates';
 
 export interface Anime { animeId: string | number; animeTitle: string }
 export interface Episode { episodeId: string | number; episodeNumber?: string | number; episodeTitle?: string }
@@ -8,6 +9,11 @@ interface Clock { positionMs: number; playing: boolean }
 interface Command<P, R> { payload: P; result: R }
 export interface Commands {
   hello: Command<never, Hello>;
+  'get-update': Command<never, UpdateSnapshot>;
+  'check-update': Command<never, UpdateSnapshot>;
+  'cancel-update': Command<never, UpdateSnapshot>;
+  'set-update-preferences': Command<UpdatePreferences, UpdateSnapshot>;
+  'open-update-page': Command<never, { opened: true }>;
   'get-settings': Command<never, SettingsSnapshot>;
   'update-settings': Command<{ settings: Settings }, SettingsSnapshot>;
   'get-appearance': Command<never, AppearanceSnapshot>;
@@ -39,7 +45,9 @@ const keys = (value: object, expected: string[]) => Object.keys(value).length ==
 export function validPayload(type: CommandType, value: unknown): boolean {
   if (!record(value)) return false;
   switch (type) {
-    case 'hello': case 'get-settings': case 'get-startup': case 'get-local-api': case 'get-appearance': case 'cancel': case 'close': case 'hide': return keys(value, []);
+    case 'hello': case 'get-settings': case 'get-startup': case 'get-local-api': case 'get-appearance': case 'cancel': case 'close': case 'hide':
+    case 'get-update': case 'check-update': case 'cancel-update': case 'open-update-page': return keys(value, []);
+    case 'set-update-preferences': return validUpdatePreferences(value);
     case 'set-appearance': return validAppearance(value);
     case 'set-local-sources': return keys(value, ['sources']) && validLocalSources(value.sources);
     case 'set-startup': return keys(value, ['enabled']) && typeof value.enabled === 'boolean';
@@ -64,6 +72,8 @@ export function validResult<K extends CommandType>(type: K, value: unknown): val
   if (!record(value)) return false;
   switch (type) {
     case 'hello': return validHello(value);
+    case 'get-update': case 'check-update': case 'cancel-update': case 'set-update-preferences': return validUpdateSnapshot(value);
+    case 'open-update-page': return keys(value, ['opened']) && value.opened === true;
     case 'get-local-api': case 'set-local-sources': return validLocalApi(value);
     case 'get-settings': case 'update-settings': return validSettingsSnapshot(value);
     case 'get-appearance': case 'set-appearance': return validAppearanceSnapshot(value);

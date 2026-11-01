@@ -51,7 +51,7 @@ test('display controls and disclosures are keyboard-operable with visible focus'
   await expect(density).toHaveValue('100');
   await tabTo(page, page.getByRole('button', { name: '更多设置', exact: true }));
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('button', { name: '返回设置', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '返回', exact: true })).toBeVisible();
   const bottom = page.getByRole('checkbox', { name: '底部', exact: true });
   await tabTo(page, bottom);
   await page.keyboard.press('Space');

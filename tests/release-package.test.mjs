@@ -1,11 +1,47 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, copyFile, stat } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, copyFile, stat, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, win32 } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
-import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory } from '../scripts/release-lib.mjs';
+import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory, nativePublishEntry, retainedResourceCultures } from '../scripts/release-lib.mjs';
+
+test('release verification normalizes the trailing separator returned by Inno registration', async () => {
+  const source = await readFile(new URL('../scripts/test-release.mjs', import.meta.url), 'utf8');
+  const implementation = source.match(/function registered\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(implementation);
+  const actual = new Function('run', 'tools', 'includeApi', 'resolve', implementation + '\nreturn registered();');
+  for (const input of [null, 'C:\\Program Files\\Danmu', 'C:\\Program Files\\Danmu\\']) {
+    const result = actual(() => ({ stdout: JSON.stringify({ location: input }) }), 'controlled tool', false, win32.resolve);
+    assert.equal(result, input === null ? null : 'C:\\Program Files\\Danmu');
+  }
+});
+
+test('runtime API notices are rendered from current source for the exact release, not copied from an old prepared payload', async () => {
+  const { renderApiNotice } = await import('../scripts/release-lib.mjs');
+  assert.equal(typeof renderApiNotice, 'function');
+  const template = await readFile(new URL('../backend/NOTICES.md', import.meta.url), 'utf8');
+  const stale = Buffer.from('DanmuCompanion-0.1.1-beta.3-corresponding-source.zip');
+  const input = [{ path: 'api/THIRD-PARTY-NOTICES.md', length: stale.length, sha256: createHash('sha256').update(stale).digest('hex') }];
+  const artifact = renderApiNotice(input, template, '0.1.1-beta.7');
+  const payload = await mkdtemp(join(tmpdir(), 'DanmuApiNotice-'));
+  try {
+    await mkdir(join(payload, 'api'));
+    await writeFile(join(payload, input[0].path), artifact.bytes);
+    const actual = await readFile(join(payload, input[0].path), 'utf8');
+    assert.match(actual, /DanmuCompanion-0\.1\.1-beta\.7-corresponding-source\.zip/);
+    assert.match(actual, /\/releases\/tag\/v0\.1\.1-beta\.7/);
+    assert.doesNotMatch(actual, /beta\.3|DanmuCompanion-VERSION/);
+    assert.deepEqual(await inventory(payload, artifact.files), artifact.files);
+    assert.equal(input[0].sha256, createHash('sha256').update(stale).digest('hex'), 'Prepared input provenance must remain unchanged.');
+  } finally { await rm(payload, { recursive: true, force: true }); }
+});
+
+test('retired updater executable, assembly and configuration files are excluded from the payload', () => {
+  for (const path of ['DanmuCompanion.Updater.exe', 'DanmuCompanion.Updater.dll', 'DanmuCompanion.Updater.deps.json', 'DanmuCompanion.Updater.runtimeconfig.json']) assert.equal(allowedEntry(path), false);
+  for (const path of ['Updater.exe', 'DanmuCompanion.Updater.cmd', 'update.ps1', 'DanmuCompanion.Updater.exe:stream']) assert.equal(allowedEntry(path), false);
+});
 
 test('runtime payload keeps the actual ICO entries and excludes source artwork and the retired SVG favicon', () => {
   assert.equal(allowedEntry('ui/dist/favicon.ico'), true);
@@ -15,6 +51,32 @@ test('runtime payload keeps the actual ICO entries and excludes source artwork a
     'ui/dist/other.ico', 'ui/dist/favicon.exe', 'ui/dist/favicon.ico:stream', 'ui/dist/../favicon.ico']) {
     assert.equal(allowedEntry(path), false);
   }
+});
+
+test('release payload retains Chinese/English resource satellites and rejects all other language directories', () => {
+  for (const culture of ['en', 'zh-Hans', 'zh-Hant']) {
+    assert.equal(allowedEntry(`${culture}/System.Windows.Forms.resources.dll`), true);
+    assert.equal(allowedEntry(`${culture}/PresentationFramework.resources.dll`), true);
+  }
+  for (const culture of ['cs', 'de', 'es', 'fr', 'it', 'ja', 'ko', 'pl', 'pt-BR', 'ru', 'tr']) {
+    assert.equal(allowedEntry(`${culture}/System.Windows.Forms.resources.dll`), false, culture);
+  }
+  assert.equal(allowedEntry('System.Windows.Forms.dll'), true, 'Neutral English runtime resources must stay in the root assembly.');
+  assert.equal(allowedEntry('zh-Hans/plugin.dll'), false, 'Culture folders must not become an arbitrary DLL allowance.');
+});
+
+test('all native projects use the same language policy and the release merge enforces it independently', async () => {
+  const root = resolve(import.meta.dirname, '..');
+  const props = await readFile(join(root, 'desktop/NativeCommon.props'), 'utf8');
+  assert.deepEqual(props.match(/<SatelliteResourceLanguages>([^<]+)<\/SatelliteResourceLanguages>/)?.[1].split(';'), retainedResourceCultures);
+  for (const project of ['NativeHost', 'NativeProbe']) {
+    assert.match(await readFile(join(root, `desktop/${project}/${project}.csproj`), 'utf8'), /NativeCommon.props/);
+  }
+  assert.deepEqual(['coreclr.dll', 'System.Windows.Forms.dll', 'en/System.Windows.Forms.resources.dll', 'zh-Hans/System.Windows.Forms.resources.dll',
+    'zh-Hant/System.Windows.Forms.resources.dll', 'de/System.Windows.Forms.resources.dll', 'pt-BR/System.Windows.Forms.resources.dll'].filter(nativePublishEntry),
+    ['coreclr.dll', 'System.Windows.Forms.dll', 'en/System.Windows.Forms.resources.dll', 'zh-Hans/System.Windows.Forms.resources.dll', 'zh-Hant/System.Windows.Forms.resources.dll']);
+  assert.throws(() => nativePublishEntry('zh-Hans/plugin.dll'), /Unexpected/);
+  assert.throws(() => nativePublishEntry('../coreclr.dll'), /Unexpected/);
 });
 
 test('installer file version comes from the same native properties as the artifact version', () => {

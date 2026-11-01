@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 
 namespace Popcorn;
 
@@ -20,9 +21,14 @@ internal static class DistributionTests
     [STAThread]
     private static int Main(string[] args)
     {
+        Console.OutputEncoding=System.Text.Encoding.UTF8;
         try
         {
+            if(args.Length==1 && args[0]=="--shadow-tests"){ShadowTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--video-companion-target")return VideoCompanionTests.RunTarget();
+            if(args.Length==1 && args[0]=="--release-notice-tests"){ReleaseNoticeTests.Run().GetAwaiter().GetResult();return 0;}
+            if(args.Length==1 && args[0]=="--release-notice-contract-fixture"){Console.WriteLine(ReleaseNoticeTests.ContractFixture());return 0;}
+            if(args.Length==2 && args[0]=="--resource-fallback-tests"){ResourceFallbackTests.Run(args[1]);return 0;}
             if(args.Length>0 && args[0]=="--video-companion-tests"){VideoCompanionTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--retry-match-tests"){RetryMatchTests.Run().GetAwaiter().GetResult();return 0;}
             if(args.Length>0 && args[0]=="--season-match-tests"){SeasonMatchTests.Run().GetAwaiter().GetResult();return 0;}
@@ -37,7 +43,8 @@ internal static class DistributionTests
             if(args.Length==4 && args[0]=="--season-api-only"){SeasonLiveEvidence.RunApiForTitle(args[1],args[2],int.Parse(args[3])).GetAwaiter().GetResult();return 0;}
             if(args.Length>0 && args[0]=="--video-notice-tests"){VideoNoticeTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--video-notice-runtime"){VideoNoticeTests.RunRuntime();return 0;}
-            if(args.Length>0 && args[0]=="--tray-placement-tests"){TrayPlacementTests.Run();return 0;}
+            if(args.Length>0 && args[0]=="--tray-placement-tests"){TrayPlacementTests.Run();TrayIconLocatorTests.Run();return 0;}
+            if(args.Length==2 && args[0]=="--tray-visual-runtime"){TrayVisualRuntimeTests.Run(args[1]);return 0;}
             if(args.Length==2 && args[0]=="--tray-host-runtime"){TrayHostRuntimeTests.Run(args[1]);return 0;}
             if(args.Length>0 && args[0]=="--image-fixture"){Console.WriteLine("ready");Console.Out.Flush();Console.ReadLine();return 0;}
             if(args.Length>0 && args[0]=="--process-image-tests"){NativeProcessImageTests.Run();return 0;}
@@ -64,13 +71,16 @@ internal static class DistributionTests
             Reject(()=>new ApplicationPaths("relative-path","app",data),"Relative executable roots must be rejected.");
             Reject(()=>new ApplicationPaths(root,"app","relative-data"),"Relative data roots must be rejected.");
             NativeRuntimeTests.Run();
+            ReleaseNoticeTests.Run().GetAwaiter().GetResult();
             NativeProcessImageTests.Run();
             SharedBrowserTests.Run();
             NativeInstanceTests.Run();
             NativeStartupTests.Run();
             NativePreferenceTests.Run();
+            ShadowTests.Run();
             VideoNoticeTests.Run();
             TrayPlacementTests.Run();
+            TrayIconLocatorTests.Run();
             PlaybackEventSignalTests.Run();
             ProbeOperationTests.Run();
             ProbeTransportTests.Run("All").GetAwaiter().GetResult();
