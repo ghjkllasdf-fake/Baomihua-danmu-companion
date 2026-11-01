@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile, rename, rm, rmdir, realpath, stat } from 'n
 import { randomUUID } from 'node:crypto';
 import { join, resolve, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { fileHash, inventory, releaseNames, assertPayloadBudget, walkFiles } from './release-lib.mjs';
+import { fileHash, inventory, releaseNames, assertPayloadBudget, walkFiles, renderApiNotice } from './release-lib.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 let directory, version = '0.1.0-beta.2', includeApi = false;
@@ -77,6 +77,10 @@ try {
     assert.equal(await fileHash(apiInventoryPath), manifest.apiInventorySha256, 'The independently prepared API inventory must match the packaged provenance.');
     apiRecords = JSON.parse(await readFile(apiInventoryPath, 'utf8')).files;
     assert.ok(Array.isArray(apiRecords) && apiRecords.length > 0);
+    const notice = renderApiNotice(apiRecords, await readFile(join(root, 'backend', 'NOTICES.md'), 'utf8'), version);
+    assert.deepEqual(await readFile(join(portable, 'api', 'THIRD-PARTY-NOTICES.md')), notice.bytes, 'Final API notice must match this Release and current corresponding-source template.');
+    apiRecords = notice.files;
+    checks.push('final-api-notice-matches-release-and-corresponding-source');
   }
   const records = await inventory(portable, apiRecords);
   assert.equal(records.length, manifest.files.length);

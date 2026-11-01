@@ -32,16 +32,25 @@ internal sealed class LibrarySeasonReader(CancellationToken stop)
     private int season;
     private double retryAt;
     private double? previousDuration;
+    private double? staleDuration;
     private readonly SeasonContinuity continuity=new();
     private int sequentialSeason;
     internal string LastReason {get;private set;}="";
     internal int Read(VideoWindow window,SeriesIdentity playing,double? duration)
     {
         string next=window.Handle.ToInt64()+"\n"+window.ProcessId+"\n"+window.Title;
-        if(next!=key){sequentialSeason=continuity.Next(window,playing);key=next;season=0;retryAt=0;}
+        if(next!=key)
+        {
+            sequentialSeason=continuity.Next(window,playing);
+            staleDuration=sequentialSeason>0 ? previousDuration : null;
+            previousDuration=null;key=next;season=0;retryAt=0;
+        }
         else if(previousDuration.HasValue && duration.HasValue && Math.Abs(previousDuration.Value-duration.Value)>2000)
         {continuity.Confirm(0);sequentialSeason=0;season=0;retryAt=0;}
-        if(duration.HasValue)previousDuration=duration;
+        // Auto-next updates the caption before its duration. Establish the new
+        // episode baseline only after the previous episode's duration disappears.
+        if(duration.HasValue && (!staleDuration.HasValue || Math.Abs(staleDuration.Value-duration.Value)>2000))
+        {previousDuration=duration;staleDuration=null;}
         if(playing.Season>0){continuity.Confirm(playing.Season);LastReason="title-season";return playing.Season;}
         if(season>0 || Monotonic.Now<retryAt)return season;
         retryAt=Monotonic.Now+2000;

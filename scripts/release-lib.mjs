@@ -17,6 +17,17 @@ export function releaseNames(version, includeApi = false) {
   return { base, installer: `${base}-setup.exe`, portable: `${base}-portable.zip` };
 }
 
+export function renderApiNotice(files, template, version) {
+  releaseNames(version);
+  const path = 'api/THIRD-PARTY-NOTICES.md';
+  if (files.filter(record => record.path === path).length !== 1 || !template.includes('DanmuCompanion-VERSION-corresponding-source.zip'))
+    throw new Error('Current API notice template or prepared notice record is missing.');
+  const bytes = Buffer.from(template.replaceAll('DanmuCompanion-VERSION-corresponding-source.zip', `DanmuCompanion-${version}-corresponding-source.zip`)
+    .replaceAll('https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases.', `https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v${version}.`), 'utf8');
+  const generated = { path, length: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+  return { bytes, files: files.map(record => record.path === path ? generated : record) };
+}
+
 export function releaseVersions(properties, version) {
   releaseNames(version);
   const projectVersion = properties.match(/<Version>([^<]+)<\/Version>/)?.[1];

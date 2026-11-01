@@ -117,7 +117,7 @@ internal static class ReleaseNoticeTests
                 Check(legacyHandler.Requests==1 && File.ReadAllText(foreign)=="foreign or historical bytes","A saved auto-download setting cannot trigger a download or clean up historical/foreign files.");
                 using var saved=ReleaseNoticeStorage.ReadJson(file,4096);Check(!saved.RootElement.TryGetProperty("autoDownload",out _),"Migrated settings must drop auto-download when next saved.");
             }
-            await Scheduling(root);await Backoff(root);
+            await Scheduling(root);await Backoff(root);await ManualSuccessPreservesServerDeadline(root);
         }
         finally
         {
@@ -152,5 +152,42 @@ internal static class ReleaseNoticeTests
         clock.Advance(TimeSpan.FromDays(1));await Until(()=>handler.Requests==1 && clock.Next!=null,"Checking must resume after the actual server deadline.");await Stop(restarted,clock);
         var isolatedClock=new Clock();var isolatedHandler=new Handler();using var isolated=Service(root,"isolated",isolatedHandler,isolatedClock,"unit");isolated.StartAutomatic();isolatedClock.Advance(TimeSpan.FromDays(40));
         Check(isolatedHandler.Requests==0 && isolatedClock.Next==null,"Isolated development/test profiles must not check automatically.");
+    }
+    private static async Task ManualSuccessPreservesServerDeadline(string root)
+    {
+        var clock=new Clock();var handler=new Handler{Status=HttpStatusCode.TooManyRequests,RetryAfter=TimeSpan.FromDays(10)};
+        string name="manual-quota",file=Path.Combine(root,name+"-data","app","updates","retry.json");
+        var deadline=clock.GetUtcNow()+TimeSpan.FromDays(10);
+        using(var service=Service(root,name,handler,clock))
+        {
+            Save(service,true,24);await service.CheckAsync();clock.Advance(TimeSpan.FromMinutes(1));handler.Status=HttpStatusCode.OK;
+            var notice=await service.CheckAsync();
+            Check(notice.State=="available","Manual success must refresh the release notice.");
+            var stored=ReleaseNoticeRetryStorage.Load(file,clock.GetUtcNow(),out _);
+            Check(stored.NotBefore==deadline && stored.ServerLimited && stored.Failures==0,"Manual success must clear ordinary failures without clearing the actual GitHub server deadline.");
+            await Stop(service,clock);
+        }
+        var restartedHandler=new Handler();using var restarted=Service(root,name,restartedHandler,clock);restarted.StartAutomatic();
+        clock.Advance(TimeSpan.FromSeconds(20));await Until(()=>clock.Next!=null,"Restart must restore the server deadline.");
+        for(int day=1;day<=9;day++)
+        {
+            clock.Advance(TimeSpan.FromDays(1));await Until(()=>clock.Next!=null,"Server wait must rearm bounded timer chunks.");
+            Check(restartedHandler.Requests==0,"A manual success followed by restart must not allow HTTP before the server deadline.");
+        }
+        clock.Advance(deadline-clock.GetUtcNow()-TimeSpan.FromMilliseconds(1));
+        Check(restartedHandler.Requests==0,"The server deadline must not be rounded down.");
+        clock.Advance(TimeSpan.FromMilliseconds(1));await Until(()=>restartedHandler.Requests==1 && clock.Next!=null,"Normal automatic checking must resume at the actual server deadline.");
+        await Stop(restarted,clock);
+        var networkClock=new Clock();var networkHandler=new Handler{Status=HttpStatusCode.InternalServerError};
+        using var network=Service(root,"ordinary-network",networkHandler,networkClock);Save(network,true,24);await network.CheckAsync();
+        networkHandler.Status=HttpStatusCode.OK;await network.CheckAsync();
+        var retry=ReleaseNoticeRetryStorage.Load(Path.Combine(root,"ordinary-network-data","app","updates","retry.json"),networkClock.GetUtcNow(),out _);
+        Check(retry.NotBefore==DateTimeOffset.MinValue && !retry.ServerLimited && retry.Failures==0,"Manual success must still clear ordinary network backoff.");
+        var shortClock=new Clock();var shortHandler=new Handler{Status=HttpStatusCode.TooManyRequests,RetryAfter=TimeSpan.FromHours(1)};
+        using var shortQuota=Service(root,"short-server",shortHandler,shortClock);await shortQuota.CheckAsync();
+        shortHandler.Status=HttpStatusCode.OK;await shortQuota.CheckAsync();
+        var shortRetry=ReleaseNoticeRetryStorage.Load(Path.Combine(root,"short-server-data","app","updates","retry.json"),shortClock.GetUtcNow(),out _);
+        Check(shortRetry.NotBefore==shortClock.GetUtcNow().AddHours(1) && shortRetry.ServerNotBefore==shortRetry.NotBefore && shortRetry.Failures==0,
+            "A short server deadline must survive success without retaining the longer ordinary six-hour backoff.");
     }
 }

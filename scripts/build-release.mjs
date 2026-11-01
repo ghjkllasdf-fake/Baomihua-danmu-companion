@@ -4,7 +4,7 @@ import { cp, mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { fileHash, inventory, releaseNames, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory, walkFiles, assertPayloadBudget, validateApiProvenance, nativePublishEntry } from './release-lib.mjs';
+import { fileHash, inventory, releaseNames, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory, walkFiles, assertPayloadBudget, validateApiProvenance, nativePublishEntry, renderApiNotice } from './release-lib.mjs';
 import { sourceState, requireSameSource } from './source-state.mjs';
 import { constants } from 'node:fs';
 
@@ -92,6 +92,9 @@ if (includeApi) {
   ({ sourceDirty, customDanAny } = releaseSourceStatus(Boolean(source.status), provenance.customDanAny, allowDirty));
   apiInventorySha256 = await fileHash(inventoryPath);
   await cp(join(apiSource, 'api'), join(payload, 'api'), { recursive: true });
+  const notice = renderApiNotice(apiInventory, await readFile(join(root, 'backend', 'NOTICES.md'), 'utf8'), version);
+  await writeFile(join(payload, 'api', 'THIRD-PARTY-NOTICES.md'), notice.bytes);
+  apiInventory = notice.files;
 }
 async function copyLicense(source, component, name) {
   const directory = join(payload, 'licenses', component);

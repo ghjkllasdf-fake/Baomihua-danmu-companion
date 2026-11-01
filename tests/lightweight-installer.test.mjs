@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { cp, copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join, resolve, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { releaseNames, walkFiles } from '../scripts/release-lib.mjs';
+import { releaseNames, walkFiles, renderApiNotice, inventory, validateApiProvenance } from '../scripts/release-lib.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const parent = join(root, 'artifacts', 'simple-installer', 'fixtures');
@@ -43,8 +43,18 @@ async function compile(fixture, version, id, label, includeApi = false) {
   for (const [name, data] of Object.entries({ 'DanmuCompanion.exe': 'controlled main ' + version, 'stable.dll': 'controlled library ' + version,
     'DISTRIBUTION-LICENSE.txt': 'Controlled installer test license.', 'MicrosoftEdgeWebview2Setup.exe': 'never executed in this fixture' })) await writeFile(join(stage, name), data);
   if (version.endsWith('.6')) await writeFile(join(stage, 'old-only.dll'), 'old logged program file');
-  if (includeApi) await cp(join(root, '.deps', 'includeapi', 'payload', 'api'), join(stage, 'api'), { recursive: true });
-  const files = await walkFiles(stage), list = join(fixture, version + '-files.iss');
+  let apiSource, apiFiles = [];
+  if (includeApi) {
+    apiSource = join(root, '.deps', 'includeapi', 'payload', 'api');
+    apiFiles = (await walkFiles(apiSource)).map(path => 'api/' + path);
+    const input = JSON.parse(await readFile(join(root, '.deps', 'includeapi', 'payload-inventory.json'), 'utf8'));
+    assert.deepEqual(await inventory(join(root, '.deps', 'includeapi', 'payload'), input.files), input.files);
+    await validateApiProvenance(apiSource, join(root, 'backend'));
+    const notice = renderApiNotice(input.files, await readFile(join(root, 'backend', 'NOTICES.md'), 'utf8'), version);
+    await mkdir(join(stage, 'api'));
+    await writeFile(join(stage, 'api', 'THIRD-PARTY-NOTICES.md'), notice.bytes);
+  }
+  const files = [...new Set([...(await walkFiles(stage)), ...apiFiles])].sort(), list = join(fixture, version + '-files.iss');
   await writeFile(list, 'procedure AddIncomingPayloadFiles(Files: TStringList);\nbegin\n' + files.map(path => `  Files.Add('${path.replaceAll('/', '\\').replaceAll("'", "''")}');`).join('\n') + '\nend;\n');
   const startup = join(fixture, 'controlled-startup.lnk');
   const cleanup = (await readFile(join(root, 'installer', 'StartupCleanup.iss'), 'utf8')).replace("ExpandConstant('{userstartup}\\爆米花弹幕伴侣.lnk')", quote(startup));
@@ -54,14 +64,16 @@ async function compile(fixture, version, id, label, includeApi = false) {
     .replace(/#define UninstallKey "[^"]+"/g, `#define UninstallKey "{${id}}_is1"`)
     .replace(/#define ProductName "[^"]+"/g, `#define ProductName "${label}"`)
     .replace(/^AppMutex=.*$/m, `AppMutex=Local\\${label}`)
-    .replace(/^Compression=.*$/m, 'Compression=none')
     .replace("if (Result <> '') or HasSharedWebView2 then Exit", "Started := True; if (Result <> '') or Started then Exit");
   for (const include of ['DestinationGuard.iss', 'WebView2Prerequisite.iss']) script = script.replace(`#include "${include}"`, `#include "${join(root, 'installer', include)}"`);
+  // Compile the same pinned API bytes in place instead of creating 4,000+
+  // duplicate input files. The generated release notice still comes from stage.
+  if (includeApi) script = script.replace('[Icons]', `Source: "${apiSource}\\*"; DestDir: "{app}\\api"; Excludes: "THIRD-PARTY-NOTICES.md"; Flags: ignoreversion recursesubdirs createallsubdirs\n\n[Icons]`);
   script = script.replace('#include "StartupCleanup.iss"', `#include "${cleanupPath}"`);
   const scriptPath = join(fixture, version + '-setup.iss'); await writeFile(scriptPath, script);
   run(join(root, '.deps', 'inno', 'ISCC.exe'), ['--quiet', `/DAppVersion=${version}`, `/DAppFileVersion=${version.replace('-beta.', '.')}`,
     `/DPayloadDir=${stage}`, `/DPayloadFileList=${list}`, `/DReleaseDir=${fixture}`, ...(includeApi ? ['/DIncludeApi=1'] : []), scriptPath]);
-  return { stage, setup: join(fixture, releaseNames(version, includeApi).installer), files, startup };
+  return { stage, apiSource, setup: join(fixture, releaseNames(version, includeApi).installer), files, startup };
 }
 const install = (setup, destination) => run(setup, ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/DIR=' + destination]);
 const uninstall = destination => run(join(destination, 'unins000.exe'), ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART']);
@@ -106,7 +118,11 @@ test('includeAPI real payload installs and uninstalls through ordinary Inno with
     assert.ok(payload.files.filter(path => path.startsWith('api/')).length >= 4000);
     const before = performance.now(); install(payload.setup, app); const installMs = Math.round(performance.now() - before);
     const apiFiles = await walkFiles(join(app, 'api')); assert.equal(apiFiles.length, payload.files.filter(path => path.startsWith('api/')).length);
-    for (const path of ['api/node.exe', 'api/entry.mjs', 'stable.dll']) assert.equal((await stat(join(app, path))).size, (await stat(join(payload.stage, path))).size);
+    for (const path of ['api/node.exe', 'api/entry.mjs', 'stable.dll']) {
+      const source = path.startsWith('api/') ? join(payload.apiSource, path.slice(4)) : join(payload.stage, path);
+      assert.equal((await stat(join(app, path))).size, (await stat(source)).size);
+    }
+    assert.deepEqual(await readFile(join(app, 'api', 'THIRD-PARTY-NOTICES.md')), await readFile(join(payload.stage, 'api', 'THIRD-PARTY-NOTICES.md')));
     assert.equal(registration(id).toLowerCase(), app.toLowerCase());
     assert.equal((await readdir(fixture)).includes('.DanmuCompanion-updates'), false);
     uninstall(app); await untilAbsent(app); await untilAbsent(join(menuRoot, label)); assert.equal(registration(id), '');

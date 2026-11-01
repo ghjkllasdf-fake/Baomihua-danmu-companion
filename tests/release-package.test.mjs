@@ -18,6 +18,26 @@ test('release verification normalizes the trailing separator returned by Inno re
   }
 });
 
+test('runtime API notices are rendered from current source for the exact release, not copied from an old prepared payload', async () => {
+  const { renderApiNotice } = await import('../scripts/release-lib.mjs');
+  assert.equal(typeof renderApiNotice, 'function');
+  const template = await readFile(new URL('../backend/NOTICES.md', import.meta.url), 'utf8');
+  const stale = Buffer.from('DanmuCompanion-0.1.1-beta.3-corresponding-source.zip');
+  const input = [{ path: 'api/THIRD-PARTY-NOTICES.md', length: stale.length, sha256: createHash('sha256').update(stale).digest('hex') }];
+  const artifact = renderApiNotice(input, template, '0.1.1-beta.7');
+  const payload = await mkdtemp(join(tmpdir(), 'DanmuApiNotice-'));
+  try {
+    await mkdir(join(payload, 'api'));
+    await writeFile(join(payload, input[0].path), artifact.bytes);
+    const actual = await readFile(join(payload, input[0].path), 'utf8');
+    assert.match(actual, /DanmuCompanion-0\.1\.1-beta\.7-corresponding-source\.zip/);
+    assert.match(actual, /\/releases\/tag\/v0\.1\.1-beta\.7/);
+    assert.doesNotMatch(actual, /beta\.3|DanmuCompanion-VERSION/);
+    assert.deepEqual(await inventory(payload, artifact.files), artifact.files);
+    assert.equal(input[0].sha256, createHash('sha256').update(stale).digest('hex'), 'Prepared input provenance must remain unchanged.');
+  } finally { await rm(payload, { recursive: true, force: true }); }
+});
+
 test('retired updater executable, assembly and configuration files are excluded from the payload', () => {
   for (const path of ['DanmuCompanion.Updater.exe', 'DanmuCompanion.Updater.dll', 'DanmuCompanion.Updater.deps.json', 'DanmuCompanion.Updater.runtimeconfig.json']) assert.equal(allowedEntry(path), false);
   for (const path of ['Updater.exe', 'DanmuCompanion.Updater.cmd', 'update.ps1', 'DanmuCompanion.Updater.exe:stream']) assert.equal(allowedEntry(path), false);

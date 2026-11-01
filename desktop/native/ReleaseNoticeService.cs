@@ -25,9 +25,9 @@ internal sealed class ReleaseNoticeService : IDisposable
     private Task automaticTask=Task.CompletedTask;
     private bool started,disposed,corruptionPending;
     private long automaticStartedAt;
-    private long? lastAttempt,failureStartedAt;
+    private long? lastAttempt,failureStartedAt,serverStartedAt;
     private DateTimeOffset attemptedAt=DateTimeOffset.MinValue;
-    private TimeSpan failureDelay;
+    private TimeSpan failureDelay,serverDelay;
     private int failures;
     private string retryNotice="";
     private const string Unavailable="当前版本信息不完整，无法自动检查。请打开 Release 页面自行下载完整发行包。";
@@ -46,6 +46,7 @@ internal sealed class ReleaseNoticeService : IDisposable
         failures=retry.Failures;corruptionPending=retry.UnconfirmedCorruption;
         attemptedAt=retry.AttemptedAt>this.clock.GetUtcNow() ? this.clock.GetUtcNow() : retry.AttemptedAt;
         if(retry.NotBefore>this.clock.GetUtcNow()){failureStartedAt=this.clock.GetTimestamp();failureDelay=retry.NotBefore-this.clock.GetUtcNow();}
+        if(retry.ServerNotBefore>this.clock.GetUtcNow()){serverStartedAt=this.clock.GetTimestamp();serverDelay=retry.ServerNotBefore-this.clock.GetUtcNow();}
         view=new(this.identity.Supported ? "idle" : "unavailable",this.identity.Version,"",this.identity.Variant,this.identity.Distribution,preferences.Channel,
             preferences.AutoCheck,preferences.CheckedAt,"",this.identity.Supported ? notice+retryNotice : Unavailable,0,this.identity.Supported,preferences.CheckIntervalHours,ReleaseNoticeCatalog.Page());
     }
@@ -102,21 +103,24 @@ internal sealed class ReleaseNoticeService : IDisposable
         return View;
     }
     private TimeSpan FailureRemaining()=>failureStartedAt.HasValue ? failureDelay-clock.GetElapsedTime(failureStartedAt.Value) : TimeSpan.Zero;
+    private TimeSpan ServerRemaining()=>serverStartedAt.HasValue ? serverDelay-clock.GetElapsedTime(serverStartedAt.Value) : TimeSpan.Zero;
     private void Failure(Exception error)
     {
         var remaining=FailureRemaining();failures=Math.Min(failures+1,3);failureDelay=TimeSpan.FromHours(6*(1<<(failures-1)));
-        if(error is ReleaseNoticeRateLimitException limited && limited.RetryAfter>failureDelay)failureDelay=limited.RetryAfter;
+        if(error is ReleaseNoticeRateLimitException limited && limited.RetryAfter>ServerRemaining())
+        {serverStartedAt=clock.GetTimestamp();serverDelay=limited.RetryAfter;}
         if(remaining>failureDelay)failureDelay=remaining;
         var maximum=DateTimeOffset.MaxValue-clock.GetUtcNow();if(failureDelay>maximum)failureDelay=maximum;
         failureStartedAt=clock.GetTimestamp();PersistRetry();
     }
     private void PersistRetry()
     {
-        var remaining=FailureRemaining();
+        var server=ServerRemaining();var remaining=FailureRemaining();if(server>remaining)remaining=server;
         try
         {
             ReleaseNoticeRetryStorage.Save(retryFile,new(remaining>TimeSpan.Zero ? ReleaseNoticeRetryStorage.Deadline(clock.GetUtcNow(),remaining) : DateTimeOffset.MinValue,
-                failures,remaining>TimeSpan.Zero,attemptedAt,corruptionPending));
+                failures,server>TimeSpan.Zero,attemptedAt,corruptionPending,
+                server>TimeSpan.Zero ? ReleaseNoticeRetryStorage.Deadline(clock.GetUtcNow(),server) : DateTimeOffset.MinValue));
             if(!corruptionPending)retryNotice="";
         }
         catch(Exception error) when(ReleaseNoticeStorage.MetadataError(error)){retryNotice="检查退避未能保存，重启后可能重新检查。";}
@@ -145,6 +149,7 @@ internal sealed class ReleaseNoticeService : IDisposable
             if(lastAttempt.HasValue)Extend(interval-clock.GetElapsedTime(lastAttempt.Value));
             else if(attemptedAt!=DateTimeOffset.MinValue)Extend(interval-(now-attemptedAt));
             if(failureStartedAt.HasValue)Extend(FailureRemaining());
+            if(serverStartedAt.HasValue)Extend(ServerRemaining());
             return remaining>TimeSpan.Zero ? remaining : TimeSpan.Zero;
         }
     }

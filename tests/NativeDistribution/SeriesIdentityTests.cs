@@ -73,9 +73,30 @@ internal static class SeriesIdentityTests
         Check(continuity.Next(video,current with{Episode=3,EpisodeTitle="不同季同集数"})==0,"Same-number media replacement must not carry a season hint.");
         continuity.Confirm(2);
         Check(continuity.Next(video with{Handle=new IntPtr(2)},current with{Episode=4})==0,"A new playback window must revalidate its season.");
+        CheckConsecutiveDuration();
         CheckCache(current);
         CheckRecentAlbumCache(current);
         Console.WriteLine("PASS: Chinese/SxxExx/Season identities, long episode numbers, literal movie sequels, and cross-checked library evidence without guessing.");
+    }
+    private static void CheckConsecutiveDuration()
+    {
+        var reader=new LibrarySeasonReader(System.Threading.CancellationToken.None);
+        var episode=SeriesIdentity.Parse("Example Show S01E27 Previous caption");
+        var window=new VideoWindow(IntPtr.Zero,"episode27",0,0,1280,720);
+        Check(reader.Read(window,episode,2766560)==1,"The previous episode establishes a verified season.");
+        episode=episode with{Season=0,Episode=28,EpisodeTitle="Next caption"};
+        window=window with{Title="episode28"};
+        Check(reader.Read(window,episode,2766560)==1,"Auto-next may initially expose the previous episode duration.");
+        Check(reader.Read(window,episode,null)==1,"Missing transition duration must not discard the consecutive season.");
+        Check(reader.Read(window,episode,2766560)==1,"Repeated stale duration must not consume the transition.");
+        Check(reader.Read(window,episode,2748880)==1,"The new episode duration must not clear its carried season.");
+        Check(reader.Read(window,episode,2748880)==1,"The season must remain stable after the actual duration arrives.");
+        Check(reader.Read(window,episode,2600000)==0,"A later same-episode duration replacement still invalidates the season.");
+
+        reader=new LibrarySeasonReader(System.Threading.CancellationToken.None);
+        Check(reader.Read(window with{Title="episode27"},episode with{Season=1,Episode=27},2766560)==1,"Immediate transition baseline.");
+        Check(reader.Read(window,episode,2748880)==1,"An already fresh next-episode duration must retain continuity.");
+        Check(reader.Read(window,episode,2600000)==0,"Fresh duration must not grant a later replacement a transition exemption.");
     }
     private static void CheckCache(SeriesIdentity current)
     {
