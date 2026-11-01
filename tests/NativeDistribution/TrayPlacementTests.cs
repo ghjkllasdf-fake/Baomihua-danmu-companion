@@ -9,6 +9,14 @@ internal static class TrayPlacementTests
 
     internal static void Run()
     {
+        Check(TrayViewSize.Desired("home")==new Size(380,510) && TrayViewSize.Desired("home",true)==new Size(380,430),"Home size includes the external API address controls only in the ordinary edition.");
+        Check(TrayViewSize.Desired("settings")==new Size(380,540) && TrayViewSize.Desired("search")==new Size(380,540),"Other views retain the original logical size.");
+        foreach(string json in new[]{"{}","{\"view\":\"other\"}","{\"view\":\"home\",\"height\":9999}","{\"view\":42}"})
+        {
+            using var doc=System.Text.Json.JsonDocument.Parse(json);bool rejected=false;
+            try{TrayViewSize.Parse(doc.RootElement);}catch(ArgumentException){rejected=true;}
+            Check(rejected,"View sizing rejects arbitrary dimensions or unknown views.");
+        }
         var display=new Rectangle(0,0,1920,1080);
         var desired=new Size(380,540);
         Verify(display,new Rectangle(0,0,1920,1040),new Point(1795,1060),desired,TaskbarEdge.Bottom);
@@ -47,6 +55,12 @@ internal static class TrayPlacementTests
             var scaled=new Size((int)Math.Round(380*scale),(int)Math.Round(540*scale));
             Verify(display,new Rectangle(0,0,1920,1040),new Point(960,1060),scaled,TaskbarEdge.Bottom,(int)Math.Round(8*scale));
             Verify(secondDisplay,new Rectangle(-1872,-200,1872,1080),new Point(-1896,340),scaled,TaskbarEdge.Left,(int)Math.Round(8*scale));
+            foreach(bool includeApi in new[]{false,true})
+            foreach(string view in new[]{"home","settings","search"})
+            {
+                var logical=TrayViewSize.Desired(view,includeApi);
+                Verify(display,new Rectangle(0,0,1920,1040),new Point(960,1060),new Size((int)Math.Round(logical.Width*scale),(int)Math.Round(logical.Height*scale)),TaskbarEdge.Bottom,(int)Math.Round(8*scale));
+            }
         }
         Verify(display,new Rectangle(0,0,1920,1040),new Point(960,1060),new Size(381,541),TaskbarEdge.Bottom);
         Console.WriteLine("PASS: tray icon-centred placement, pure-axis slides, scaled work areas, negative coordinates and auto-hide.");

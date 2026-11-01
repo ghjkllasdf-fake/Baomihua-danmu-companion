@@ -27,7 +27,7 @@ try{
         [Popcorn.Comment]::new(7000,1,16777215,'rolling'))
     $renderer.SetComments($comments); Update
     $s=$renderer.Snapshot()
-    Assert ($s.Visible -and $s.ActiveCount -eq 4) 'Real WPF surface must render four deduplicated comments.'
+    Assert ($s.Visible -and $s.ActiveCount -eq 3) 'Default half-area excludes bottom comments and renders deduplicated rolling/top comments.'
     Assert ($s.ClickThrough -and $s.NoActivate) 'The actual layered window must have transparent/no-activate native styles.'
     $before=$s.X -join ','; Pump 300
     Assert (($renderer.Snapshot().X -join ',') -eq $before) 'Paused sprites must remain at identical coordinates.'
@@ -37,7 +37,7 @@ try{
         $settings=Settings; $settings.AreaFraction=$region; $renderer.SetSettings($settings); Pump
         $s=$renderer.Snapshot()
         Assert ([Math]::Abs($s.AreaHeight-$s.ViewportHeightPx*$region) -lt 1) 'Every region must cover its exact upper-screen fraction.'
-        Assert ($s.Text -contains 'bottom') 'Fixed bottom comment must still fit inside the selected upper region.'
+        Assert (($s.Text -contains 'bottom') -eq ($region -eq 1)) 'Bottom comments must only appear for the full-screen display area.'
     }
     $settings=Settings; $settings.Rolling=$false; $settings.Bottom=$false; $renderer.SetSettings($settings); Pump
     Assert (($renderer.Snapshot().Text -join ',') -eq 'top') 'Native type switches must exclude rolling and bottom comments.'
