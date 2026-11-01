@@ -73,11 +73,20 @@ test('four skins keep the embedded home controls visible at the proposed compact
     const footer = (await page.locator('.mini-footer').boundingBox())!;
     console.log(`${skin}: bottom gap ${Math.round(footer.y - density.y - density.height)}px`);
     await page.screenshot({ path: testInfo.outputPath(`${skin}-home.png`) });
+    const home = (await page.locator('.mini-app').boundingBox())!;
     await page.getByRole('button', { name: '更多设置', exact: true }).click();
-    await page.setViewportSize({ width: 380, height: 540 });
+    const more = (await page.locator('.mini-app').boundingBox())!;
+    expect(more.height).toBe(home.height);
+    await expect(page.locator('.footer-actions .more-link')).toBeInViewport({ ratio: 1 });
     await page.screenshot({ path: testInfo.outputPath(`${skin}-more.png`) });
+    await page.locator('.source-types summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('checkbox', { name: '顶部', exact: true })).toBeVisible();
+    await page.locator('.manual-sync summary').click();
+    await expect(page.getByRole('textbox', { name: '视频当前时间' })).toBeVisible();
+    await page.locator('.manual-sync summary').click();
+    await page.locator('.source-types summary').click();
     await page.getByRole('button', { name: '返回', exact: true }).click();
-    await page.setViewportSize({ width: 380, height: 430 });
   }
 });
 

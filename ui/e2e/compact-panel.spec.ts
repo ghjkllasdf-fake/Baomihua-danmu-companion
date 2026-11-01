@@ -131,7 +131,7 @@ for (const supported of [true, false]) {
           if (message.type === 'set-tray-view') views.push(message.payload.view!);
           const data = message.type === 'hello' ? { protocolVersion: 1, capabilities: ['media-context-v1', ...(supported ? ['tray-view-size-v1'] : [])],
             apiBase: '', settings, settingsRevision: 0, stateSequence: 0 } : message.type === 'set-tray-view' ?
-            { view: message.payload.view, width: 380, height: message.payload.view === 'home' ? 510 : 540 } : {};
+            { view: message.payload.view, width: 380, height: message.payload.view === 'search' ? 540 : 510 } : {};
           setTimeout(() => callbacks.forEach(callback => callback({ data: { type: 'response', id: message.id, ok: true, data } })), 10);
         },
       } } });

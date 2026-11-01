@@ -13,7 +13,9 @@ describe('command contract boundary', () => {
     expect(validResult('set-tray-view', { view: 'home', width: 380, height: 430 })).toBe(true);
     expect(validResult('set-tray-view', { view: 'home', width: 380, height: 510 })).toBe(true);
     expect(validResult('set-tray-view', { view: 'search', width: 380, height: 540 })).toBe(true);
-    expect(validResult('set-tray-view', { view: 'settings', width: 380, height: 430 })).toBe(false);
+    expect(validResult('set-tray-view', { view: 'settings', width: 380, height: 430 })).toBe(true);
+    expect(validResult('set-tray-view', { view: 'settings', width: 380, height: 510 })).toBe(true);
+    expect(validResult('set-tray-view', { view: 'settings', width: 380, height: 540 })).toBe(false);
     expect(validResult('set-tray-view', { view: 'home', width: 1, height: 430 })).toBe(false);
   });
   it('only accepts a boolean startup choice and a confirmed boolean result', () => {

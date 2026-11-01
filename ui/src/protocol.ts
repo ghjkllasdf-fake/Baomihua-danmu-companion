@@ -94,8 +94,8 @@ export function validResult<K extends CommandType>(type: K, value: unknown): val
     case 'close': return value.closing === true;
     case 'hide': return keys(value, ['hidden']) && value.hidden === true;
     case 'set-tray-view': return keys(value, ['view', 'width', 'height']) && value.width === 380 &&
-      (value.view === 'home' ? value.height === 430 || value.height === 510 :
-        (value.view === 'settings' || value.view === 'search') && value.height === 540);
+      (value.view === 'home' || value.view === 'settings' ? value.height === 430 || value.height === 510 :
+        value.view === 'search' && value.height === 540);
     default: return false;
   }
 }
