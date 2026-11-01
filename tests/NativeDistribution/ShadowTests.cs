@@ -48,7 +48,7 @@ internal static class ShadowTests
     }
     internal static void Run()
     {
-        Check(new DanmakuSettings().ShadowStrength==.45,"The default should add a restrained shadow, independent of the zero-outline default.");
+        Check(new DanmakuSettings().ShadowStrength==1,"New profiles use full shadow strength with zero outline.");
         foreach(double strength in new[]{0,.25,1})new DanmakuSettings{ShadowStrength=strength}.Validate();
         foreach(double strength in new[]{-.01,1.01,double.NaN,double.PositiveInfinity})
         {
@@ -60,7 +60,7 @@ internal static class ShadowTests
         {
             File.WriteAllText(path,"{\"schemaVersion\":1,\"settings\":{\"fontSize\":40,\"outlineWidth\":0}}");
             var legacy=SettingsPreferences.Load(path);
-            Check(legacy.Notice=="" && legacy.Settings.FontSize==40 && legacy.Settings.ShadowStrength==.45,"Existing preferences must migrate without losing user values.");
+            Check(legacy.Notice=="" && legacy.Settings.FontSize==40 && legacy.Settings.ShadowStrength==1,"Existing preferences retain saved values and use defaults for absent fields.");
             foreach(double strength in new[]{0,.75,1})
             {
                 File.WriteAllText(path,SettingsPreferences.Serialize(new(){ShadowStrength=strength,OutlineWidth=1.5}));
@@ -82,10 +82,10 @@ internal static class ShadowTests
             Check(Darkness(images[5])>high,"Maximum intensity must continue to increase the actual shadow pixels without clipping.");
             foreach(var image in images)CheckEdges(image);
             var surface=surfaces[1];var before=surface.Snapshot(false);
-            surface.Configure(new(){FontSize=32,ShadowStrength=.9});surface.Frame();
+            surface.Configure(new(){FontSize=32,ShadowStrength=.9,ScaleWithWindow=false});surface.Frame();
             var after=surface.Snapshot(false);
             Check(after.ActiveCount==1 && after.SpritesCreated==before.SpritesCreated+1 && Darkness(Current(surface).Image)>low*2,"Live intensity edits must rebuild the cached image without losing active content.");
-            surface.Configure(new(){FontSize=32,ShadowStrength=.9,Opacity=.4});surface.Frame();
+            surface.Configure(new(){FontSize=32,ShadowStrength=.9,Opacity=.4,ScaleWithWindow=false});surface.Frame();
             Check(surface.Snapshot(false).SpritesCreated==after.SpritesCreated,"Whole-comment opacity must not rebuild the shadow bitmap.");
             Check(Current(surface).AlphaBrush(.4).Opacity==.4,"The shared sprite alpha must apply to both text and shadow.");
             var oldImage=Current(surface).Image;

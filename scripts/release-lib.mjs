@@ -12,7 +12,7 @@ export function nativePublishEntry(path) {
 }
 
 export function releaseNames(version, includeApi = false) {
-  if (!/^\d+\.\d+\.\d+-beta\.[1-9]\d*$/.test(version)) throw new Error('Invalid beta version.');
+  if (!/^\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?$/.test(version)) throw new Error('Invalid release version.');
   const base = `DanmuCompanion-${version}-win-x64${includeApi ? '-includeAPI' : ''}`;
   return { base, installer: `${base}-setup.exe`, portable: `${base}-portable.zip` };
 }
@@ -32,7 +32,7 @@ export function releaseVersions(properties, version) {
   releaseNames(version);
   const projectVersion = properties.match(/<Version>([^<]+)<\/Version>/)?.[1];
   const fileVersion = properties.match(/<FileVersion>([^<]+)<\/FileVersion>/)?.[1];
-  const expected = version.replace('-beta.', '.');
+  const expected = version.includes('-beta.') ? version.replace('-beta.', '.') : version + '.0';
   if (projectVersion !== version || fileVersion !== expected ||
       expected.split('.').some(part => Number(part) > 65535))
     throw new Error('Artifact, native version and numeric file version must agree.');
