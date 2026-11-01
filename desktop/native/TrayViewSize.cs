@@ -9,8 +9,8 @@ internal static class TrayViewSize
 {
     internal static Size Desired(string view,bool includeApi=false)=>view switch
     {
-        "home"=>new(380,includeApi ? 430 : 510),
-        "settings" or "search"=>new(380,540),
+        "home" or "settings"=>new(380,includeApi ? 430 : 510),
+        "search"=>new(380,540),
         _=>throw new ArgumentException("面板视图无效。")
     };
     internal static string Parse(JsonElement payload)

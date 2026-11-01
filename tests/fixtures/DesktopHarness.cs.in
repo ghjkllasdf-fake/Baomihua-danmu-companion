@@ -383,7 +383,7 @@ public static class DesktopStateTests
         {
             Test("view size commands use named views and preserve settings",()=>{
                 using var host=new DesktopHarness();
-                foreach(var entry in new[]{("home",510),("settings",540),("search",540)})
+                foreach(var entry in new[]{("home",510),("settings",510),("search",540)})
                 {
                     host.Message("view-"+entry.Item1,"set-tray-view",new{view=entry.Item1});
                     var reply=host.Reply("view-"+entry.Item1);

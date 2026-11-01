@@ -10,7 +10,8 @@ internal static class TrayPlacementTests
     internal static void Run()
     {
         Check(TrayViewSize.Desired("home")==new Size(380,510) && TrayViewSize.Desired("home",true)==new Size(380,430),"Home size includes the external API address controls only in the ordinary edition.");
-        Check(TrayViewSize.Desired("settings")==new Size(380,540) && TrayViewSize.Desired("search")==new Size(380,540),"Other views retain the original logical size.");
+        Check(TrayViewSize.Desired("settings")==TrayViewSize.Desired("home") && TrayViewSize.Desired("settings",true)==TrayViewSize.Desired("home",true),"Settings retains the same height as home in each edition.");
+        Check(TrayViewSize.Desired("search")==new Size(380,540),"Search retains the original logical size.");
         foreach(string json in new[]{"{}","{\"view\":\"other\"}","{\"view\":\"home\",\"height\":9999}","{\"view\":42}"})
         {
             using var doc=System.Text.Json.JsonDocument.Parse(json);bool rejected=false;

@@ -13,7 +13,8 @@ internal static class TrayViewRuntimeTests
         var screen=Screen.PrimaryScreen;var anchor=new Point(screen.WorkingArea.Left+screen.WorkingArea.Width/2,screen.Bounds.Bottom-1);
         flyout.SetView("home",true);flyout.Open(anchor);
         var first=form.Bounds;
-        flyout.SetView("settings",true);var expanded=form.Bounds;
+        flyout.SetView("settings",true);DistributionTests.Check(form.Bounds==first,"Settings stays exactly the same height and anchor as home.");
+        flyout.SetView("search",true);var expanded=form.Bounds;
         Console.WriteLine($"Native view bounds: home={first}; expanded={expanded}; dpi={form.DeviceDpi}; work={screen.WorkingArea}");
         DistributionTests.Check(first.Bottom==expanded.Bottom && expanded.Height>=first.Height,"View changes retain the bottom taskbar anchor without growing outside the work area.");
         flyout.SetView("home",true);DistributionTests.Check(form.Bounds==first,"Returning home restores the exact native popup bounds.");
