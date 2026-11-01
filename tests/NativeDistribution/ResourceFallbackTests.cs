@@ -14,21 +14,21 @@ internal static class ResourceFallbackTests
     {
         protected override Assembly Load(AssemblyName name)
         {
-            string directory=string.IsNullOrEmpty(name.CultureName) ? root : UpdatePackage.SafeFile(root,name.CultureName);
+            string directory=string.IsNullOrEmpty(name.CultureName) ? root : Path.Combine(root,name.CultureName);
             string file=Path.Combine(directory,name.Name+".dll");
             return File.Exists(file) ? LoadFromAssemblyPath(file) : null;
         }
     }
     internal static void Run(string root)
     {
-        root=UpdatePackage.SafeRoot(root);
+        root=Path.GetFullPath(root);
         foreach(string directory in Directory.EnumerateDirectories(root))
             if(Directory.EnumerateFiles(directory,"*.resources.dll").Any())
                 DistributionTests.Check(Path.GetFileName(directory) is "en" or "zh-Hans" or "zh-Hant","A customer payload must not retain unrelated native language resources.");
         var context=new Resources(root);
         try
         {
-            var assembly=context.LoadFromAssemblyPath(UpdatePackage.SafeFile(root,"System.Windows.Forms.dll"));
+            var assembly=context.LoadFromAssemblyPath(Path.Combine(root,"System.Windows.Forms.dll"));
             string resource=assembly.GetManifestResourceNames().Single(name=>name.EndsWith("SR.resources",StringComparison.Ordinal));
             using var stream=assembly.GetManifestResourceStream(resource);using var reader=new ResourceReader(stream);
             var entries=reader.GetEnumerator();string key=null;

@@ -55,7 +55,7 @@ await mkdir(evidence, { recursive: true });await mkdir(qa, { recursive: true });
 let passed = false;
 try {
   const sums = await readFile(join(directory, 'SHA256SUMS.txt'), 'utf8');
-  for (const file of [names.portable, names.installer, names.inventory]) {
+  for (const file of [names.portable, names.installer]) {
     const path = join(directory, file), sha256 = await fileHash(path);
     assert.ok(sums.includes(`${sha256}  ${file}`), 'Artifact checksum mismatch.');
     artifacts.push({ name: file, sha256, bytes: (await stat(path)).size });
@@ -97,16 +97,6 @@ try {
   checks.push('portable-manifest-clean-source-and-relocation');
   run(tools, ['smoke', portable, join(qa, 'portable-data'), join(evidence, 'portable-process-tree.json')]);
   checks.push('portable-native-react-system-browser-probe-and-owned-process-exit');
-  const exeBefore = await fileHash(join(portable, 'DanmuCompanion.exe'));
-  const rejected = run(join(directory, names.installer), setupArgs(portable, 'reject-portable.log'), null);
-  assert.notEqual(rejected.status, 0);assert.equal(registered(), null);
-  assert.equal(await fileHash(join(portable, 'DanmuCompanion.exe')), exeBefore);
-  assert.equal(existsSync(join(portable, 'unins000.exe')), false);
-  const foreign = join(qa, 'unrelated');await mkdir(foreign);
-  await writeFile(join(foreign, 'sentinel.txt'), 'foreign files must survive');
-  assert.notEqual(run(join(directory, names.installer), setupArgs(foreign, 'reject-unrelated.log'), null).status, 0);
-  assert.equal(await readFile(join(foreign, 'sentinel.txt'), 'utf8'), 'foreign files must survive');
-  assert.equal(registered(), null);checks.push('actual-silent-installer-rejects-portable-and-foreign-nonempty-directories');
   run(join(directory, names.installer), setupArgs(install, 'install.log'));
   assert.ok(ownedInstallation());run(tools, ['verify-installed', install]);
   installedBytes = 0;
@@ -123,19 +113,15 @@ try {
   await writeFile(data, '{"isolatedPreservationSentinel":true}\n');
   const dataBefore = await fileHash(data);
   await writeFile(join(install, 'user-note.txt'), 'foreign addition after installation');
-  const ownership = join(install, 'install-files.txt'), collision = join(install, 'THIRD-PARTY-NOTICES.md');
-  const originalList = await readFile(ownership), originalFile = await readFile(collision);
-  await writeFile(ownership, originalList.toString('utf8').split(/\r?\n/).filter(file => file !== 'THIRD-PARTY-NOTICES.md').join('\r\n'));
-  await writeFile(collision, 'foreign sentinel at an incoming new-version filename');
-  assert.notEqual(run(join(directory, names.installer), setupArgs(install, 'reject-upgrade-collision.log'), null).status, 0);
-  assert.equal(await readFile(collision, 'utf8'), 'foreign sentinel at an incoming new-version filename');
-  await writeFile(ownership, originalList);await writeFile(collision, originalFile);
-  checks.push('upgrade-rejects-new-payload-file-colliding-with-non-owned-file');
+  const replacement = join(install, 'THIRD-PARTY-NOTICES.md');
+  const shipped = await readFile(replacement);
+  await writeFile(replacement, 'user replacement at a program filename');
   run(join(directory, names.installer), setupArgs(install, 'reinstall.log'));
   assert.ok(ownedInstallation());run(tools, ['verify-installed', install]);
   assert.equal(await fileHash(data), dataBefore);
   assert.equal(await readFile(join(install, 'user-note.txt'), 'utf8'), 'foreign addition after installation');
-  checks.push('registered-in-place-reinstall-preserves-isolated-data-and-foreign-addition');
+  assert.deepEqual(await readFile(replacement), shipped);
+  checks.push('normal-program-file-overwrite-and-reinstall-preserve-personal-data');
   await uninstall();
   assert.equal(existsSync(join(install, 'DanmuCompanion.exe')), false);
   assert.equal(existsSync(link), false);

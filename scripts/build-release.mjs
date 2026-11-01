@@ -7,7 +7,6 @@ import { randomUUID } from 'node:crypto';
 import { fileHash, inventory, releaseNames, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory, walkFiles, assertPayloadBudget, validateApiProvenance, nativePublishEntry } from './release-lib.mjs';
 import { sourceState, requireSameSource } from './source-state.mjs';
 import { constants } from 'node:fs';
-import { installerHelperTrust } from './installer-helper-guard.mjs';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const args = process.argv.slice(2);
@@ -39,7 +38,7 @@ const dotnet = join(root, '.deps', 'dotnet', 'dotnet.exe');
 const source = await sourceState(root);
 const sourceCommit = source.head;
 let { sourceDirty, customDanAny } = releaseSourceStatus(Boolean(source.status), false, allowDirty);
-for (const name of [names.portable, names.installer, names.inventory, 'SHA256SUMS.txt']) {
+for (const name of [names.portable, names.installer, 'SHA256SUMS.txt']) {
   if (existsSync(join(output, name))) throw new Error('Refusing to overwrite an existing release artifact.');
 }
 for (const dependency of [lock.dotnetSdk, lock.webview2Sdk, lock.windowsProjection, lock.webview2Bootstrapper, lock.inno]) {
@@ -57,7 +56,7 @@ const staged = join(work, 'release');
 await mkdir(payload, { recursive: true }); await mkdir(staged); await mkdir(output, { recursive: true });
 run(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'npm.cmd --prefix ui ci --ignore-scripts']);
 run(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'npm.cmd --prefix ui run build']);
-for (const [project, directory] of [['NativeHost', 'host'], ['NativeProbe', 'probe'], ['NativeUpdater', 'updater']]) {
+for (const [project, directory] of [['NativeHost', 'host'], ['NativeProbe', 'probe']]) {
   const published = join(work, directory);
   run(dotnet, ['restore', `desktop/${project}/${project}.csproj`, '--locked-mode', '-r', 'win-x64']);
   run(dotnet, ['publish', `desktop/${project}/${project}.csproj`, '--no-restore', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'true', '-o', published]);
@@ -131,22 +130,17 @@ const manifest = { schemaVersion: 1, version, sourceCommit, sourceDirty, baselin
 const manifestText = JSON.stringify(manifest, null, 2) + '\n';
 const payloadBytes = assertPayloadBudget(manifest.files, Buffer.byteLength(manifestText), includeApi);
 await writeFile(join(payload, 'manifest.json'), manifestText);
-const helperFileList = join(work, 'TrustedHelper.iss');
-await writeFile(helperFileList, installerHelperTrust([...manifest.files, {
-  path: 'manifest.json', length: Buffer.byteLength(manifestText), sha256: await fileHash(join(payload, 'manifest.json')),
-}]));
 run(join(payload, 'DanmuCompanion.exe'), ['--check']);
 run(dotnet, ['restore', 'scripts/NativeReleaseTools/NativeReleaseTools.csproj', '--locked-mode']);
 run(dotnet, ['build', 'scripts/NativeReleaseTools/NativeReleaseTools.csproj', '--no-restore', '-c', 'Release']);
 const tools = join(root, 'scripts', 'NativeReleaseTools', 'bin', 'Release', 'net10.0', 'win-x64', 'NativeReleaseTools.exe');
 run(tools, ['pack', payload, join(staged, names.portable)]);
-run(join(root, '.deps', 'inno', 'ISCC.exe'), [`/DAppVersion=${version}`, `/DAppFileVersion=${fileVersion}`, `/DPayloadDir=${payload}`, `/DPayloadFileList=${payloadFileList}`, `/DHelperFileList=${helperFileList}`, `/DReleaseDir=${staged}`,
+run(join(root, '.deps', 'inno', 'ISCC.exe'), [`/DAppVersion=${version}`, `/DAppFileVersion=${fileVersion}`, `/DPayloadDir=${payload}`, `/DPayloadFileList=${payloadFileList}`, `/DReleaseDir=${staged}`,
   ...(includeApi ? ['/DIncludeApi=1'] : []), 'installer/DanmuCompanion.iss']);
 let sums = '';
-await copyFile(join(payload, 'manifest.json'), join(staged, names.inventory), constants.COPYFILE_EXCL);
-for (const file of [names.installer, names.portable, names.inventory]) sums += `${await fileHash(join(staged, file))}  ${file}\n`;
+for (const file of [names.installer, names.portable]) sums += `${await fileHash(join(staged, file))}  ${file}\n`;
 await writeFile(join(staged, 'SHA256SUMS.txt'), sums, { flag: 'wx' });
 requireSameSource(source, await sourceState(root));
-for (const file of [names.installer, names.portable, names.inventory, 'SHA256SUMS.txt']) await copyFile(join(staged, file), join(output, file), constants.COPYFILE_EXCL);
+for (const file of [names.installer, names.portable, 'SHA256SUMS.txt']) await copyFile(join(staged, file), join(output, file), constants.COPYFILE_EXCL);
 await writeFile(join(work, 'build-result.json'), JSON.stringify({ version, sourceCommit, sourceDirty, payload, output, files: manifest.files.length, payloadBytes }, null, 2));
 console.log(JSON.stringify({ passed: true, version, output, payload, sourceDirty, files: manifest.files.length, payloadBytes }, null, 2));

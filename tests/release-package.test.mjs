@@ -6,10 +6,9 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory, nativePublishEntry, retainedResourceCultures } from '../scripts/release-lib.mjs';
-import { installerHelperTrust } from '../scripts/installer-helper-guard.mjs';
 
-test('native updater shares the manifest payload and only its exact executable/config names are admitted', () => {
-  for (const path of ['DanmuCompanion.Updater.exe', 'DanmuCompanion.Updater.deps.json', 'DanmuCompanion.Updater.runtimeconfig.json']) assert.equal(allowedEntry(path), true);
+test('retired updater executable, assembly and configuration files are excluded from the payload', () => {
+  for (const path of ['DanmuCompanion.Updater.exe', 'DanmuCompanion.Updater.dll', 'DanmuCompanion.Updater.deps.json', 'DanmuCompanion.Updater.runtimeconfig.json']) assert.equal(allowedEntry(path), false);
   for (const path of ['Updater.exe', 'DanmuCompanion.Updater.cmd', 'update.ps1', 'DanmuCompanion.Updater.exe:stream']) assert.equal(allowedEntry(path), false);
 });
 
@@ -39,7 +38,7 @@ test('all native projects use the same language policy and the release merge enf
   const root = resolve(import.meta.dirname, '..');
   const props = await readFile(join(root, 'desktop/NativeCommon.props'), 'utf8');
   assert.deepEqual(props.match(/<SatelliteResourceLanguages>([^<]+)<\/SatelliteResourceLanguages>/)?.[1].split(';'), retainedResourceCultures);
-  for (const project of ['NativeHost', 'NativeProbe', 'NativeUpdater']) {
+  for (const project of ['NativeHost', 'NativeProbe']) {
     assert.match(await readFile(join(root, `desktop/${project}/${project}.csproj`), 'utf8'), /NativeCommon.props/);
   }
   assert.deepEqual(['coreclr.dll', 'System.Windows.Forms.dll', 'en/System.Windows.Forms.resources.dll', 'zh-Hans/System.Windows.Forms.resources.dll',
@@ -154,13 +153,11 @@ test('Inno compiles standard and includeAPI to distinct installer names', async 
     await writeFile(join(payload, 'DISTRIBUTION-LICENSE.txt'), 'test license');
     await writeFile(join(payload, 'MicrosoftEdgeWebview2Setup.exe'), 'test-only placeholder');
     const list = join(tmp, 'incoming.iss');
-    const trust = join(tmp, 'trusted.iss'), bootstrapper = await readFile(join(payload, 'MicrosoftEdgeWebview2Setup.exe'));
-    await writeFile(trust, installerHelperTrust([{ path: 'MicrosoftEdgeWebview2Setup.exe', length: bootstrapper.length, sha256: createHash('sha256').update(bootstrapper).digest('hex') }]));
     for (const includeApi of [false, true]) {
       // Exercise the real includeAPI scale rather than just compiling an empty list.
       const incoming = includeApi ? Array.from({ length: 11000 }, (_, i) => `  Files.Add('api\\node_modules\\entry-${i}.js');`).join('\n') : '';
       await writeFile(list, `procedure AddIncomingPayloadFiles(Files: TStringList);\nbegin\n${incoming}\nend;\n`);
-      const args = ['--quiet', '/DAppVersion=0.1.0-beta.3', '/DAppFileVersion=0.1.0.3', `/DPayloadDir=${payload}`, `/DPayloadFileList=${list}`, `/DHelperFileList=${trust}`,
+      const args = ['--quiet', '/DAppVersion=0.1.0-beta.3', '/DAppFileVersion=0.1.0.3', `/DPayloadDir=${payload}`, `/DPayloadFileList=${list}`,
         `/DReleaseDir=${tmp}`, ...(includeApi ? ['/DIncludeApi=1'] : []), 'installer/DanmuCompanion.iss'];
       const result = spawnSync(join(root, '.deps', 'inno', 'ISCC.exe'), args, { cwd: root, encoding: 'utf8', windowsHide: true, timeout: 60000 });
       assert.equal(result.status, 0, result.stdout + result.stderr);

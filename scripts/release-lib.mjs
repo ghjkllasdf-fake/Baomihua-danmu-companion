@@ -14,7 +14,7 @@ export function nativePublishEntry(path) {
 export function releaseNames(version, includeApi = false) {
   if (!/^\d+\.\d+\.\d+-beta\.[1-9]\d*$/.test(version)) throw new Error('Invalid beta version.');
   const base = `DanmuCompanion-${version}-win-x64${includeApi ? '-includeAPI' : ''}`;
-  return { base, installer: `${base}-setup.exe`, portable: `${base}-portable.zip`, inventory: `${base}-manifest.json` };
+  return { base, installer: `${base}-setup.exe`, portable: `${base}-portable.zip` };
 }
 
 export function releaseVersions(properties, version) {
@@ -48,6 +48,7 @@ export function candidateApiDirectory(path, includeApi, allowDirty, explicitOutp
 }
 
 export function allowedEntry(path, apiEntries = null) {
+  if (/(^|\/)DanmuCompanion\.Updater(?:\.|$)/i.test(path)) return false;
   if (!path || path.startsWith('/') || /[\\:\x00-\x1f<>"|?*]/.test(path)) return false;
   const parts = path.split('/');
   if (parts.some(part => !part || part === '.' || part === '..' || /[. ]$/.test(part) ||
@@ -56,8 +57,8 @@ export function allowedEntry(path, apiEntries = null) {
   if (parts[0].toLowerCase() === 'webview2runtime') return false;
   if (/\.(?:ps1|psm1|psd1|bat|cmd|pdb|cs|csproj|lnk)$/i.test(path)) return false;
   if (path.startsWith('api/')) return apiEntries?.has(path) ?? false;
-  return /^(DanmuCompanion(?:\.Probe|\.Updater)?\.exe|MicrosoftEdgeWebview2Setup\.exe|createdump\.exe|README\.md|LICENSE|DISTRIBUTION-LICENSE\.txt|THIRD-PARTY-NOTICES\.md|install-files\.txt|manifest\.json)$/.test(path) ||
-    /^DanmuCompanion(?:\.Probe|\.Updater)?\.(?:deps|runtimeconfig)\.json$/.test(path) ||
+  return /^(DanmuCompanion(?:\.Probe)?\.exe|MicrosoftEdgeWebview2Setup\.exe|createdump\.exe|README\.md|LICENSE|DISTRIBUTION-LICENSE\.txt|THIRD-PARTY-NOTICES\.md|install-files\.txt|manifest\.json)$/.test(path) ||
+    /^DanmuCompanion(?:\.Probe)?\.(?:deps|runtimeconfig)\.json$/.test(path) ||
     /^[A-Za-z0-9_.-]+\.dll$/.test(path) ||
     /^(?:en|zh-Hans|zh-Hant)\/[A-Za-z0-9_.-]+\.resources\.dll$/.test(path) ||
     /^assets\/(?:app|tray)\.ico$/.test(path) ||

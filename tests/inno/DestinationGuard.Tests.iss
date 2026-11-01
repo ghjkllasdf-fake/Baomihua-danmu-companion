@@ -45,11 +45,11 @@ begin
   CheckCase('new-directory', DestinationProblemForDrive(NewTarget, '', 3) = '');
   CheckCase('registered-install-cannot-be-orphaned', DestinationProblemForDrive(NewTarget, Registered, 3) <> '');
   CheckCase('empty-directory', DestinationProblemForDrive(Empty, '', 3) = '');
-  CheckCase('unrelated-nonempty', DestinationProblemForDrive(Occupied, '', 3) <> '');
-  CheckCase('portable-is-not-installation', DestinationProblemForDrive(Portable, '', 3) <> '');
+  CheckCase('manual-nonempty-directory', DestinationProblemForDrive(Occupied, '', 3) = '');
+  CheckCase('manual-portable-folder', DestinationProblemForDrive(Portable, '', 3) = '');
   CheckCase('registered-upgrade', DestinationProblemForDrive(Registered, Registered, 3) = '');
   CheckCase('other-registered-path', DestinationProblemForDrive(Portable, Registered, 3) <> '');
-  CheckCase('missing-ownership-files', DestinationProblemForDrive(Occupied, Occupied, 3) <> '');
+  CheckCase('missing-program-files-can-reinstall', DestinationProblemForDrive(Occupied, Occupied, 3) = '');
   CheckCase('drive-root', DestinationProblemForDrive(ExtractFileDrive(Root) + '\', '', 3) <> '');
   CheckCase('unc', DestinationProblemForDrive('\\example.invalid\share\app', '', 3) <> '');
   CheckCase('mapped-network-drive', DestinationProblemForDrive('Z:\app', '', 4) <> '');
@@ -59,21 +59,21 @@ begin
   Incoming := TStringList.Create;
   try
     Incoming.Add('DanmuCompanion.exe');
-    CheckCase('missing-upgrade-ownership-list', PayloadCollisionProblem(Registered, Incoming) <> '');
+    CheckCase('ownership-list-not-required', PayloadPathsProblem(Registered, Incoming) = '');
     SaveStringToFile(Registered + '\install-files.txt', 'DanmuCompanion.exe' + #13#10 + 'manifest.json' + #13#10, False);
-    CheckCase('owned-upgrade-file', PayloadCollisionProblem(Registered, Incoming) = '');
+    CheckCase('owned-upgrade-file', PayloadPathsProblem(Registered, Incoming) = '');
     Incoming.Add('new-file.dll');
-    CheckCase('new-unoccupied-file', PayloadCollisionProblem(Registered, Incoming) = '');
+    CheckCase('new-unoccupied-file', PayloadPathsProblem(Registered, Incoming) = '');
     Incoming.Add('user-note.txt');
-    CheckCase('new-file-collides-with-foreign-file', PayloadCollisionProblem(Registered, Incoming) <> '');
+    CheckCase('program-filename-normal-overwrite', PayloadPathsProblem(Registered, Incoming) = '');
     Incoming.Clear; Incoming.Add('user-note.txt\child.dll');
-    CheckCase('parent-collides-with-foreign-file', PayloadCollisionProblem(Registered, Incoming) <> '');
+    CheckCase('parent-collides-with-foreign-file', PayloadPathsProblem(Registered, Incoming) <> '');
     Incoming.Clear; Incoming.Add('existing-directory.dll');
     ForceDirectories(Registered + '\existing-directory.dll');
-    CheckCase('file-collides-with-directory', PayloadCollisionProblem(Registered, Incoming) <> '');
+    CheckCase('file-collides-with-directory', PayloadPathsProblem(Registered, Incoming) <> '');
     Incoming.Clear; Incoming.Add('linked-assets\sentinel.txt');
     SaveStringToFile(Registered + '\install-files.txt', 'linked-assets\sentinel.txt' + #13#10, False);
-    CheckCase('owned-file-through-junction', PayloadCollisionProblem(Registered, Incoming) <> '');
+    CheckCase('owned-file-through-junction', PayloadPathsProblem(Registered, Incoming) <> '');
     CheckCase('new-directory-below-junction', DestinationProblemForDrive(Root + '\alias\new-app', '', 3) <> '');
   finally
     Incoming.Free;

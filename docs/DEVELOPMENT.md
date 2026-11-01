@@ -4,7 +4,7 @@
 
 ## 原生 Beta 构建（当前）
 
-当前入口是 `desktop/NativeHost`、`desktop/NativeProbe` 与 `desktop/NativeUpdater`，版本由 `desktop/NativeCommon.props` 固定。用户运行、采样、自启动、更新、WebView2 前置环境安装和卸载无需 PowerShell。本文的 PowerShell 命令仅用于开发环境准备和补充测试，发行构建使用下面的原生入口。
+当前入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`，版本由 `desktop/NativeCommon.props` 固定。用户运行、采样、自启动、更新、WebView2 前置环境安装和卸载无需 PowerShell。本文的 PowerShell 命令仅用于开发环境准备和补充测试，发行构建使用下面的原生入口。
 
 本地工具由 `native-toolchain.json` 固定：.NET SDK 10.0.403／运行时 10.0.14、WebView2 SDK 1.0.4314.35、Windows 投影 10.0.26100.84、微软 Evergreen Bootstrapper 1.3.307.15、Inno Setup 7.1.1。当前仅使用系统共享 Evergreen Runtime，不下载或分发历史 Fixed Runtime。按清单的官方来源准备 `.deps` 原始归档及对应解压目录；构建器校验归档、投影 DLL、引导程序和编译器，不修改全局 SDK。Node/npm 与 UI 依赖见后文和 `ui/package-lock.json`。
 
@@ -50,9 +50,9 @@ node scripts/test-release.mjs --version 0.1.1-beta.7
 
 ### 中英文资源
 
-`NativeHost`、`NativeProbe`、`NativeUpdater` 共用 `SatelliteResourceLanguages=en;zh-Hans;zh-Hant`；发行合并再独立过滤并通过 payload 白名单核对。当前 .NET 程序输出只生成 `zh-Hans`、`zh-Hant` 目录，英语使用主程序集的 neutral 默认资源，区域文化回退由 .NET 处理。只裁剪程序随附的 .NET 卫星资源，不修改系统、共享 WebView2 或依赖许可证；不新增语言选择器。旧版本清单仍可被更新器读取，以识别并清除旧 owned 语言文件，不按语言目录名称删除外来文件。
+`NativeHost`、`NativeProbe` 共用 `SatelliteResourceLanguages=en;zh-Hans;zh-Hant`；发行合并再独立过滤并通过 payload 白名单核对。当前 .NET 程序输出只生成 `zh-Hans`、`zh-Hant` 目录，英语使用主程序集的 neutral 默认资源，区域文化回退由 .NET 处理。只裁剪程序随附的 .NET 卫星资源，不修改系统、共享 WebView2 或依赖许可证；不新增语言选择器。旧版本文件由 Inno 的合并安装日志在卸载时清理，不添加资源身份台账。
 
-原位安装在替换前将旧清单和有限资源路径的磁盘身份保存到本次 Inno 临时目录，安装成功后由当前原生更新组件核对原版本哈希、当前安装和身份再删除。仅清原清单内、现清单已移除的卫星 DLL；同名外来替换、被修改／占用的文件及非空目录保留。自动更新只保存旧清单／哈希／磁盘身份等有限元数据，不复制旧程序；逐文件校验后直接替换，并删除未改变的旧 owned 文件。
+普通安装和原位升级直接由 Inno 复制程序文件，卸载使用文件名安装日志；不经额外原生写入器，也不逐文件保存磁盘身份。个人设置位于独立的数据目录，默认不随程序卸载删除。
 
 ```text
 tests\NativeDistribution\bin\Release\net10.0-windows\win-x64\NativeDistribution.Tests.exe --resource-fallback-tests ABS_PAYLOAD
@@ -62,28 +62,24 @@ tests\NativeDistribution\bin\Release\net10.0-windows\win-x64\NativeDistribution.
 
 ## 开发工具与补充回归
 
-### GitHub 更新发行契约
+### GitHub 新版本提醒与手动安装
 
-更新回归入口为原生测试 EXE 的 `--update-tests`、`node --test tests/installer-update-journal.test.mjs` 和 `node scripts/test-updater-runtime.mjs`。最后一个命令在短临时路径发布受控旧／新程序，验证真实 UI／采样健康握手、交接失败和启动失败的真实修复流程与不回滚行为；仅将验证结果保留到 `artifacts/updater-runtime-tests`，不改动用户安装或发布 Release。它会改变测试项目的本地输出名，运行后应重新构建 `tests/NativeDistribution`，不要与依赖该测试 EXE 的安装器测试并行。
+更新源固定为本项目 GitHub Releases，不使用第三方版本服务器或内置 GitHub Token。ReleaseNoticeService、ReleaseNoticeTransport 和 ReleaseNoticeCatalog 只读取受限大小的版本列表，按语义版本和 stable／beta 通道选择新版。Release 地址由固定仓库与已验证 tag 构造，不使用远端正文或 html_url 导航；版本检查不依赖附件、独立 updater manifest 或安装身份登记。
 
-更新源固定为本项目 GitHub Releases，不使用第三方版本服务器或内置 GitHub Token。构建器共同发布 `NativeHost`、`NativeProbe`、`NativeUpdater`，相同运行库只保留一份。每个发行版新增 `DanmuCompanion-VERSION-win-x64[-includeAPI]-manifest.json` 附件，与安装版、Portable ZIP 来自同一份 payload，三个文件的哈希均进入 `SHA256SUMS.txt`。发布新版本时应上传两种发行版的独立 manifest，并合并校验清单；安装更新缺少对应清单时不会被选择。不要修改已发布同版本资产。
+自动检查仅在干净、版本一致的发行包和正常 app 配置中启动；候选／源码及隔离测试配置不自动联网。首次检查约 20–30 秒后，默认每天，可选择每天／每周／每月（24／168／720 小时，每月固定 30 天）。关闭后没有循环检查或后台维护计时器；手动检查仍可用。上次尝试、网络退避和 GitHub 限流期限持久化，重启不能绕过检查间隔或服务端期限。旧 1／6／12 小时偏好迁移为每天，旧 autoDownload 设置忽略，并在下一次保存时去除。
 
-自动检查只在完整、干净、版本一致的发行包和正常 `app` 配置中启动；候选／源码及隔离测试配置不自动联网。首次检查约 20–30 秒后，后续默认每天，可在“更多设置”底部折叠的“软件更新”模块选择每天／每周／每月（24／168／720 小时，每月固定 30 天）；网络失败或 GitHub 限流时会退避。下载必须手动触发或明确开启。状态和安装命令通过 `github-update-v1` 类型契约，原生组件以当前用户管道、进程身份及真实界面／采样握手确认交接与重启。安装版更新同时校验配套 ZIP；自动更新、手动安装和中断修复共用 `UpdateApply` 原生写入器，以同句柄哈希／磁盘身份核对删除对象，再进行非覆盖 rename。Inno 不再写 payload，只更新安装登记、卸载组件和快捷方式，不靠相同内容猜测文件所有权。
+新契约为 github-release-notice-v1，只接受 get-update、check-update、cancel-update、set-update-preferences、open-update-page。快照不包含下载进度、安装权限或 Portable 准备状态；偏好只接收 autoCheck、channel、checkIntervalHours。旧下载、安装、重启更新、Portable 准备、更新 worker --pipe 和安装器 UPDATEJOURNAL 在线交接不再接受；启动也不执行旧程序／历史更新目录清理。
+
+普通安装器由当前用户运行，直接使用 Inno 的文件复制、同 AppId 原位升级和合并卸载日志。用户负责安装目录内同名私人或替换文件；程序不维护磁盘身份、归属台账、修复 journal 或安装后启动交接组件。安装器只保留基本路径检查、共享 WebView2 前置提示和指向本安装的开机快捷方式清理，不递归擦除安装目录或系统运行时。
+
+发布资产共六个：普通版和 includeAPI 的安装 EXE／Portable ZIP、对应源码及统一 SHA256SUMS.txt。manifest 只保留在 payload 中供版本和发布校验使用，不再单独发布。最终验收重点是安装／升级／卸载、实际弹幕播放与进程退出、公开源文件和包的隐私检查，最终字节仍须交 debugger 独立质量控制和发布检查。
 
 ```text
 .deps\dotnet\dotnet.exe build tests/NativeDistribution/NativeDistribution.csproj -c Release --no-restore
-tests\NativeDistribution\bin\Release\net10.0-windows\win-x64\NativeDistribution.Tests.exe --update-tests
-node --test tests/installer-update-journal.test.mjs
-node scripts/test-updater-runtime.mjs
+tests\NativeDistribution\bin\Release\net10.0-windows\win-x64\NativeDistribution.Tests.exe --release-notice-tests
+node --test tests/release-notice-contract.test.mjs
+node --test tests/lightweight-installer.test.mjs tests/lightweight-installer-contract.test.mjs
 ```
-
-客户更新以新宿主的界面／采样及必要 API 健康握手为成功门槛。`UpdateLauncher` 通过同一禁写／禁删除的 ZIP 句柄校验、解压，保留原可信 manifest 并在启动前锁定 helper、依赖和祖先目录；worker 接过自身锁直到退出。手动 Inno 安装使用编译进 setup 的可信 hash 表（含 manifest 自身），而非重信任临时清单。`UpdateApply` 仅保留旧清单和文件磁盘身份元数据，不复制／归档旧程序、卸载组件或注册表；原位覆盖后不执行回滚。身份记录为逐文件 current／pending 两槽，反复修复中断也不丢失现有文件的合法身份。所有权侧车的实际父目录创建权限和旧侧车 DELETE 权限在写程序前探测。零写入失败才允许启动未变的旧程序；部分写入或健康失败记录 `repair-required`。安装器按同版本完整包修复；Portable 外来冲突不得“全部覆盖”，可解压到新空目录运行。Inno 使用新卸载日志，payload 由磁盘身份侧车负责卸载，避免旧文件名日志删除外来文件。新版本不发现／执行历史恢复操作，也不批量删除历史备份。上次检查尝试与服务端退避分开持久化，重启不能绕过日／周／30天跨度；旧 1／6／12 小时偏好迁移为每天，其他偏好保留。
-
-`node scripts/test-updater-sized.mjs` 使用固定 includeAPI 输入的 4k+ 文件／实际字节，记录原生写入耗时、内存和增量身份记录数量，不复制旧程序；其主 EXE 仍是受控 fixture，不代表实际播放器体验或发布包验收。`node --test tests/installer-helper-guard.test.mjs` 使用真实 Inno 自解压和受控 helper，验证提取后 EXE／DLL／manifest 替换不能执行，持锁后的写入与目录 rename 被拒绝。
-
-校验路径在本次操作内缓存已验证的根，并逐级持有真实父目录句柄，避免对每个文件反复扫描同一祖先；文件哈希采用最多 8 路有界读取，同句柄读取磁盘身份。增量 pending 身份先落盘，再通过 rename 提升为 current，不复制或重写整个身份列表。手动安装的启动按钮等待可信 stage 更新组件完成全包持锁及真实界面／采样／API 握手；不是直接 `nowait` 执行新宿主。`test-updater-runtime.mjs` 另以实际固定 includeAPI Node／脚本和隔离配置验证该启动链，尝试替换已持锁的 node／entry，不修改用户安装或 OS 权限。
-
-原生整链路测试构建隔离的受控旧程序和实际新宿主，检查立即退出、死亡组件拒绝交接、文件替换及 WebView2／采样握手；它不发布 Release、不更新现有用户安装，也不等同于全部系统／断电场景验收。实际 Inno 日志测试使用无卸载登记和无快捷方式的专用安装器，覆盖完整与中断的新文件写入以及相同内容的外来冲突。
 
 Node.js / npm 固定为 26.7.0 / 11.19.0，React / React DOM 为 19.3.1，TypeScript / Vite 为 6.0.3 / 8.3.5。原生版本由 `native-toolchain.json` 与 `desktop/NativeCommon.props` 固定。
 
@@ -95,12 +91,14 @@ Node.js / npm 固定为 26.7.0 / 11.19.0，React / React DOM 为 19.3.1，TypeSc
 
 `scripts/Test-Native.ps1 -Module all` 先运行 NativeDistribution，再执行共享 C# 逻辑、渲染和真实窗口回归。开机启动的隔离 EXE 快捷方式、旧启动项迁移和所有权检查由 NativeStartupTests 覆盖；包路径、完整性与进程退出由当前发布工具测试和最终包验证覆盖。测试会短暂打开自有窗口，不控制真实播放器。
 
+Windows 安装器与发布工具回归共用本地 SDK、编译器和磁盘，完整 Node 测试按文件串行运行；不增加测试内部时限，不跳过用例。并行运行发生的超时记录仍保留，单独重跑不能替代完整测试通过。
+
 ```powershell
 .\.deps\pwsh\pwsh.exe -NoProfile -STA -File scripts/Test-Native.ps1 -Module all
 .\.deps\pwsh\pwsh.exe -NoProfile -STA -File scripts/Test-WebViewPrivacy.ps1
 .\.deps\pwsh\pwsh.exe -NoProfile -STA -File tests/Test-SetupArchive.ps1
 npm.cmd --prefix ui run test:latency
-node --test tests/*.test.mjs
+node --test --test-concurrency=1 tests/*.test.mjs
 node --test backend/tests/*.test.mjs
 ```
 
