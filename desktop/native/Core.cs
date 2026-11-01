@@ -133,12 +133,12 @@ public sealed class DanmakuSettings
 {
     public double AreaFraction { get; set; } = 0.5;
     public double FontSize { get; set; } = 22;
-    public bool ScaleWithWindow { get; set; } = false;
-    public double SpeedMultiplier { get; set; } = .8;
-    public double Opacity { get; set; } = 0.85;
+    public bool ScaleWithWindow { get; set; } = true;
+    public double SpeedMultiplier { get; set; } = .6;
+    public double Opacity { get; set; } = 1;
     public double OutlineWidth { get; set; } = 0;
-    public double ShadowStrength { get; set; } = .45;
-    public int Density { get; set; } = 60;
+    public double ShadowStrength { get; set; } = 1;
+    public int Density { get; set; } = 100;
     public bool Rolling { get; set; } = true;
     public bool Top { get; set; } = true;
     public bool Bottom { get; set; } = true;

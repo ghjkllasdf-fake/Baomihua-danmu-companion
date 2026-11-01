@@ -14,6 +14,7 @@ namespace Popcorn;
 // The handlers below are inserted verbatim from Desktop.cs; only their external effects are faked.
 public sealed class DesktopHarness : IDisposable
 {
+    private readonly FakeFlyout flyout=new();
     public static readonly JsonSerializerOptions Json=new() { PropertyNamingPolicy=JsonNamingPolicy.CamelCase,PropertyNameCaseInsensitive=true,UnmappedMemberHandling=JsonUnmappedMemberHandling.Disallow };
     public readonly FakeApi api=new();
     public readonly FakeProbe probe=new();
@@ -113,12 +114,15 @@ public sealed class FakeOverlay
     public void Update(object window,double position,bool running,int revision,bool automatic,double proof,bool allowComments=true) { }
 }
 public sealed class FakeTray { public void Update(string title,int episode,string source,int count) { } }
+public sealed class FakeFlyout { public void SetView(string view,bool includeApi){TrayViewSize.Desired(view,includeApi);} }
 public sealed class FakeStartup { public bool Enabled;public bool SetEnabled(bool value)=>Enabled=value; }
 // Update side effects are outside this playback harness; dedicated native updater tests use the real service.
 public enum FormWindowState { Normal,Minimized }
 public sealed class FakeUpdater
 {
-    public object View=>new{state="unavailable",supported=false};
+    public object View=>new{state="unavailable",supported=false,currentVersion="",availableVersion="",variant="standard",distribution="portable",
+        channel="beta",autoCheck=false,checkedAt="",notes="",message="",revision=0,checkIntervalHours=24,
+        releasePage="https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases"};
     public void StartAutomatic() { }
     public object SetPreferences(JsonElement payload)=>throw new NotSupportedException();
     public Task<object> CheckAsync()=>throw new NotSupportedException();
@@ -377,6 +381,17 @@ public static class DesktopStateTests
             });
         if (group is "Settings" or "All")
         {
+            Test("view size commands use named views and preserve settings",()=>{
+                using var host=new DesktopHarness();
+                foreach(var entry in new[]{("home",510),("settings",510),("search",540)})
+                {
+                    host.Message("view-"+entry.Item1,"set-tray-view",new{view=entry.Item1});
+                    var reply=host.Reply("view-"+entry.Item1);
+                    Check(reply.GetProperty("ok").GetBoolean() && reply.GetProperty("data").GetProperty("height").GetInt32()==entry.Item2,"The named view must return its logical size.");
+                }
+                host.Message("bad-view","set-tray-view",new{view="home",height=9999});
+                Check(!host.Reply("bad-view").GetProperty("ok").GetBoolean() && host.SettingsEvents==0,"Arbitrary dimensions must be rejected without changing preferences.");
+            });
             Test("preference read warnings survive rejected writes and clear after durable recovery",()=>{
                 using var host=new DesktopHarness(); host.Failure="preference read warning";
                 host.Message("hello-warning","hello",new { });

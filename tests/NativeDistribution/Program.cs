@@ -24,6 +24,8 @@ internal static class DistributionTests
         Console.OutputEncoding=System.Text.Encoding.UTF8;
         try
         {
+            if(args.Length==1 && args[0]=="--fixed-comment-tests"){FixedCommentTests.Run();return 0;}
+            if(args.Length==1 && args[0]=="--tray-view-tests"){TrayViewRuntimeTests.Run();return 0;}
             if(args.Length==1 && args[0]=="--shadow-tests"){ShadowTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--video-companion-target")return VideoCompanionTests.RunTarget();
             if(args.Length==1 && args[0]=="--release-notice-tests"){ReleaseNoticeTests.Run().GetAwaiter().GetResult();return 0;}
@@ -78,6 +80,7 @@ internal static class DistributionTests
             NativeStartupTests.Run();
             NativePreferenceTests.Run();
             ShadowTests.Run();
+            FixedCommentTests.Run();
             VideoNoticeTests.Run();
             TrayPlacementTests.Run();
             TrayIconLocatorTests.Run();

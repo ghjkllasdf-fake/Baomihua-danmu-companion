@@ -30,7 +30,7 @@ internal static class ReleaseTools
         using var document=JsonDocument.Parse(memory.ToArray(),new JsonDocumentOptions{MaxDepth=16});
         var root=document.RootElement;
         Check(root.EnumerateObject().Select(p=>p.Name).Distinct(StringComparer.Ordinal).Count()==root.EnumerateObject().Count(),"Duplicate manifest properties.");
-        Check(root.GetProperty("schemaVersion").GetInt32()==1 && Regex.IsMatch(root.GetProperty("version").GetString()??"",@"^\d+\.\d+\.\d+-beta\.[1-9]\d*$"),"Unsupported beta manifest.");
+        Check(root.GetProperty("schemaVersion").GetInt32()==1 && Regex.IsMatch(root.GetProperty("version").GetString()??"",@"^\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?$"),"Unsupported release manifest.");
         Check(Regex.IsMatch(root.GetProperty("sourceCommit").GetString()??"",@"^[a-f0-9]{40}$"),"Missing source identity.");
         var records=root.GetProperty("files").EnumerateArray().Select(file=>
             new FileRecord(file.GetProperty("path").GetString()??"",file.GetProperty("length").GetInt64(),file.GetProperty("sha256").GetString()??"")).ToArray();

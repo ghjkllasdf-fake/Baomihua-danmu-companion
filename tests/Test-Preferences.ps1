@@ -21,11 +21,15 @@ function Scenario([string]$name,[scriptblock]$body){
 }
 $defaults=[Popcorn.SettingsPreferences]::Load($path)
 Assert ($defaults.Settings.FontSize -eq 22 -and $defaults.Notice -eq '') 'A missing preference file should use defaults without a corruption warning.'
+Assert ($defaults.Settings.SpeedMultiplier -eq .6 -and $defaults.Settings.Opacity -eq 1 -and $defaults.Settings.OutlineWidth -eq 0 -and $defaults.Settings.ShadowStrength -eq 1 -and $defaults.Settings.ScaleWithWindow -and $defaults.Settings.Density -eq 100) 'Fresh profiles must use the requested 0.2 display defaults.'
 Put '{"fontSize":40,"scaleWithWindow":false,"keywords":"测试词"}'
 $original=[IO.File]::ReadAllBytes($path)
 $saved=[Popcorn.SettingsPreferences]::Load($path)
-Assert ($saved.Settings.FontSize -eq 40 -and -not $saved.Settings.ScaleWithWindow -and $saved.Settings.Keywords -eq '测试词' -and $saved.Settings.Opacity -eq 0.85 -and $saved.Notice -eq '') 'Existing partial style files should preserve their values and use defaults for added settings.'
+Assert ($saved.Settings.FontSize -eq 40 -and -not $saved.Settings.ScaleWithWindow -and $saved.Settings.Keywords -eq '测试词' -and $saved.Settings.Opacity -eq 1 -and $saved.Notice -eq '') 'Existing partial style files should preserve their values and use defaults for added settings.'
 Assert ([Convert]::ToBase64String([IO.File]::ReadAllBytes($path)) -eq [Convert]::ToBase64String($original)) 'Reading existing preferences must not rewrite them.'
+Put '{"speedMultiplier":0.8,"opacity":0.85,"outlineWidth":2,"shadowStrength":0.45,"scaleWithWindow":false,"density":30}'
+$existing=[Popcorn.SettingsPreferences]::Load($path).Settings
+Assert ($existing.SpeedMultiplier -eq .8 -and $existing.Opacity -eq .85 -and $existing.OutlineWidth -eq 2 -and $existing.ShadowStrength -eq .45 -and -not $existing.ScaleWithWindow -and $existing.Density -eq 30) 'Upgrading must not replace saved display choices with new-install defaults.'
 Put '{"fontSize":'
 $broken=[Popcorn.SettingsPreferences]::Load($path)
 Assert ($broken.Settings.FontSize -eq 22 -and $broken.Notice.Length -gt 0) 'Malformed JSON must return defaults with a warning.'

@@ -56,7 +56,7 @@ test('gated startup, authenticated loopback health, clean environment, EOF shutd
   r = await request(ready.port, `/${token}/api/v2/search/anime?keyword=example`, { headers: { 'x-forwarded-for': '1.2.3.4', 'cf-connecting-ip': '5.6.7.8', cookie: 'secret' } });
   const body = JSON.parse(r.body);
   assert.equal(body.forwarded, null); assert.equal(body.cf, '127.0.0.1'); assert.equal(body.cookie, null);
-  assert.deepEqual(body.env, { TOKEN: token, SOURCE_ORDER: config.sources.join(',') });
+  assert.deepEqual(body.env, { TOKEN: token, SOURCE_ORDER: config.sources.join(','), RATE_LIMIT_MAX_REQUESTS: '0' });
   assert.equal(body.inherited, null); assert.equal(body.proxy, null); assert.equal(body.startupNetworkBlocked, true);
   assert.equal(body.startupDnsBlocked, true); assert.equal(body.startupFetchBlocked, true);
   assert.equal(body.platform, 'node'); assert.equal(body.clientIp, '127.0.0.1');

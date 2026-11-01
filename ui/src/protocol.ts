@@ -7,6 +7,7 @@ export interface Episode { episodeId: string | number; episodeNumber?: string | 
 interface ApiPayload { apiBase: string; value: string }
 interface Clock { positionMs: number; playing: boolean }
 interface Command<P, R> { payload: P; result: R }
+export type TrayView = 'home' | 'settings' | 'search';
 export interface Commands {
   hello: Command<never, Hello>;
   'get-update': Command<never, UpdateSnapshot>;
@@ -31,6 +32,7 @@ export interface Commands {
   cancel: Command<never, { cancelled: true }>;
   close: Command<never, { closing: true }>;
   hide: Command<never, { hidden: true }>;
+  'set-tray-view': Command<{ view: TrayView }, { view: TrayView; width: 380; height: 430 | 510 | 540 }>;
 }
 export type CommandType = keyof Commands;
 export type Result<K extends CommandType> = Commands[K]['result'];
@@ -49,6 +51,7 @@ export function validPayload(type: CommandType, value: unknown): boolean {
     case 'get-update': case 'check-update': case 'cancel-update': case 'open-update-page': return keys(value, []);
     case 'set-update-preferences': return validUpdatePreferences(value);
     case 'set-appearance': return validAppearance(value);
+    case 'set-tray-view': return keys(value, ['view']) && typeof value.view === 'string' && ['home', 'settings', 'search'].includes(value.view);
     case 'set-local-sources': return keys(value, ['sources']) && validLocalSources(value.sources);
     case 'set-startup': return keys(value, ['enabled']) && typeof value.enabled === 'boolean';
     case 'update-settings': return keys(value, ['settings']) && validSettings(value.settings) && keys(value.settings, Object.keys(defaultSettings));
@@ -90,6 +93,9 @@ export function validResult<K extends CommandType>(type: K, value: unknown): val
     case 'cancel': return value.cancelled === true;
     case 'close': return value.closing === true;
     case 'hide': return keys(value, ['hidden']) && value.hidden === true;
+    case 'set-tray-view': return keys(value, ['view', 'width', 'height']) && value.width === 380 &&
+      (value.view === 'home' || value.view === 'settings' ? value.height === 430 || value.height === 510 :
+        value.view === 'search' && value.height === 540);
     default: return false;
   }
 }

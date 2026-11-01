@@ -34,6 +34,23 @@ async function desktop(page: Page, failure: 'none' | 'reject' | 'lost-reply' = '
   return { writes: () => writes, snapshot: () => appearance };
 }
 
+test('external API home remains usable at compact height', async ({ page }) => {
+  await page.setViewportSize({ width: 380, height: 510 });
+  await desktop(page);
+  await page.goto('/');
+  const overflows: number[] = [];
+  for (const label of ['A · 原生清爽', 'B · 流光玻璃', 'C · WinUI', 'D · 石墨工作室']) {
+    await page.getByRole('button', { name: '切换皮肤', exact: true }).click();
+    await page.getByRole('button', { name: label, exact: true }).click();
+    await page.getByRole('button', { name: '返回设置', exact: true }).click();
+    await expect(page.getByLabel('API 地址', { exact: true })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: '弹幕密度' })).toBeInViewport({ ratio: 1 });
+    overflows.push(await page.locator('.panel-main').evaluate(el => el.scrollHeight - el.clientHeight));
+  }
+  console.log('external API overflow by skin:', overflows);
+  expect(Math.max(...overflows)).toBeLessThanOrEqual(1);
+});
+
 test('four real skins preview offline without storage, keep the compact jobs, and remain accessible', async ({ page }) => {
   await page.setViewportSize({ width: 380, height: 540 });
   await page.goto('/');
@@ -45,7 +62,7 @@ test('four real skins preview offline without storage, keep the compact jobs, an
     await expect(page.locator('.appearance-status')).toContainText('预览');
     await page.getByRole('button', { name: '返回设置', exact: true }).click();
     await expect(page.getByRole('slider')).toHaveCount(5);
-    await expect(page.getByRole('slider', { name: '阴影强度', exact: true })).toHaveValue('0.45');
+    await expect(page.getByRole('slider', { name: '阴影强度', exact: true })).toHaveValue(String(defaultSettings.shadowStrength));
     await expect(page.locator('.preview')).toHaveCount(0);
     const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
     expect(axe.violations).toEqual([]);

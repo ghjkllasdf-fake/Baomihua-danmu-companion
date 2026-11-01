@@ -14,6 +14,9 @@ internal sealed class TrayFlyout : IDisposable
     private FlyoutBounds placement;
     private double started;
     private bool disposed;
+    private Point lastAnchor;
+    private Size desired=new(380,540);
+    private bool hasAnchor;
     [StructLayout(LayoutKind.Sequential)] private struct NativePoint {public int X,Y;}
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(NativePoint point,uint flags);
     [DllImport("shcore.dll")] private static extern int GetDpiForMonitor(IntPtr monitor,int kind,out uint x,out uint y);
@@ -54,12 +57,12 @@ internal sealed class TrayFlyout : IDisposable
     internal void Open(Point anchor)
     {
         if(disposed)return;
-        dismiss.Stop();animation.Stop();
+        dismiss.Stop();animation.Stop();lastAnchor=anchor;hasAnchor=true;
         var screen=Screen.FromPoint(anchor);
         double scale=form.DeviceDpi/96.0;
         IntPtr monitor=MonitorFromPoint(new NativePoint {X=anchor.X,Y=anchor.Y},2);
         if(GetDpiForMonitor(monitor,0,out uint dpi,out _)==0 && dpi>0)scale=dpi/96.0;
-        placement=TrayPlacement.Compute(screen.Bounds,screen.WorkingArea,anchor,new Size((int)Math.Round(380*scale),(int)Math.Round(540*scale)),(int)Math.Round(8*scale));
+        placement=TrayPlacement.Compute(screen.Bounds,screen.WorkingArea,anchor,new Size((int)Math.Round(desired.Width*scale),(int)Math.Round(desired.Height*scale)),(int)Math.Round(8*scale));
         bool animate=animations() && !form.Visible;
         // Restore the actual HWND before WinForms applies placement; changing the
         // managed WindowState alone can leave a borderless HWND minimized.
@@ -68,6 +71,11 @@ internal sealed class TrayFlyout : IDisposable
         form.Bounds=animate ? new Rectangle(placement.SlideFrom,placement.Bounds.Size) : placement.Bounds;
         form.TopMost=true;form.Show();form.Activate();
         if(animate){started=Monotonic.Now;animation.Start();}
+    }
+    internal void SetView(string view,bool includeApi)
+    {
+        var next=TrayViewSize.Desired(view,includeApi);if(next==desired)return;desired=next;
+        if(form.Visible && hasAnchor)Open(lastAnchor);
     }
     internal void Hide()
     {

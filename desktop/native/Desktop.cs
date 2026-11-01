@@ -331,7 +331,7 @@ public sealed class DesktopWindow : Form
             type=msg.GetProperty("type").GetString()??"";
             var payload=msg.GetProperty("payload");
             object result;
-            if (type=="hello") { Ready=true; updater.StartAutomatic(); result=new { apiBase, apiSaved=localApi==null && apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=localApi==null ? new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","appearance-v1","github-release-notice-v1" } : new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","api-persistence-v1","embedded-api-v1","appearance-v1","github-release-notice-v1" },localApi=localApi?.View,appearance=Appearance,update=updater.View }; }
+            if (type=="hello") { Ready=true; updater.StartAutomatic(); result=new { apiBase, apiSaved=localApi==null && apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=localApi==null ? new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","tray-view-size-v1","api-persistence-v1","appearance-v1","github-release-notice-v1" } : new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","tray-view-size-v1","api-persistence-v1","embedded-api-v1","appearance-v1","github-release-notice-v1" },localApi=localApi?.View,appearance=Appearance,update=updater.View }; }
             else if (type=="get-settings") result=new { settings=Settings,settingsRevision };
             else if(type is "get-update" or "set-update-preferences" or "check-update" or "cancel-update" or "open-update-page")
             {
@@ -409,6 +409,11 @@ public sealed class DesktopWindow : Form
                     pending.Cancel();revision++;apiBase=requestedBase;CommentCount=0;commentSourceTitle="";CommentsLoaded?.Invoke(Array.Empty<Comment>());
                 }
                 UpdatePlayer();result=save ? (object)new {apiBase,saved=apiBase.Length>0} : new {configured=true};
+            }
+            else if(type=="set-tray-view")
+            {
+                string view=TrayViewSize.Parse(payload);var size=TrayViewSize.Desired(view,localApi!=null);
+                flyout.SetView(view,localApi!=null);result=new{view,width=size.Width,height=size.Height};
             }
             else if (type=="update-settings")
             {

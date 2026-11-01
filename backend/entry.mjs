@@ -149,7 +149,7 @@ async function start(config) {
   const worker = (await import('./upstream/danmu_api/worker.js')).handleRequest;
   if (stopped) return;
   if (typeof worker !== 'function') throw new Error('Missing worker handler');
-  const env = Object.freeze({ TOKEN: config.token, SOURCE_ORDER: config.sources.join(',') });
+  const env = Object.freeze({ TOKEN: config.token, SOURCE_ORDER: config.sources.join(','), RATE_LIMIT_MAX_REQUESTS: '0' });
   server = http.createServer({ maxHeaderSize: 8192 }, (req, res) => void respond(req, res, worker, env, config.token));
   server.maxConnections = 32;
   server.headersTimeout = 10000;

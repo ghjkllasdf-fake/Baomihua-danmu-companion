@@ -2,18 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { defaultSettings, emptyPlayer, formatTime, parseTime, playbackStatus, validPlayer, validSettings } from './model';
 
 describe('display settings and time', () => {
-  it('starts with the requested fixed-size display defaults', () => {
+  it('starts with the requested 0.2 display defaults', () => {
     expect(defaultSettings.fontSize).toBe(22);
     expect(defaultSettings.outlineWidth).toBe(0);
-    expect(defaultSettings.speedMultiplier).toBe(.8);
-    expect(defaultSettings.scaleWithWindow).toBe(false);
+    expect(defaultSettings.speedMultiplier).toBe(.6);
+    expect(defaultSettings.scaleWithWindow).toBe(true);
+    expect(defaultSettings.opacity).toBe(1);
+    expect(defaultSettings.shadowStrength).toBe(1);
+    expect(defaultSettings.density).toBe(100);
   });
   it('accepts all requested regions and rejects arbitrary values', () => {
     for (const areaFraction of [.25, .5, .75, 1]) expect(validSettings({ ...defaultSettings, areaFraction })).toBe(true);
     expect(validSettings({ ...defaultSettings, areaFraction: .3 })).toBe(false);
   });
   it('validates shadow intensity independently of outline and opacity, with zero disabling it', () => {
-    expect(defaultSettings.shadowStrength).toBe(.45);
+    expect(defaultSettings.shadowStrength).toBe(1);
     for (const shadowStrength of [0, .25, .45, 1]) expect(validSettings({ ...defaultSettings, shadowStrength })).toBe(true);
     for (const shadowStrength of [-.01, 1.01, NaN, Infinity, undefined, '0.5']) {
       expect(validSettings({ ...defaultSettings, shadowStrength })).toBe(false);

@@ -7,6 +7,13 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { allowedEntry, inventory, releaseNames, assertPayloadBudget, validateApiProvenance, releaseVersions, assertReleaseGuide, releaseSourceStatus, candidateApiDirectory, nativePublishEntry, retainedResourceCultures } from '../scripts/release-lib.mjs';
 
+test('stable release names and native numeric versions support 0.2 without weakening version validation', () => {
+  assert.equal(releaseNames('0.2.0').installer, 'DanmuCompanion-0.2.0-win-x64-setup.exe');
+  assert.equal(releaseNames('0.2.0', true).portable, 'DanmuCompanion-0.2.0-win-x64-includeAPI-portable.zip');
+  assert.deepEqual(releaseVersions('<Version>0.2.0</Version><FileVersion>0.2.0.0</FileVersion>', '0.2.0'), { fileVersion: '0.2.0.0' });
+  for (const version of ['0.2', '0.2.0-rc.1', '../0.2.0', '0.2.0;cmd']) assert.throws(() => releaseNames(version));
+});
+
 test('release verification normalizes the trailing separator returned by Inno registration', async () => {
   const source = await readFile(new URL('../scripts/test-release.mjs', import.meta.url), 'utf8');
   const implementation = source.match(/function registered\(\) \{[\s\S]*?\n\}/)?.[0];
