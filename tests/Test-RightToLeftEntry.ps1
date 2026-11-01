@@ -12,6 +12,7 @@ function New-Surface {
 }
 $surface=New-Surface
 try {
+    $settings=[Popcorn.DanmakuSettings]::new();$settings.AreaFraction=1;$surface.Configure($settings)
     $surface.Load([Popcorn.Comment[]]@(
         [Popcorn.Comment]::new(10000,1,0xffffff,'普通滚动'),
         [Popcorn.Comment]::new(10000,4,0xffffff,'底部来源'),
@@ -20,14 +21,14 @@ try {
     ))
     $surface.UpdateClock(10000,$false,[Popcorn.Monotonic]::Now,1,$false,0);$surface.Frame()
     $start=$surface.Snapshot($false)
-    Assert ($start.ActiveCount -eq 4) 'All supported source modes must be admitted by the same rolling renderer.'
-    foreach($x in $start.X){Assert ([Math]::Abs($x-1280) -lt .01) 'Every newly admitted comment must start at the right boundary, including fixed and reverse source modes.'}
+    Assert ($start.ActiveCount -eq 4) 'All supported modes must be admitted in the full-screen area.'
+    foreach($i in @(0,3)){Assert ([Math]::Abs($start.X[$i]-1280) -lt .01) 'Scrolling modes must enter from the right boundary.'}
+    foreach($i in @(1,2)){Assert ($start.X[$i] -gt 0 -and $start.X[$i] -lt 1280) 'Fixed modes must start centred inside the viewport.'}
     $surface.UpdateClock(10500,$false,[Popcorn.Monotonic]::Now,1,$false,0);$surface.Frame()
     $next=$surface.Snapshot($false)
-    for($i=0;$i -lt 4;$i++){
-        Assert ($next.X[$i] -lt $start.X[$i] -and $next.Y[$i] -eq $start.Y[$i]) 'All comments must move left on a stable horizontal lane; none may stay fixed or move vertically/reverse.'
-    }
-    'PASS: modes 1/4/5/6 enter at the right edge and move left on stable lanes.'
+    foreach($i in @(0,3)){Assert ($next.X[$i] -lt $start.X[$i] -and $next.Y[$i] -eq $start.Y[$i]) 'Scrolling modes move left on a stable lane.'}
+    foreach($i in @(1,2)){Assert ($next.X[$i] -eq $start.X[$i] -and $next.Y[$i] -eq $start.Y[$i]) 'Top and bottom modes remain fixed.'}
+    'PASS: scrolling entry remains right-to-left while top/bottom comments stay fixed.'
 } finally {$surface.Detach()}
 $surface=New-Surface
 try {

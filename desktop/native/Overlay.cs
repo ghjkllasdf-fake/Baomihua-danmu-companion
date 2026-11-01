@@ -142,7 +142,13 @@ internal sealed class OverlayWindow
 
 internal sealed class OverlaySurface : FrameworkElement
 {
-    private sealed record Bullet(Comment Comment,int Lane,Sprite Sprite,Motion Motion) { public double Width=>Sprite.Width; }
+    private sealed record Bullet(Comment Comment,int Lane,Sprite Sprite,Motion Motion)
+    {
+        public double Width=>Sprite.Width;
+        public bool Fixed=>Comment.Mode is 4 or 5;
+        public double X(double width,double position)=>Fixed ? (width-Width)/2 : width-Motion.Progress(position)*(width+Width);
+        public double Y(double height,double line,double scale)=>Comment.Mode==4 ? height-6*scale-Sprite.Height-Lane*line : 6*scale+Lane*line;
+    }
     private DanmakuSettings settings=new();
     private DanmakuSettings layoutSettings=new();
     private readonly PlaybackClock clock=new();
@@ -234,8 +240,8 @@ internal sealed class OverlaySurface : FrameworkElement
         double dpi=VisualTreeHelper.GetDpi(this).PixelsPerDip;
         double line=CommentSprite.LineHeight(layoutSettings.FontSize*scale,layoutSettings.ShadowStrength,scale);
         return new(visible,position,clock.Running,active.Count,shapes.Count,layoutSettings.FontSize*scale*dpi,height*settings.AreaFraction*dpi,width*dpi,height*dpi,
-            active.Select(b=>b.Comment.Text).ToArray(),active.Select(b=>width-b.Motion.Progress(position)*(width+b.Width)).ToArray(),
-            active.Select(b=>6*scale+b.Lane*line).ToArray(),active.Select(b=>b.Motion.Progress(position)).ToArray(),
+            active.Select(b=>b.Comment.Text).ToArray(),active.Select(b=>b.X(width,position)).ToArray(),
+            active.Select(b=>b.Y(height,line,scale)).ToArray(),active.Select(b=>b.Motion.Progress(position)).ToArray(),
             SpriteBytes:shapes.ResidentBytes,SpritesCreated:shapes.Created,RejectedSprites:oversized+shapes.Rejected,GeometryBuilds:geometryBuilds,LayoutPending:!detached&&(rebuild||pendingFrame!=null));
     }
     public void UpdateClock(double position,bool running,double stamp,int nextRevision,bool isAutomatic,double proof)
@@ -325,7 +331,7 @@ internal sealed class OverlaySurface : FrameworkElement
             if(++scanned%16==0) {yield return 0;if(version!=generation || detached) yield break;}
             position=Position;
             bool fixedTop=comment.Mode==5, fixedBottom=comment.Mode==4;
-            if ((!settings.Top && fixedTop) || (!settings.Bottom && fixedBottom) || (!settings.Rolling && !fixedTop && !fixedBottom) ||
+            if ((!settings.Top && fixedTop) || (fixedBottom && (!settings.Bottom || settings.AreaFraction!=1)) || (!settings.Rolling && !fixedTop && !fixedBottom) ||
                 target.Count>=settings.Density || keywords.Any(k=>comment.Text.Contains(k,StringComparison.OrdinalIgnoreCase))) continue;
             double duration=8000/settings.SpeedMultiplier;
             Motion motion;
@@ -357,10 +363,15 @@ internal sealed class OverlaySurface : FrameworkElement
             int lane=-1;
             for (int j=0;j<lanes;j++)
             {
-                int candidate=(cursor+j)%lanes;
+                int candidate=fixedTop || fixedBottom ? j : (cursor+j)%lanes;
                 bool safe=true;
-                foreach (var old in target.Where(b=>b.Lane==candidate))
+                double newY=fixedBottom ? height-6*scale-(shape?.Height??spriteHeight)-candidate*line : 6*scale+candidate*line;
+                foreach (var old in target)
                 {
+                    double oldY=old.Y(height,line,scale);
+                    if(newY+(shape?.Height??spriteHeight)<=oldY || oldY+old.Sprite.Height<=newY)continue;
+                    // Stationary messages reserve their visible row until expiry.
+                    if(fixedTop || fixedBottom || old.Fixed){safe=false;break;}
                     double oldX=replacing && (retained==null || !retained.ContainsKey(old.Comment)) ? width : width-old.Motion.Progress(position)*(width+old.Width);
                     double oldSpeed=(width+old.Width)/(old.Motion.DurationMs/1000);
                     if (!LayoutMath.CanFollow(oldX,old.Width,oldSpeed,speed,newX,20*scale)) { safe=false; break; }
@@ -410,8 +421,8 @@ internal sealed class OverlaySurface : FrameworkElement
         bool rendered=false;
         foreach (var b in AllowComments ? active : Enumerable.Empty<Bullet>())
         {
-            double x=width-b.Motion.Progress(position)*(width+b.Width);
-            double y=6*scale+b.Lane*line;
+            double x=b.X(width,position);
+            double y=b.Y(height,line,scale);
             // Text, outline and shadow share this bitmap and the same final opacity.
             dc.DrawRectangle(b.Sprite.AlphaBrush(settings.Opacity),null,new Rect(x,y,b.Sprite.Width,b.Sprite.Height));
             double left=Math.Max(0,x),right=Math.Min(width,x+b.Sprite.Width),bottom=Math.Min(height*settings.AreaFraction,y+b.Sprite.Height);
