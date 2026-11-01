@@ -10,12 +10,9 @@ interface Command<P, R> { payload: P; result: R }
 export interface Commands {
   hello: Command<never, Hello>;
   'get-update': Command<never, UpdateSnapshot>;
-  'prepare-portable': Command<Record<string, never>, UpdateSnapshot>;
   'check-update': Command<never, UpdateSnapshot>;
-  'download-update': Command<never, UpdateSnapshot>;
   'cancel-update': Command<never, UpdateSnapshot>;
   'set-update-preferences': Command<UpdatePreferences, UpdateSnapshot>;
-  'install-update': Command<{ version: string }, { accepted: true }>;
   'open-update-page': Command<never, { opened: true }>;
   'get-settings': Command<never, SettingsSnapshot>;
   'update-settings': Command<{ settings: Settings }, SettingsSnapshot>;
@@ -49,9 +46,8 @@ export function validPayload(type: CommandType, value: unknown): boolean {
   if (!record(value)) return false;
   switch (type) {
     case 'hello': case 'get-settings': case 'get-startup': case 'get-local-api': case 'get-appearance': case 'cancel': case 'close': case 'hide':
-    case 'get-update': case 'check-update': case 'download-update': case 'cancel-update': case 'open-update-page': case 'prepare-portable': return keys(value, []);
+    case 'get-update': case 'check-update': case 'cancel-update': case 'open-update-page': return keys(value, []);
     case 'set-update-preferences': return validUpdatePreferences(value);
-    case 'install-update': return keys(value, ['version']) && text(value.version, 96) && /^\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?$/.test(String(value.version));
     case 'set-appearance': return validAppearance(value);
     case 'set-local-sources': return keys(value, ['sources']) && validLocalSources(value.sources);
     case 'set-startup': return keys(value, ['enabled']) && typeof value.enabled === 'boolean';
@@ -76,9 +72,7 @@ export function validResult<K extends CommandType>(type: K, value: unknown): val
   if (!record(value)) return false;
   switch (type) {
     case 'hello': return validHello(value);
-    case 'prepare-portable': return Object.hasOwn(value, 'portableSetupState') && validUpdateSnapshot(value);
-    case 'get-update': case 'check-update': case 'download-update': case 'cancel-update': case 'set-update-preferences': return validUpdateSnapshot(value);
-    case 'install-update': return keys(value, ['accepted']) && value.accepted === true;
+    case 'get-update': case 'check-update': case 'cancel-update': case 'set-update-preferences': return validUpdateSnapshot(value);
     case 'open-update-page': return keys(value, ['opened']) && value.opened === true;
     case 'get-local-api': case 'set-local-sources': return validLocalApi(value);
     case 'get-settings': case 'update-settings': return validSettingsSnapshot(value);

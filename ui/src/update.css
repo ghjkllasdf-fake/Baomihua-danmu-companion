@@ -20,13 +20,10 @@ html[data-skin="studio"] .mini-app .update-indicator { background: #ff6971; colo
 .update-channel select:disabled { opacity: 1; color: var(--muted); cursor: not-allowed; }
 .update-phase { margin: 10px 0 5px; font-size: 13px; font-weight: 500; }
 .update-message { margin: 7px 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
-.update-progress { display: flex; align-items: center; gap: 10px; font-size: 12px; font-variant-numeric: tabular-nums; }
-.update-progress progress { min-width: 0; flex: 1; height: 8px; accent-color: var(--accent); }
 .update-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 9px; }
 .update-panel .update-actions button { min-height: 32px; }
 .update-notes { margin-top: 9px; font-size: 12px; }
 .update-notes pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; font: inherit; line-height: 1.7; }
-.update-confirm { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.7; } /* taste-skill-ignore: separates explicit install confirmation in the existing app style. */
 @media (pointer: coarse) { .mini-app .update-summary, .update-toggle, .update-channel, .update-panel .update-actions button { min-height: 44px; } }
 @media (pointer: coarse) { .update-channel select { min-height: 44px; } }
 @media (forced-colors: active) { .mini-app .update-indicator, html[data-skin="studio"] .mini-app .update-indicator { background: Highlight; color: HighlightText; border: 1px solid CanvasText; } }

@@ -1,95 +1,82 @@
 import { describe, expect, it } from 'vitest';
-import { defaultCheckIntervalHours, hasUpdate, supportsUpdateCheckInterval, updateCheckIntervals, validUpdatePreferences, validUpdateSnapshot, type UpdateSnapshot } from './updates';
+import { defaultCheckIntervalHours, hasUpdate, releasePageRoot, updateCheckIntervals, validReleasePage, validUpdatePreferences, validUpdateSnapshot, type UpdateSnapshot } from './updates';
 import { defaultSettings, validHello } from './model';
-import { validPayload, validResult } from './protocol';
+import { validPayload, validResult, type CommandType } from './protocol';
 
 export const updateFixture: UpdateSnapshot = {
-  state: 'available', currentVersion: '0.1.1-beta.6', availableVersion: '0.1.1-beta.10', variant: 'standard', distribution: 'portable',
-  channel: 'beta', autoCheck: true, autoDownload: false, checkedAt: '2026-10-31T04:00:00Z', downloadedBytes: 0, totalBytes: 100,
-  notes: '更新说明', message: '', revision: 1, supported: true, canInstall: false, lastResult: '',
+  state: 'available', currentVersion: '0.1.1-beta.7', availableVersion: '0.1.1-beta.10', variant: 'standard', distribution: 'portable',
+  channel: 'beta', autoCheck: true, checkIntervalHours: 24, checkedAt: '2026-11-01T02:00:00Z', notes: '更新说明', message: '', revision: 1,
+  supported: true, releasePage: `${releasePageRoot}/tag/v0.1.1-beta.10`,
 };
-describe('update state boundary', () => {
-  it('accepts only the optional closed Portable preparation states and preserves legacy snapshots', () => {
-    const setup = { ...updateFixture, state: 'unavailable', supported: false, canInstall: false, availableVersion: '', totalBytes: 0 };
-    for (const portableSetupState of ['required', 'preparing', 'prepared']) {
-      expect(validUpdateSnapshot({ ...setup, portableSetupState })).toBe(true);
-      expect(hasUpdate({ ...setup, portableSetupState })).toBe(false);
-    }
-    expect(validUpdateSnapshot({ ...updateFixture, portableSetupState: 'none' })).toBe(true);
+describe('release notification boundary', () => {
+  it('requires exactly the fourteen notification fields and the three preference fields', () => {
+    expect(Object.keys(updateFixture)).toHaveLength(14);
     expect(validUpdateSnapshot(updateFixture)).toBe(true);
-    for (const portableSetupState of ['failed', 'unknown', '', null, undefined, true, 1, {}, ['required']])
-      expect(validUpdateSnapshot({ ...setup, portableSetupState })).toBe(false);
-    expect(validUpdateSnapshot({ ...setup, portableSetupState: 'required', targetPath: 'untrusted' })).toBe(false);
-  });
-  it('rejects preparation states that contradict Portable identity or available update authority', () => {
-    const setup = { ...updateFixture, state: 'unavailable', supported: false, canInstall: false, availableVersion: '', totalBytes: 0, portableSetupState: 'required' };
-    for (const patch of [{ distribution: 'installer' }, { distribution: 'unknown' }, { supported: true }, { canInstall: true }, { currentVersion: '' }])
-      expect(validUpdateSnapshot({ ...setup, ...patch })).toBe(false);
-    expect(validUpdateSnapshot({ ...updateFixture, portableSetupState: 'required' })).toBe(false);
-    expect(validUpdateSnapshot({ ...updateFixture, distribution: 'installer', portableSetupState: 'none' })).toBe(true);
-  });
-  it('requires the update capability before accepting a Portable preparation handshake', () => {
-    const hello = { protocolVersion: 1, apiBase: '', settings: defaultSettings, settingsRevision: 0, stateSequence: 0, update: updateFixture };
-    expect(validHello({ ...hello, capabilities: ['media-context-v1', 'portable-setup-v1'] })).toBe(false);
-    expect(validHello({ ...hello, capabilities: ['media-context-v1', 'github-update-v1', 'portable-setup-v1'] })).toBe(true);
-  });
-  it('accepts an empty preparation command and full outcome snapshots, never a path or mere acknowledgement', () => {
-    const outcome = { ...updateFixture, state: 'unavailable', supported: false, availableVersion: '', totalBytes: 0, portableSetupState: 'prepared' };
-    expect(validPayload('prepare-portable', {})).toBe(true);
-    for (const payload of [{ path: 'untrusted' }, { target: 'untrusted' }, { confirmed: true }, null])
-      expect(validPayload('prepare-portable', payload)).toBe(false);
-    expect(validResult('prepare-portable', outcome)).toBe(true);
-    expect(validResult('prepare-portable', { ...outcome, portableSetupState: 'required' })).toBe(true);
-    expect(validResult('prepare-portable', { ...updateFixture, portableSetupState: 'none' })).toBe(true);
-    expect(validResult('prepare-portable', updateFixture)).toBe(false);
-    expect(validResult('prepare-portable', { accepted: true })).toBe(false);
-    expect(validResult('prepare-portable', { portableSetupState: 'prepared' })).toBe(false);
-  });
-  it('offers only daily, weekly and fixed thirty-day monthly checks with daily as default', () => {
-    expect(updateCheckIntervals).toEqual([24, 168, 720]);
-    expect(defaultCheckIntervalHours).toBe(24);
-    for (const checkIntervalHours of [1, 6, 12]) {
-      expect(validUpdatePreferences({ autoCheck: true, autoDownload: false, channel: 'beta', checkIntervalHours })).toBe(false);
+    for (const key of Object.keys(updateFixture)) {
+      const incomplete = { ...updateFixture } as Record<string, unknown>; delete incomplete[key];
+      expect(validUpdateSnapshot(incomplete)).toBe(false);
     }
-  });
-  it('accepts checked interval values and legacy snapshots without rejecting the whole hello', () => {
-    for (const checkIntervalHours of updateCheckIntervals) {
-      const current = { ...updateFixture, checkIntervalHours };
-      expect(validUpdateSnapshot(current)).toBe(true);
-      expect(supportsUpdateCheckInterval(current)).toBe(true);
-      expect(validResult('get-update', current)).toBe(true);
-      expect(validPayload('set-update-preferences', { autoCheck: true, autoDownload: false, channel: 'beta', checkIntervalHours })).toBe(true);
-    }
-    expect(validUpdateSnapshot(updateFixture)).toBe(true);
-    expect(supportsUpdateCheckInterval(updateFixture)).toBe(false);
-    expect(hasUpdate(updateFixture)).toBe(true);
-    expect(validHello({ protocolVersion: 1, capabilities: ['media-context-v1', 'github-update-v1'],
-      apiBase: '', settings: defaultSettings, settingsRevision: 0, stateSequence: 0, update: updateFixture })).toBe(true);
-    expect(validPayload('set-update-preferences', { autoCheck: false, autoDownload: false, channel: 'stable' })).toBe(true);
-  });
-  it('rejects present but invalid intervals and unexpected preference/snapshot fields', () => {
-    for (const checkIntervalHours of [0, 2, 48, -1, 1.5, NaN, Infinity, '6', null, undefined]) {
-      expect(validUpdateSnapshot({ ...updateFixture, checkIntervalHours })).toBe(false);
-      expect(validUpdatePreferences({ autoCheck: true, autoDownload: false, channel: 'beta', checkIntervalHours })).toBe(false);
-    }
-    expect(validUpdatePreferences({ autoCheck: true, autoDownload: false, channel: 'beta', checkIntervalHours: 6, extra: true })).toBe(false);
-    expect(validUpdateSnapshot({ ...updateFixture, checkIntervalHours: 6, extra: true })).toBe(false);
-  });
-  it('recognizes only a validated newer release for the home indicator', () => {
-    expect(validUpdateSnapshot(updateFixture)).toBe(true);
-    expect(hasUpdate(updateFixture)).toBe(true);
-    expect(validUpdateSnapshot({ ...updateFixture, availableVersion: '0.1.1-beta.5' })).toBe(false);
-    expect(hasUpdate({ ...updateFixture, state: 'current', availableVersion: '' })).toBe(false);
-  });
-  it('rejects forged readiness, malformed data and incompatible channels', () => {
-    for (const patch of [{ state: 'ready', downloadedBytes: 1, canInstall: true }, { canInstall: true }, { totalBytes: -1 },
-      { downloadedBytes: 101 }, { revision: Infinity }, { checkedAt: 'invalid' }, { channel: 'preview' }, { source: 'https://evil.example' }])
-      expect(validUpdateSnapshot({ ...updateFixture, ...patch })).toBe(false);
-    expect(validUpdateSnapshot({ ...updateFixture, state: 'ready', downloadedBytes: 100, canInstall: true })).toBe(true);
-  });
-  it('accepts only the complete preference contract, never an arbitrary source or path', () => {
-    expect(validUpdatePreferences({ autoCheck: true, autoDownload: false, channel: 'beta' })).toBe(true);
-    expect(validUpdatePreferences({ autoCheck: true, autoDownload: false, channel: 'beta', url: 'https://evil.example' })).toBe(false);
+    expect(validUpdatePreferences({ autoCheck: true, channel: 'beta', checkIntervalHours: 24 })).toBe(true);
     expect(validUpdatePreferences({ autoCheck: true, channel: 'beta' })).toBe(false);
+    expect(validUpdatePreferences({ autoCheck: true, channel: 'beta', checkIntervalHours: 24, autoDownload: false })).toBe(false);
+  });
+  it('keeps daily, weekly and thirty-day monthly checks, with daily as default', () => {
+    expect(updateCheckIntervals).toEqual([24, 168, 720]); expect(defaultCheckIntervalHours).toBe(24);
+    for (const checkIntervalHours of updateCheckIntervals) {
+      expect(validUpdateSnapshot({ ...updateFixture, checkIntervalHours })).toBe(true);
+      expect(validPayload('set-update-preferences', { autoCheck: false, channel: 'stable', checkIntervalHours })).toBe(true);
+    }
+    for (const checkIntervalHours of [0, 1, 6, 12, 48, -1, 1.5, NaN, Infinity, '24', null, undefined])
+      expect(validUpdateSnapshot({ ...updateFixture, checkIntervalHours })).toBe(false);
+  });
+  it.each(['autoDownload', 'downloadedBytes', 'totalBytes', 'canInstall', 'lastResult', 'portableSetupState', 'targetPath'])('rejects retired or arbitrary snapshot field %s', field => {
+    expect(validUpdateSnapshot({ ...updateFixture, [field]: false })).toBe(false);
+  });
+  it.each(['downloading', 'verifying', 'ready', 'applying', 'prepared'])('rejects retired state %s', state => {
+    expect(validUpdateSnapshot({ ...updateFixture, state })).toBe(false);
+  });
+  it('accepts the six notice states without inventing availability or readiness', () => {
+    for (const state of ['unavailable', 'idle', 'checking', 'current', 'failed'])
+      expect(validUpdateSnapshot({ ...updateFixture, state, availableVersion: '', releasePage: releasePageRoot })).toBe(true);
+    expect(hasUpdate(updateFixture)).toBe(true);
+    expect(hasUpdate({ ...updateFixture, state: 'current', availableVersion: '', releasePage: releasePageRoot })).toBe(false);
+    for (const patch of [{ state: 'available', availableVersion: '' }, { state: 'current' }, { supported: false }, { availableVersion: '0.1.1-beta.5' },
+      { revision: Infinity }, { checkedAt: 'invalid' }, { channel: ['beta'] }, { variant: ['standard'] }, { distribution: 'unknown' }, { message: 'x'.repeat(501) }])
+      expect(validUpdateSnapshot({ ...updateFixture, ...patch })).toBe(false);
+  });
+  it('allows only the canonical project releases page or the matching available version tag', () => {
+    expect(validReleasePage(releasePageRoot, '')).toBe(true);
+    for (const prefix of ['', 'v']) expect(validReleasePage(`${releasePageRoot}/tag/${prefix}0.1.1-beta.10`, '0.1.1-beta.10')).toBe(true);
+    expect(validUpdateSnapshot({ ...updateFixture, releasePage: releasePageRoot })).toBe(true);
+    expect(validUpdateSnapshot({ ...updateFixture, state: 'current', availableVersion: '', releasePage: `${releasePageRoot}/tag/v0.1.1-beta.7` })).toBe(false);
+  });
+  it.each([
+    'https://evil.example/releases', 'http://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases',
+    'https://github.com/another/project/releases', 'https://github.com.evil.example/ghjkllasdf-fake/Baomihua-danmu-companion/releases',
+    `${releasePageRoot}?next=https://evil.example`, `${releasePageRoot}#fragment`, `${releasePageRoot}/`,
+    `${releasePageRoot}/tag/v0.1.1-beta.9`, `${releasePageRoot}/tag/V0.1.1-beta.10`, `${releasePageRoot}/tag/v0.1.1-beta.10+build`,
+    `${releasePageRoot}/tag/v0.1.1-beta.10/extra`, `${releasePageRoot}/tag/v0.1.1-beta.10%2Fextra`, `${releasePageRoot}/tag/%76%30.1.1-beta.10`,
+    'javascript:alert(1)', 'file:///private', '', null,
+  ])('rejects foreign, noncanonical or mismatched release page %s', releasePage => {
+    expect(validUpdateSnapshot({ ...updateFixture, releasePage })).toBe(false);
+  });
+  it('validates new notice handshakes and does not require legacy update data for unrelated capabilities', () => {
+    const hello = { protocolVersion: 1, capabilities: ['media-context-v1', 'github-release-notice-v1'], apiBase: '', settings: defaultSettings,
+      settingsRevision: 0, stateSequence: 0, update: updateFixture };
+    expect(validHello(hello)).toBe(true);
+    expect(validHello({ ...hello, update: { ...updateFixture, autoDownload: false } })).toBe(false);
+    expect(validHello({ ...hello, update: { ...updateFixture, releasePage: 'https://evil.example' } })).toBe(false);
+  });
+  it.each(['download-update', 'install-update', 'prepare-portable'])('rejects retired %s payloads and responses at runtime', command => {
+    for (const payload of [{}, { version: '0.1.1-beta.10' }, { path: 'untrusted' }]) expect(validPayload(command as CommandType, payload)).toBe(false);
+    expect(validResult(command as CommandType, updateFixture)).toBe(false);
+    expect(validResult(command as CommandType, { accepted: true })).toBe(false);
+  });
+  it('never accepts an arbitrary URL on commands or browser-opening replies', () => {
+    expect(validPayload('open-update-page', {})).toBe(true);
+    expect(validPayload('open-update-page', { url: releasePageRoot })).toBe(false);
+    expect(validResult('open-update-page', { opened: true })).toBe(true);
+    expect(validResult('open-update-page', { opened: true, url: 'https://evil.example' })).toBe(false);
+    expect(validResult('check-update', updateFixture)).toBe(true);
   });
 });

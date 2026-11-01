@@ -71,8 +71,7 @@ export function validHello(value: unknown): value is Hello {
     hello.protocolVersion === 1 && Array.isArray(hello.capabilities) && hello.capabilities.length <= 32 &&
     hello.capabilities.every(capability => typeof capability === 'string' && capability.length <= 64) &&
     hello.capabilities.includes('media-context-v1') &&
-    (!hello.capabilities.includes('portable-setup-v1') || hello.capabilities.includes('github-update-v1')) &&
-    (!hello.capabilities.includes('github-update-v1') || validUpdateSnapshot(hello.update)) &&
+    (!hello.capabilities.includes('github-release-notice-v1') || validUpdateSnapshot(hello.update)) &&
     (!hello.capabilities.includes('appearance-v1') || validAppearanceSnapshot(hello.appearance)) &&
     (!hello.capabilities.includes('embedded-api-v1') || validLocalApi(hello.localApi)) &&
     (!hello.capabilities.includes('api-persistence-v1') || typeof hello.apiSaved === 'boolean' &&

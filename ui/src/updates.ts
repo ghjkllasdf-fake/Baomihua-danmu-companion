@@ -1,17 +1,14 @@
-export type UpdatePhase = 'unavailable' | 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'verifying' | 'ready' | 'applying' | 'failed';
-export type PortableSetupState = 'none' | 'required' | 'preparing' | 'prepared';
+export type UpdatePhase = 'unavailable' | 'idle' | 'checking' | 'current' | 'available' | 'failed';
+export const releasePageRoot = 'https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases';
 export const updateCheckIntervals = [24, 168, 720] as const;
 export type CheckIntervalHours = typeof updateCheckIntervals[number];
 export const defaultCheckIntervalHours: CheckIntervalHours = 24;
 export interface UpdatePreferences {
-  autoCheck: boolean; autoDownload: boolean; channel: 'beta' | 'stable';
-  // Omission preserves the legacy github-update-v1 host/payload contract.
-  checkIntervalHours?: CheckIntervalHours;
+  autoCheck: boolean; channel: 'beta' | 'stable'; checkIntervalHours: CheckIntervalHours;
 }
 export interface UpdateSnapshot extends UpdatePreferences {
   state: UpdatePhase; currentVersion: string; availableVersion: string; variant: 'standard' | 'includeAPI'; distribution: 'portable' | 'installer';
-  checkedAt: string; downloadedBytes: number; totalBytes: number; notes: string; message: string; revision: number; supported: boolean; canInstall: boolean; lastResult: string;
-  portableSetupState?: PortableSetupState;
+  checkedAt: string; notes: string; message: string; revision: number; supported: boolean; releasePage: string;
 }
 const object = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 const exact = (v: object, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
@@ -33,33 +30,29 @@ function newer(a: string, b: string): boolean {
   return x.pre.length > y.pre.length;
 }
 export function validUpdatePreferences(v: unknown): v is UpdatePreferences {
-  if (!object(v)) return false;
-  const interval = Object.hasOwn(v, 'checkIntervalHours');
-  return exact(v, ['autoCheck', 'autoDownload', 'channel', ...(interval ? ['checkIntervalHours'] : [])]) &&
-    (!interval || updateCheckIntervals.some(hours => v.checkIntervalHours === hours)) &&
-    typeof v.autoCheck === 'boolean' && typeof v.autoDownload === 'boolean' && ['beta', 'stable'].includes(String(v.channel));
+  return object(v) && exact(v, ['autoCheck', 'channel', 'checkIntervalHours']) &&
+    updateCheckIntervals.some(hours => v.checkIntervalHours === hours) && typeof v.autoCheck === 'boolean' &&
+    (v.channel === 'beta' || v.channel === 'stable');
+}
+export function validReleasePage(value: unknown, targetVersion: string): value is string {
+  if (value === releasePageRoot) return true;
+  if (!version(targetVersion)) return false;
+  return ['', 'v'].some(prefix => value === `${releasePageRoot}/tag/${encodeURIComponent(prefix + targetVersion)}`);
 }
 export function validUpdateSnapshot(v: unknown): v is UpdateSnapshot {
   if (!object(v)) return false;
-  const interval = Object.hasOwn(v, 'checkIntervalHours');
-  const setup = Object.hasOwn(v, 'portableSetupState');
-  if (!exact(v, ['state', 'currentVersion', 'availableVersion', 'variant', 'distribution', 'channel', 'autoCheck', 'autoDownload', 'checkedAt', 'downloadedBytes', 'totalBytes', 'notes', 'message', 'revision', 'supported', 'canInstall', 'lastResult', ...(interval ? ['checkIntervalHours'] : []), ...(setup ? ['portableSetupState'] : [])])) return false;
-  if (setup && (typeof v.portableSetupState !== 'string' || !['none', 'required', 'preparing', 'prepared'].includes(v.portableSetupState))) return false;
-  if (setup && v.portableSetupState !== 'none' && (v.distribution !== 'portable' || v.supported !== false || v.canInstall !== false || v.availableVersion !== '' || !v.currentVersion)) return false;
-  if (!['unavailable', 'idle', 'checking', 'current', 'available', 'downloading', 'verifying', 'ready', 'applying', 'failed'].includes(String(v.state)) ||
-    !['standard', 'includeAPI'].includes(String(v.variant)) || !['portable', 'installer'].includes(String(v.distribution)) ||
-    !validUpdatePreferences({ autoCheck: v.autoCheck, autoDownload: v.autoDownload, channel: v.channel, ...(interval ? { checkIntervalHours: v.checkIntervalHours } : {}) }) ||
-    typeof v.supported !== 'boolean' || typeof v.canInstall !== 'boolean' || typeof v.notes !== 'string' || v.notes.length > 16000 || typeof v.message !== 'string' || v.message.length > 500 || typeof v.lastResult !== 'string' || v.lastResult.length > 500 ||
-    !integer(v.revision) || !integer(v.downloadedBytes, 1024 * 1024 * 1024) || !integer(v.totalBytes, 1024 * 1024 * 1024) || Number(v.downloadedBytes) > Number(v.totalBytes) ||
+  if (!exact(v, ['state', 'currentVersion', 'availableVersion', 'variant', 'distribution', 'channel', 'autoCheck', 'checkedAt', 'notes', 'message', 'revision', 'supported', 'checkIntervalHours', 'releasePage'])) return false;
+  if (typeof v.state !== 'string' || !['unavailable', 'idle', 'checking', 'current', 'available', 'failed'].includes(v.state) ||
+    (v.variant !== 'standard' && v.variant !== 'includeAPI') || (v.distribution !== 'portable' && v.distribution !== 'installer') ||
+    !validUpdatePreferences({ autoCheck: v.autoCheck, channel: v.channel, checkIntervalHours: v.checkIntervalHours }) ||
+    typeof v.supported !== 'boolean' || typeof v.notes !== 'string' || v.notes.length > 16000 || typeof v.message !== 'string' || v.message.length > 500 || !integer(v.revision) ||
     typeof v.checkedAt !== 'string' || v.checkedAt.length > 64 || v.checkedAt !== '' && !Number.isFinite(Date.parse(v.checkedAt)) ||
     typeof v.currentVersion !== 'string' || !(version(v.currentVersion) || v.state === 'unavailable' && v.currentVersion === '') ||
     typeof v.availableVersion !== 'string' || v.availableVersion !== '' && !newer(v.availableVersion, v.currentVersion)) return false;
   const available = Boolean(v.availableVersion);
-  if (['available', 'downloading', 'verifying', 'ready', 'applying'].includes(String(v.state)) && (!available || !v.supported)) return false;
-  if (['idle', 'current', 'unavailable'].includes(String(v.state)) && available) return false;
-  if (v.state === 'ready' && (!v.totalBytes || v.downloadedBytes !== v.totalBytes)) return false;
-  return !v.canInstall || v.state === 'ready' && v.supported === true;
+  if (v.state === 'available' && !available || available && !v.supported) return false;
+  if (['idle', 'current', 'unavailable'].includes(v.state) && available) return false;
+  return validReleasePage(v.releasePage, v.availableVersion);
 }
 export function hasUpdate(value: unknown): boolean { return validUpdateSnapshot(value) && Boolean(value.availableVersion); }
-export const supportsUpdateCheckInterval = (snapshot: UpdateSnapshot) => snapshot.checkIntervalHours !== undefined;
-export const updateBusy = (state: UpdatePhase) => ['checking', 'downloading', 'verifying', 'applying'].includes(state);
+export const updateBusy = (state: UpdatePhase) => state === 'checking';
