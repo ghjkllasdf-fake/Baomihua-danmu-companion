@@ -73,6 +73,8 @@ export function request<C extends HostRequest>(...command: C): Promise<Result<C[
     return Promise.reject(new HostCommandError('宿主不支持保存皮肤。', 'unsupported-capability'));
   if (type === 'hide' && (connection.status !== 'ready' || !connection.hello.capabilities.includes('tray-flyout-v1')))
     return Promise.reject(new HostCommandError('宿主不支持托盘面板。', 'unsupported-capability'));
+  if (type === 'set-tray-view' && (connection.status !== 'ready' || !connection.hello.capabilities.includes('tray-view-size-v1')))
+    return Promise.reject(new HostCommandError('宿主不支持面板尺寸切换。', 'unsupported-capability'));
   if ((type === 'get-local-api' || type === 'set-local-sources') &&
     (connection.status !== 'ready' || !connection.hello.capabilities.includes('embedded-api-v1')))
     return Promise.reject(new HostCommandError('宿主不支持本地弹幕服务设置。', 'unsupported-capability'));

@@ -20,6 +20,18 @@ for (const label of ['A · 原生清爽', 'B · 流光玻璃', 'C · WinUI', 'D 
     const heading = page.getByRole('heading', { name: '更多设置', exact: true });
     await expect(heading).toHaveClass('sr-only');
     await expect(heading).toBeFocused();
+    const types = page.locator('.source-types');
+    await expect(types).not.toHaveAttribute('open', '');
+    await expect(page.getByRole('checkbox', { name: '滚动', exact: true })).toBeHidden();
+    await types.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('checkbox', { name: '滚动', exact: true })).toBeVisible();
+    await page.getByRole('checkbox', { name: '顶部', exact: true }).uncheck();
+    await expect(page.getByRole('checkbox', { name: '顶部', exact: true })).not.toBeChecked();
+    await types.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    await expect(types).not.toHaveAttribute('open', '');
+    expect(await page.locator('.display-settings[data-view=advanced]').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
     const after = (await toggle.boundingBox())!;
     expect(after.x).toBe(before.x);
     expect(after.y).toBe(before.y);
@@ -65,13 +77,14 @@ test('compact panel has rows and header toggles, no product preview, and local n
   const rows = await page.getByRole('slider').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().top));
   expect(rows.length).toBe(5);
   expect(new Set(rows).size).toBe(5);
-  await expect(page.getByRole('slider', { name: '阴影强度', exact: true })).toHaveValue('0.45');
+  await expect(page.getByRole('slider', { name: '阴影强度', exact: true })).toHaveValue(String(defaultSettings.shadowStrength));
   await expect(page.getByRole('button', { name: '搜索弹幕来源', exact: true })).toBeHidden();
   await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
   await page.getByLabel('正在看什么？').fill('保留的手动搜索');
   await page.getByRole('button', { name: '返回设置', exact: true }).click();
   await page.getByRole('button', { name: '更多设置', exact: true }).click();
   await expect(page.getByRole('heading', { name: '更多设置', exact: true })).toBeFocused({ timeout: 3000 });
+  await page.locator('.source-types summary').click();
   await expect(page.getByRole('checkbox', { name: '滚动', exact: true })).toBeVisible();
   await page.locator('.advanced summary').click();
   expect((await page.locator('.advanced .range-control label').boundingBox())!.height).toBeLessThan(25);
@@ -106,3 +119,32 @@ test('Escape from a focused closed select requests hide, never process exit', as
   await page.keyboard.press('Escape');
   await expect(page.locator('html')).toHaveAttribute('data-last-command', 'hide', { timeout: 3000 });
 });
+
+for (const supported of [true, false]) {
+  test(`view size signals respect host capability: ${supported}`, async ({ page }) => {
+    await page.addInitScript(({ settings, supported }) => {
+      const callbacks: ((event: { data: unknown }) => void)[] = [], views: string[] = [];
+      Object.assign(window, { observedTrayViews: views });
+      Object.defineProperty(window, 'chrome', { configurable: true, value: { webview: {
+        addEventListener: (_: string, callback: (event: { data: unknown }) => void) => callbacks.push(callback),
+        postMessage: (message: { id: string; type: string; payload: { view?: string } }) => {
+          if (message.type === 'set-tray-view') views.push(message.payload.view!);
+          const data = message.type === 'hello' ? { protocolVersion: 1, capabilities: ['media-context-v1', ...(supported ? ['tray-view-size-v1'] : [])],
+            apiBase: '', settings, settingsRevision: 0, stateSequence: 0 } : message.type === 'set-tray-view' ?
+            { view: message.payload.view, width: 380, height: message.payload.view === 'home' ? 510 : 540 } : {};
+          setTimeout(() => callbacks.forEach(callback => callback({ data: { type: 'response', id: message.id, ok: true, data } })), 10);
+        },
+      } } });
+    }, { settings: defaultSettings, supported });
+    await page.goto('/');
+    await expect(page.getByText('桌面宿主已连接')).toBeVisible();
+    if (supported) await expect.poll(() => page.evaluate(() => (window as unknown as { observedTrayViews: string[] }).observedTrayViews)).toEqual(['home']);
+    await page.getByRole('button', { name: '更多设置', exact: true }).click();
+    if (supported) await expect.poll(() => page.evaluate(() => (window as unknown as { observedTrayViews: string[] }).observedTrayViews)).toEqual(['home', 'settings']);
+    await page.getByRole('button', { name: '手动搜索 / 换源', exact: true }).click();
+    if (supported) await expect.poll(() => page.evaluate(() => (window as unknown as { observedTrayViews: string[] }).observedTrayViews)).toEqual(['home', 'settings', 'search']);
+    await page.getByRole('button', { name: '返回设置', exact: true }).click();
+    if (supported) await expect.poll(() => page.evaluate(() => (window as unknown as { observedTrayViews: string[] }).observedTrayViews)).toEqual(['home', 'settings', 'search', 'home']);
+    else expect(await page.evaluate(() => (window as unknown as { observedTrayViews: string[] }).observedTrayViews)).toEqual([]);
+  });
+}

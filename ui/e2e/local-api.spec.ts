@@ -50,6 +50,37 @@ async function desktop(page: Page, options: { failed?: boolean; invalid?: boolea
 
 type Fixture = { writes(): string[][]; helloCount(): number; failNext(): void; ready(): void; broadcast(next: unknown): void; view(): unknown; finishSave(): void };
 
+test('collapsed source list leaves a compact gap before manual synchronization', async ({ page }) => {
+  await page.setViewportSize({ width: 380, height: 540 });
+  await desktop(page);
+  await page.getByRole('button', { name: '更多设置', exact: true }).click();
+  const sources = page.locator('.local-sources');
+  await expect(sources).not.toHaveAttribute('open', '');
+  const sourceBox = (await sources.boundingBox())!;
+  const syncBox = (await page.locator('.manual-sync').boundingBox())!;
+  expect(syncBox.y - (sourceBox.y + sourceBox.height)).toBeLessThanOrEqual(20);
+});
+
+test('four skins keep the embedded home controls visible at the proposed compact height', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 380, height: 430 });
+  await desktop(page);
+  for (const [skin, label] of [['fluent', 'A · 原生清爽'], ['glass', 'B · 流光玻璃'], ['winui', 'C · WinUI'], ['studio', 'D · 石墨工作室']]) {
+    await page.getByRole('button', { name: '切换皮肤', exact: true }).click();
+    await page.getByRole('button', { name: label, exact: true }).click();
+    await page.getByRole('button', { name: '返回设置', exact: true }).click();
+    await expect(page.getByRole('combobox', { name: '弹幕密度' })).toBeInViewport({ ratio: 1 });
+    const density = (await page.locator('.display-settings[data-view=basic]').boundingBox())!;
+    const footer = (await page.locator('.mini-footer').boundingBox())!;
+    console.log(`${skin}: bottom gap ${Math.round(footer.y - density.y - density.height)}px`);
+    await page.screenshot({ path: testInfo.outputPath(`${skin}-home.png`) });
+    await page.getByRole('button', { name: '更多设置', exact: true }).click();
+    await page.setViewportSize({ width: 380, height: 540 });
+    await page.screenshot({ path: testInfo.outputPath(`${skin}-more.png`) });
+    await page.getByRole('button', { name: '返回', exact: true }).click();
+    await page.setViewportSize({ width: 380, height: 430 });
+  }
+});
+
 
 test('embedded mode edits ordered sources only on apply, restores defaults, and refreshes the handshake', async ({ page }) => {
   await desktop(page);

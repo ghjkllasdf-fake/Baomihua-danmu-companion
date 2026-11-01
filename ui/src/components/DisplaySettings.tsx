@@ -32,8 +32,10 @@ export function DisplaySettings({ settings: s, update, view = 'all' }: { setting
     </select></div>
     </>}
     {view !== 'basic' && <>
-    <fieldset className="types"><legend>来源类型 · 全部向左滚动</legend>{([['rolling', '滚动'], ['top', '顶部'], ['bottom', '底部']] as const).map(([key, label]) =>
-      <label key={key}><input type="checkbox" checked={s[key]} onChange={e => update({ [key]: e.target.checked })} />{label}</label>)}</fieldset>
+    <details className="source-types"><summary>来源类型</summary>
+      <fieldset className="types"><legend className="sr-only">来源类型</legend>{([['rolling', '滚动'], ['top', '顶部'], ['bottom', '底部']] as const).map(([key, label]) =>
+        <label key={key}><input type="checkbox" checked={s[key]} onChange={e => update({ [key]: e.target.checked })} />{label}</label>)}</fieldset>
+    </details>
     <details className="advanced"><summary>过滤与时间微调 <span>高级设置</span></summary>
       <label className="toggle-row"><span>合并重复弹幕<small>同一句话，10 秒内只出现一次</small></span><input type="checkbox" role="switch" checked={s.dedupe} onChange={e => update({ dedupe: e.target.checked })} /></label>
       <label className="keywords">屏蔽关键词<textarea rows={3} maxLength={2000} value={s.keywords} placeholder="每行一个关键词，不使用正则表达式" onChange={e => update({ keywords: e.target.value })} /></label>

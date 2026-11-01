@@ -30,6 +30,7 @@ export function App() {
   const [connectionError, setConnectionError] = useState('');
   const [automaticMatching, setAutomaticMatching] = useState(false), [automaticMatch, setAutomaticMatch] = useState<AutomaticMatchStatus>();
   const [desktopLifecycle, setDesktopLifecycle] = useState(false);
+  const [trayViewSize, setTrayViewSize] = useState(false);
   const [apiPersistence, setApiPersistence] = useState(false), [apiSaved, setApiSaved] = useState(false), [apiNotice, setApiNotice] = useState('');
   const [localApi, setLocalApi] = useState<LocalApi>();
   const [count, setCount] = useState(0), [error, setError] = useState(''), [manual, setManual] = useState('00:00:00');
@@ -55,6 +56,7 @@ export function App() {
           setConnectionStatus('ready'); setApiBase(connection.hello.apiBase); setConnectionError('');
           setAutomaticMatching(connection.hello.capabilities.includes('automatic-match-v1'));
           setDesktopLifecycle(connection.hello.capabilities.includes('desktop-lifecycle-v1'));
+          setTrayViewSize(connection.hello.capabilities.includes('tray-view-size-v1'));
           setCanHide(connection.hello.capabilities.includes('tray-flyout-v1'));
           setApiPersistence(connection.hello.capabilities.includes('api-persistence-v1'));
           setApiSaved(connection.hello.apiSaved === true); setApiNotice(connection.hello.apiNotice || '');
@@ -66,6 +68,7 @@ export function App() {
         setConnectionStatus(connection.status);
         setAutomaticMatching(false); setAutomaticMatch(undefined);
         setDesktopLifecycle(false);
+        setTrayViewSize(false);
         setCanHide(false);
         setApiPersistence(false);
         latestPlayback.current = observePlayer(latestPlayback.current, emptyPlayer); setPlayback(latestPlayback.current); setCount(0);
@@ -104,6 +107,11 @@ export function App() {
     if (inDesktop) void request('hello').catch(() => undefined);
     return () => { active = false; stopConnection(); stop(); session.dispose(); if (settingsSession.current === session) settingsSession.current = null; };
   }, []);
+  useEffect(() => {
+    if (!trayViewSize) return;
+    const trayView = view === 'display' ? 'home' : view === 'sources' ? 'search' : 'settings';
+    void request('set-tray-view', { view: trayView }).catch(() => undefined);
+  }, [trayViewSize, view]);
   function update(patch: Partial<Settings>) {
     settingsSession.current?.edit(patch);
   }
