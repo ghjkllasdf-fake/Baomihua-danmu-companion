@@ -2,7 +2,7 @@
 
 普通用户请下载 Release；源码包只供开发，不包含便携运行时或构建产物。
 
-## 原生 Beta 构建（当前）
+## 原生 0.2 构建（当前）
 
 当前入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`，版本由 `desktop/NativeCommon.props` 固定。用户运行、采样、自启动、更新、WebView2 前置环境安装和卸载无需 PowerShell。本文的 PowerShell 命令仅用于开发环境准备和补充测试，发行构建使用下面的原生入口。
 
@@ -20,13 +20,13 @@ node scripts/build-release.mjs --version 0.2.0
 node scripts/test-release.mjs --version 0.2.0
 ```
 
-运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.0/`，两个版本来自同一 manifest payload；应用文件不得超过 210 MiB，且白名单拒绝私有浏览器目录。
+运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.0/`，同一变体的安装版和 Portable 来自同一 manifest payload；普通版应用文件不得超过 210 MiB，includeAPI 使用独立的 400 MiB 预算，且白名单拒绝私有浏览器目录。
 
-`test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝孤立旧安装、原位重装、卸载和外来文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
+`test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝已有安装直接换目录、原位重装、安装清单内同名替换文件覆盖、卸载及额外用户文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
 
-非 `app` profile 使用隔离 `data-root/profile`，测试禁止读写真实 API 或浏览器数据。常规 Beta 使用 `%LOCALAPPDATA%/BaomihuaDanmuCompanion`，不再使用程序目录下的 `.cache`。启动项迁移须用户显式操作；卸载清理只匹配本安装的原生 EXE。
+非 `app` profile 使用隔离 `data-root/profile`，测试禁止读写真实 API 或浏览器数据。正常应用配置使用 `%LOCALAPPDATA%/BaomihuaDanmuCompanion`，不再使用程序目录下的 `.cache`。启动项迁移须用户显式操作；卸载按 Inno 安装日志删除程序文件（包括同名替换文件），只清理指向本安装的开机快捷方式；不递归清空目录或删除个人数据。
 
-构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft prerelease、上传限定文件、核对远程哈希后发布，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
+构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.0` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
 
 ### 多季匹配回归
 
@@ -125,7 +125,7 @@ API 使用当前 Windows 用户的 ProtectedData 加密，保存在 `%LOCALAPPDA
 
 ## 文档截图、隐私与许可
 
-当前六张托盘功能图在 UI 构建后运行 `node scripts/Capture-TrayScreenshots.mjs`，使用隔离 fixture，不访问真实 API 或播放器。视频效果示意依次运行 `scripts/Capture-ReadmeOverlay.ps1`（PS7，STA）和 `node scripts/Capture-PlaybackScreenshot.mjs`，由自制动画视频和生产原生渲染器输出叠合生成。临时 WebM 位于忽略的 `.cache/readme-demo/`；示意不是实际播放器、性能或多屏证据。
+托盘功能图可在 UI 构建后运行 `node scripts/Capture-TrayScreenshots.mjs` 重建，使用隔离 fixture，不访问真实 API 或播放器。仓库现有六张托盘图沿用 Beta6 示例，不能据此核对 0.2 的默认值或最新布局。视频效果示意依次运行 `scripts/Capture-ReadmeOverlay.ps1`（PS7，STA）和 `node scripts/Capture-PlaybackScreenshot.mjs`，由自制动画视频和生产原生渲染器输出叠合生成。临时 WebM 位于忽略的 `.cache/readme-demo/`；示意不是实际播放器、性能或多屏证据。
 
 提交前运行 `node scripts/Test-PublicPrivacy.mjs` 检查 Git 索引；它不会上传数据。任何日志、缓存、私人配置、私人截图都不应进入 Git。项目原创部分使用 MIT；组包包含根 LICENSE，第三方许可保留原文。依赖审计使用 `npm.cmd --prefix ui audit --json`，零告警不等于完整安全认证。
 

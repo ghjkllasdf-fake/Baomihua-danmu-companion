@@ -17,6 +17,11 @@ the companion `DanmuCompanion-VERSION-corresponding-source.zip` release
 asset. The runtime package.json and package-lock.json are the modified runtime
 profile, not the upstream original. The former brotli npm package is not shipped.
 
+In 0.2 (2026-11-01), the adapter sets `RATE_LIMIT_MAX_REQUESTS=0` before
+importing the worker to disable the local request-count limiter. This uses an
+upstream environment setting, not an extra upstream source patch. Provider
+limits and adapter response-size, timeout and concurrency bounds remain.
+
 `@dan-uni/dan-any` 2.3.9 is LGPL-3.0-or-later; its LICENSE is in its package.
 That LGPL text incorporates GPL version 3, included separately as
 `licenses/GPL-3.0.txt` (official GNU text, SHA-256

@@ -23,6 +23,11 @@ modified library build without signing keys. The two noted Git submodules are
 external conformance-test data, not needed to build or run the shipped worker;
 their pinned commits and omission are explicitly recorded in SOURCES.json.
 
+The 0.2 adapter sets `RATE_LIMIT_MAX_REQUESTS=0` before loading the worker,
+disabling the local request-count limiter through its upstream environment
+setting. This is in `project/backend/entry.mjs`, not a third source patch;
+provider restrictions and response-size, timeout and concurrency bounds remain.
+
 Read VERSION from the `<Version>` value in `project/desktop/NativeCommon.props`.
 The corresponding-source archive must be taken from the same Release as the executable.
 
