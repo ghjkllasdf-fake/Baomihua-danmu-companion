@@ -24,6 +24,7 @@ internal static class DistributionTests
         Console.OutputEncoding=System.Text.Encoding.UTF8;
         try
         {
+            if(args.Length==1 && args[0]=="--playback-rate-tests"){PlaybackRateTests.Run();ProbeTransportTests.Run("All").GetAwaiter().GetResult();return 0;}
             if(args.Length==1 && args[0]=="--fixed-comment-tests"){FixedCommentTests.Run();return 0;}
             if(args.Length==1 && args[0]=="--tray-view-tests"){TrayViewRuntimeTests.Run();return 0;}
             if(args.Length==1 && args[0]=="--shadow-tests"){ShadowTests.Run();return 0;}
@@ -86,6 +87,7 @@ internal static class DistributionTests
             TrayIconLocatorTests.Run();
             PlaybackEventSignalTests.Run();
             ProbeOperationTests.Run();
+            PlaybackRateTests.Run();
             ProbeTransportTests.Run("All").GetAwaiter().GetResult();
             NativeChildTests.Run().GetAwaiter().GetResult();
             ProbeSupervisorTests.Run(Environment.ProcessPath,"--fixture","unused").GetAwaiter().GetResult();

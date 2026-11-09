@@ -40,7 +40,7 @@ internal sealed class PlayerSampler : IDisposable
     {
         var identity=SeriesIdentity.Parse(window.Title);
         string title=identity.Title; int episode=identity.Episode; double? position=null, sliderValue=null, sliderMaximum=null, duration=null; bool? playing=null;
-        double sampleStamp=Monotonic.Now;
+        double sampleStamp=Monotonic.Now; double? rate=null;
         if (title is "网易爆米花" or "爆米花") title="";
         foreach(var current in controls.Read(window))
         {
@@ -77,6 +77,7 @@ internal sealed class PlayerSampler : IDisposable
         if (session!=null && (position.HasValue || session.TimelineFresh) && MediaIdentity.Matches(window.Title,session.Title,duration,session.DurationMs))
         {
             playing=session.Playing;
+            rate=session.PlaybackRate;
             if (!position.HasValue) { position=session.PositionMs; sampleStamp=session.StampMs; precise=true; }
             duration=session.DurationMs;
             source=source=="uia-seekbar-ms" ? "uia-seekbar-ms+smtc" : "smtc";
@@ -85,7 +86,7 @@ internal sealed class PlayerSampler : IDisposable
         if(season>0)title=(identity with{Title=title,Season=season}).QualifiedTitle;
         return new(window,title,episode,position,playing,precise ? sampleStamp : Monotonic.Now,
             position.HasValue && playing.HasValue ? "Windows 媒体会话 + 可访问性 · 窗口客户区" : position.HasValue ? "已读到真实进度，播放/暂停状态尚未确认" : "已识别窗口客户区，但尚未读到完整播放状态/进度",
-            source,precise ? 200 : 1000,duration);
+            source,precise ? 200 : 1000,duration,rate);
     }
     public static double? ParseTime(string text)
     {

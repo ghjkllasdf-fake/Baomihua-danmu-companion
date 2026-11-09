@@ -230,9 +230,9 @@ public sealed class DesktopWindow : Form
         }
         if (sample.Title.Length>0) lastMedia=media;
         bool identified=sample.Window!=null && !string.IsNullOrWhiteSpace(sample.Title);
-        sync.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,media,sample.PositionResolutionMs); sync.Tick(now);
+        sync.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,media,sample.PositionResolutionMs,identified ? sample.PlaybackRate : null); sync.Tick(now);
         var video=identified ? sample.Window : null;
-        overlay.Update(video,sync.At(now),sync.Running,sync.SeekRevision,sync.Mode=="automatic",sync.LastProofMs,sync.Mode is "automatic" or "manual");
+        overlay.Update(video,sync.At(now),sync.Running,sync.SeekRevision,sync.Mode=="automatic",sync.LastProofMs,sync.Mode is "automatic" or "manual",sync.Rate);
         automaticMatcher?.Observe(apiBase,identified && (localApi==null || apiBase.Length>0) ? sample.Title : "",sample.EpisodeNumber,mediaRevision);
     }
     private void OnNavigationStarting(object sender,CoreWebView2NavigationStartingEventArgs e)

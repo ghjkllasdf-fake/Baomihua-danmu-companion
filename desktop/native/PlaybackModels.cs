@@ -10,7 +10,7 @@ public sealed record VideoWindow(IntPtr Handle,string Title,int X,int Y,int Widt
     public bool? WindowMinimized { get; init; }
     public bool? IsForeground { get; init; }
 }
-public sealed record PlayerSample(VideoWindow Window,string Title,int EpisodeNumber,double? PositionMs,bool? Playing,double StampMs,string Detail="",string Source="uia-text",double PositionResolutionMs=1000,double? DurationMs=null);
+public sealed record PlayerSample(VideoWindow Window,string Title,int EpisodeNumber,double? PositionMs,bool? Playing,double StampMs,string Detail="",string Source="uia-text",double PositionResolutionMs=1000,double? DurationMs=null,double? PlaybackRate=null);
 
 public sealed record PixelBounds(int X,int Y,int Width,int Height);
 

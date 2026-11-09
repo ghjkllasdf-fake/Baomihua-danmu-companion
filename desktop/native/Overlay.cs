@@ -37,10 +37,10 @@ public sealed class OverlayHost : IDisposable
     public void SetComments(Comment[] comments,long ticket)=>Post(()=>window.Surface.Load(comments,ticket));
     public void SetStatus(long ticket,string state,string message)=>Post(()=>{window.Surface.SetStatus(ticket,state,message);window.Follow();});
     public void SetSettings(DanmakuSettings settings)=>Post(()=>window.Surface.Configure(settings));
-    public void Update(VideoWindow video,double position,bool running,int revision,bool automatic,double proofStamp,bool allowComments=true)
+    public void Update(VideoWindow video,double position,bool running,int revision,bool automatic,double proofStamp,bool allowComments=true,double playbackRate=1)
     {
         double stamp=Monotonic.Now;
-        Post(()=>{ window.Surface.AllowComments=allowComments;window.Surface.UpdateClock(position,running,stamp,revision,automatic,proofStamp); window.Target=video; window.Follow(); });
+        Post(()=>{ window.Surface.AllowComments=allowComments;window.Surface.UpdateClock(position,running,stamp,revision,automatic,proofStamp,playbackRate); window.Target=video; window.Follow(); });
     }
     public double[] FrameIntervals()=>window.Dispatcher.Invoke(()=>window.Surface.Intervals.ToArray());
     public int MaxActive()=>window.Dispatcher.Invoke(()=>window.Surface.MaxActive);
@@ -244,13 +244,13 @@ internal sealed class OverlaySurface : FrameworkElement
             active.Select(b=>b.Y(height,line,scale)).ToArray(),active.Select(b=>b.Motion.Progress(position)).ToArray(),
             SpriteBytes:shapes.ResidentBytes,SpritesCreated:shapes.Created,RejectedSprites:oversized+shapes.Rejected,GeometryBuilds:geometryBuilds,LayoutPending:!detached&&(rebuild||pendingFrame!=null));
     }
-    public void UpdateClock(double position,bool running,double stamp,int nextRevision,bool isAutomatic,double proof)
+    public void UpdateClock(double position,bool running,double stamp,int nextRevision,bool isAutomatic,double proof,double playbackRate=1)
     {
         if (revision!=nextRevision)
         {
             revision=nextRevision; Rebuild(); ReleaseActive(); InvalidateVisual();
         }
-        clock.Set(position,running,stamp); automatic=isAutomatic; proofStamp=proof;
+        clock.Set(position,running,stamp,playbackRate); automatic=isAutomatic; proofStamp=proof;
     }
     public void Frame()
     {
@@ -292,7 +292,7 @@ internal sealed class OverlaySurface : FrameworkElement
     {
         if(detached) return false;
         double now=Monotonic.Now;
-        if (automatic && now-proofStamp>1500 && clock.Running) clock.Set(clock.At(proofStamp+1500),false,now);
+        if (automatic && now-proofStamp>1500 && clock.Running) clock.Set(clock.At(proofStamp+1500),false,now,clock.Rate);
         double width=ActualWidth,height=ActualHeight;
         if (width<1 || height<1) {CancelFrame();return false;}
         if (width!=lastWidth || height!=lastHeight) { shapes.ClearUnused(); Rebuild(true); lastWidth=width; lastHeight=height; }
