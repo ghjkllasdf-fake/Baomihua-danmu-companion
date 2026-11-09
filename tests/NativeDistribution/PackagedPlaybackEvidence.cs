@@ -50,6 +50,8 @@ internal static class PackagedPlaybackEvidence
                 maxComments=Math.Max(maxComments,count);maxActive=Math.Max(maxActive,active);
                 trace.WriteLine(JsonSerializer.Serialize(new{elapsed=Monotonic.Now-started,ready=Get(host,"Ready"),title=Get(sample,"Title"),
                     episode=Get(sample,"EpisodeNumber"),position=Get(sample,"PositionMs"),playing=Get(sample,"Playing"),
+                    playbackRate=Get(sample,"PlaybackRate"),clockRate=Get(sync,"Rate"),sampleResolution=Get(sample,"PositionResolutionMs"),
+                    sampleSource=Get(sample,"Source"),sampleAge=Monotonic.Now-(double)Get(sample,"StampMs"),overlayPosition=Get(snapshot,"PositionMs"),
                     seekRevision=Get(sync,"SeekRevision"),mode=Get(sync,"Mode"),running=Get(sync,"Running"),comments=count,
                     source=Field(host,"commentSourceTitle"),active,x=Get(snapshot,"X"),text=Get(snapshot,"Text"),
                     layoutPending=Get(snapshot,"LayoutPending")}));
