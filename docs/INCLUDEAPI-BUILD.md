@@ -1,5 +1,9 @@
 # Building includeAPI
 
+The next planned stable release is `0.2.1`. Its filenames and download locations
+are plans until publication; real-playback and final-artifact QA evidence is
+still required before pre-release documentation approval.
+
 This is an additional native variant, alongside the ordinary installer
 and Portable. It does not replace old release assets or tags. Runtime behavior
 and source settings are described in `INCLUDEAPI-USER-GUIDE.md`; prepare the
@@ -99,5 +103,5 @@ These build commands do not push, merge, tag or publish. Publication requires
 separate user authorization after final-byte, real-source and license checks.
 Use a draft Release, verify uploaded assets by downloaded bytes, then publish
 with the concise version title and Changelog-only notes. Mark `-beta.N` versions
-as prereleases and `0.2.0` as stable. Do not rewrite old assets/tags. The
+as prereleases and the planned `0.2.1` as stable. Do not rewrite old assets/tags. The
 corresponding-source asset and checksums must remain available with the executable release.
