@@ -8,8 +8,13 @@
 # Preserve the exact upstream legal document bytes recorded in SOURCE.txt.
 licenses/WebView2Runtime/LICENSE.html binary
 # Keep the reviewed upstream license inventory identical in fresh checkouts.
-licenses/ClrMD/** -text
-licenses/DiagnosticsClient/** -text
-licenses/AsyncInterfaces/** -text
-licenses/Extensions-2.1.1/** -text
-licenses/PlayerRateDac/** -text
+licenses/ClrMD/** binary
+licenses/DiagnosticsClient/** binary
+licenses/AsyncInterfaces/** binary
+licenses/Extensions-2.1.1/** binary
+licenses/PlayerRateDac/** binary
+licenses/ClrMD/SOURCE.txt -text diff
+licenses/DiagnosticsClient/SOURCE.txt -text diff
+licenses/AsyncInterfaces/SOURCE.txt -text diff
+licenses/Extensions-2.1.1/SOURCE.txt -text diff
+licenses/PlayerRateDac/SOURCE.txt -text diff
