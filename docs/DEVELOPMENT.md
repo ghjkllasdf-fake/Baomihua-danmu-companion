@@ -4,8 +4,6 @@
 
 ## 原生 0.2 构建（当前）
 
-本轮文档预备目标为 `0.2.1` 正式版，以下版本号和产物目录是计划值。发布负责人须先同步 `desktop/NativeCommon.props`，并交付匹配候选的真实播放、最终产物与 QA 原始证据，再进行发布前文档校验；本段不表示这些检查已经完成。
-
 当前入口是 `desktop/NativeHost` 与 `desktop/NativeProbe`，版本由 `desktop/NativeCommon.props` 固定。用户运行、采样、自启动、更新、WebView2 前置环境安装和卸载无需 PowerShell。本文的 PowerShell 命令仅用于开发环境准备和补充测试，发行构建使用下面的原生入口。
 
 本地工具由 `native-toolchain.json` 固定：.NET SDK 10.0.403／运行时 10.0.14、WebView2 SDK 1.0.4314.35、Windows 投影 10.0.26100.84、微软 Evergreen Bootstrapper 1.3.307.15、Inno Setup 7.1.1。当前仅使用系统共享 Evergreen Runtime，不下载或分发历史 Fixed Runtime。按清单的官方来源准备 `.deps` 原始归档及对应解压目录；构建器校验归档、投影 DLL、引导程序和编译器，不修改全局 SDK。Node/npm 与 UI 依赖见后文和 `ui/package-lock.json`。
