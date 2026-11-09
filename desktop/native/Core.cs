@@ -139,7 +139,9 @@ public sealed class SyncClock
                 // A small forward seek can resemble one faster sample. The next
                 // sample distinguishes that isolated displacement from sustained speed.
                 var jump=rateJump;rateJump=null;
-                if(jump.HasValue && jump.Value.Movement>jump.Value.Elapsed*Math.Max(jump.Value.Rate,stepRate)+uncertainty)
+                // This compares two sampled movements. Their shared endpoint's
+                // read/quantization error enters the difference twice.
+                if(jump.HasValue && jump.Value.Movement>jump.Value.Elapsed*Math.Max(jump.Value.Rate,stepRate)+uncertainty*2)
                 {
                     seek=true;rateSamples.Clear();rateSamples.Add((stamp,position));
                     return Math.Clamp(stepRate,.25,4);

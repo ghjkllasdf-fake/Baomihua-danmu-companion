@@ -52,8 +52,45 @@ internal static class PlaybackRateTests
         VerifyMissingRate();
         VerifyObservedTiming();
         VerifyQuantizedTiming();
+        VerifyJitteredTiming();
+        VerifyRecordedJitter();
         VerifySurface();
         Console.WriteLine($"PASS: {checks} checks for 1/1.5/2/3x timing, real seeks, pauses, rate transitions and probe packet compatibility.");
+    }
+    private static void VerifyRecordedJitter()
+    {
+        var fixture=JsonNode.Parse(File.ReadAllText(Path.Combine("tests","fixtures","recorded-playback-rate-jitter.json"))).AsObject();
+        foreach(var scenario in fixture["cases"].AsArray())
+        {
+            var sync=new SyncClock();string media="";
+            foreach(var point in scenario["samples"].AsArray())
+            {
+                double stamp=point[0].GetValue<double>(),now=point[2].GetValue<double>();
+                double? position=point[1]?.GetValue<double>();bool? playing=point[3]?.GetValue<bool>();
+                bool identified=point[4].GetValue<bool>();
+                if(identified && media.Length==0){media="recorded";sync.BeginMediaEpoch(now);}
+                sync.Observe(identified ? position : null,identified ? playing : null,stamp,now,media,point[5].GetValue<double>());
+                Check(sync.SeekRevision<=1,"Recorded pause/resume and steady 2x inputs must not manufacture a seek.");
+            }
+            Check(sync.SeekRevision==1 && sync.Mode=="automatic","Recorded input replay must establish one live media epoch.");
+        }
+    }
+    private static void VerifyJitteredTiming()
+    {
+        foreach(double rate in new[]{1d,1.5,1.75,2})
+        {
+            var sync=new SyncClock();double previous=20000;
+            for(int i=0;i<=240;i++)
+            {
+                double elapsed=i*100,stamp=1000+elapsed,actual=20000+elapsed*rate;
+                double jitter=i%8==4 ? -120 : i%8==5 ? 120 : 0;
+                double sampled=Math.Max(previous,actual+jitter);previous=sampled;
+                sync.Observe(sampled,true,stamp,stamp,"jittered",200);
+                Check(sync.SeekRevision==1,"Bounded monotonic slider jitter must not be classified as an isolated seek.");
+                Check(Math.Abs(sync.At(stamp)-actual)<=400,"Slider jitter must retain a bounded media clock.");
+                if(elapsed>=3000)Check(Math.Abs(sync.Rate-rate)<=.15,"The rate window must tolerate bounded source timestamp jitter.");
+            }
+        }
     }
     private static void VerifyQuantizedTiming()
     {
@@ -121,6 +158,11 @@ internal static class PlaybackRateTests
         smallSeek.Observe(12250,true,2500,2500,"small-seek",200);
         smallSeek.Observe(12500,true,2750,2750,"small-seek",200);
         Check(smallSeek.SeekRevision==2 && Math.Abs(smallSeek.Rate-1)<.01,"An isolated small forward jump must reset once rather than becoming a sustained rate.");
+        var halfSecondSeek=new SyncClock();
+        for(int i=0;i<6;i++)halfSecondSeek.Observe(10000+i*250,true,1000+i*250,1000+i*250,"half-second-seek",200);
+        halfSecondSeek.Observe(12000,true,2500,2500,"half-second-seek",200);
+        halfSecondSeek.Observe(12250,true,2750,2750,"half-second-seek",200);
+        Check(halfSecondSeek.SeekRevision==2 && Math.Abs(halfSecondSeek.Rate-1)<.01,"A genuine 500ms forward seek must still reset once after the confirmation sample.");
         foreach(double interval in new[]{125d,250,500})
         {
             var transition=new SyncClock();
