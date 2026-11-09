@@ -4,7 +4,7 @@
 
 项目原创桌面客户端采用根目录 `LICENSE` 中的 MIT 许可证；includeAPI 本机适配器和上游补丁另按 AGPL-3.0 提供。第三方组件的许可分别保留，不因桌面客户端采用 MIT 而改变。README 使用的日落动画与示例弹幕由本项目自行制作，没有额外影视素材许可依赖。
 
-本原生 Beta 包包含：
+本原生 0.2 发行包包含：
 
 - 自包含 .NET 10.0.14 Windows x64 桌面运行库：上游许可与声明保存在 `licenses/Dotnet/LICENSE.txt`、`licenses/Dotnet/ThirdPartyNotices.txt`。不包含 .NET SDK 或 PowerShell。
 - Microsoft Edge WebView2 Evergreen Runtime：复用系统稳定版，不包含私有浏览器目录。仅随包提供微软签名的 `MicrosoftEdgeWebview2Setup.exe` 1.3.307.15，用于缺少或过旧时联网安装／更新。运行库许可告知原文保留在 `licenses/WebView2Runtime/`，来源见 `SOURCE.txt`；共享浏览器由微软维护和更新，不随本应用卸载。

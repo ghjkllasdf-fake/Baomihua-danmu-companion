@@ -20,7 +20,10 @@ install global build tools.
 - Exact patch 0001 uses Node's built-in Brotli decoder. Patch 0002 removes unused
   database dependency declarations from dan-any's package metadata, not its JS.
   The unused esbuild/server and database dependency graph is not installed.
-  Source/API business defaults and the upstream limiter are not tuned away.
+  The upstream worker source is otherwise preserved. In 0.2, the adapter sets
+  `RATE_LIMIT_MAX_REQUESTS=0` before importing the worker, disabling its local
+  request-count limiter without an additional upstream patch. Provider limits,
+  response-size, timeout and concurrency bounds still apply.
 
 Run from the checkout on Windows x64 with build-time Node/npm and tar available:
 
@@ -94,7 +97,7 @@ marked custom/dirty and cannot be published as an official release.
 
 These build commands do not push, merge, tag or publish. Publication requires
 separate user authorization after final-byte, real-source and license checks.
-Use a draft prerelease, verify uploaded assets by downloaded bytes, then publish
-with the concise version title and Changelog-only notes. Do not rewrite old
-assets/tags or mislabel the Beta as a stable release. The corresponding-source
-asset and checksums must remain available with the executable release.
+Use a draft Release, verify uploaded assets by downloaded bytes, then publish
+with the concise version title and Changelog-only notes. Mark `-beta.N` versions
+as prereleases and `0.2.0` as stable. Do not rewrite old assets/tags. The
+corresponding-source asset and checksums must remain available with the executable release.

@@ -6,4 +6,4 @@
 
 若真实凭据已经公开，请先在你的服务端撤销或更换它。删除一个文件或评论不能保证别人没有保存副本。
 
-原生 Beta 的个人配置和 WebView2 本机资料保存在 `%LOCALAPPDATA%\BaomihuaDanmuCompanion`；旧脚本版使用运行文件夹内的 `.cache`。分享文件或日志时，请排除这些个人数据。
+当前原生版的个人配置和 WebView2 本机资料保存在 `%LOCALAPPDATA%\BaomihuaDanmuCompanion`；旧脚本版使用运行文件夹内的 `.cache`。分享文件或日志时，请排除这些个人数据。
