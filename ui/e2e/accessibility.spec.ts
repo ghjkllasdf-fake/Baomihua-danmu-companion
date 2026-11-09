@@ -33,17 +33,18 @@ test('display controls and disclosures are keyboard-operable with visible focus'
   await page.keyboard.press('Enter');
   await expect(region).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: '1/2', exact: true })).toHaveAttribute('aria-pressed', 'false');
-  for (const [label, value, spokenValue] of [['弹幕字号', '23', '23 px'], ['滚动速度', '0.9', '0.9×'], ['不透明度', '0.9', '90%'], ['文字描边', '0.5', '0.5 px']]) {
+  for (const [label, key, value, spokenValue] of [['弹幕字号', 'ArrowRight', '23', '23 px'], ['滚动速度', 'ArrowRight', '0.7', '0.7×'], ['不透明度', 'ArrowLeft', '0.95', '95%'], ['文字描边', 'ArrowRight', '0.5', '0.5 px']]) {
     const slider = page.getByRole('slider', { name: label, exact: true });
     await tabTo(page, slider);
-    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press(key);
     await expect(slider).toHaveValue(value);
     await expect(slider).toHaveAttribute('aria-valuetext', spokenValue);
   }
   const scale = page.getByRole('switch', { name: /随视频窗口等比缩放/ });
+  await expect(scale).toBeChecked();
   await tabTo(page, scale);
   await page.keyboard.press('Space');
-  await expect(scale).toBeChecked();
+  await expect(scale).not.toBeChecked();
   const density = page.getByRole('combobox', { name: '弹幕密度' });
   await tabTo(page, density);
   await page.keyboard.press('End');
@@ -52,6 +53,9 @@ test('display controls and disclosures are keyboard-operable with visible focus'
   await tabTo(page, page.getByRole('button', { name: '更多设置', exact: true }));
   await page.keyboard.press('Enter');
   await expect(page.getByRole('button', { name: '返回', exact: true })).toBeVisible();
+  await tabTo(page, page.locator('.source-types > summary'));
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.source-types')).toHaveAttribute('open', '');
   const bottom = page.getByRole('checkbox', { name: '底部', exact: true });
   await tabTo(page, bottom);
   await page.keyboard.press('Space');
