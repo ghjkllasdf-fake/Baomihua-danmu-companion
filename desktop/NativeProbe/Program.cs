@@ -15,7 +15,8 @@ internal static class NativeProbe
             ProbeGate.OpenAsync(Console.OpenStandardInput(),TimeSpan.FromSeconds(5),CancellationToken.None).GetAwaiter().GetResult();
             // Do not load projections or activate player APIs before the owned-parent gate.
             NativeRuntime.LoadMediaProjection(AppContext.BaseDirectory);
-            ProbeWorkerRuntime.Run();
+            using var rates=new NativePlayerRateSource();
+            ProbeWorkerRuntime.Run(rates.Read);
             return 0;
         }
         catch(Exception){Console.Error.WriteLine("Player probe failed.");return 2;}

@@ -1,0 +1,18 @@
+NuGet diagnostic component license provenance
+Prepared 2026-11-10; proposed package output, not final-package validation.
+Component distribution by Microsoft; retain copyright exactly as in the original notices.
+
+Package: Microsoft.Diagnostics.NETCore.Client 0.2.410101
+NuGet: https://www.nuget.org/packages/Microsoft.Diagnostics.NETCore.Client/0.2.410101
+License from nuspec: MIT
+License URL: https://licenses.nuget.org/MIT
+NUPKG SHA256: F860BA99BA1BFA703D9B8D27887109FC66A72D886F031E1156359A7B17239820
+Cache: raw archive matches SHA512 sidecar; .nupkg.metadata contentHash matches lock. NuGet signatures were not independently verified.
+
+Source: https://github.com/dotnet/diagnostics/tree/f99383213ea19741908f5aa3cf0ed400db2e5f0a
+Original: https://raw.githubusercontent.com/dotnet/diagnostics/f99383213ea19741908f5aa3cf0ed400db2e5f0a/LICENSE.TXT
+Original: https://raw.githubusercontent.com/dotnet/diagnostics/f99383213ea19741908f5aa3cf0ed400db2e5f0a/THIRD-PARTY-NOTICES.TXT
+
+Files and SHA256:
+cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310  LICENSE.TXT
+eb1599cd261c6abcd6a823baec34234e077d3df9b36e7edbc533ef6e8d7fde8f  THIRD-PARTY-NOTICES.TXT

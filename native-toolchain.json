@@ -49,6 +49,16 @@
     {
       "path": ".deps/windows-sdk/lib/net8.0/Microsoft.Windows.SDK.NET.dll",
       "sha256": "cff6f50d9e25d5c8148ee47c0860b1e13d5826448c52c6fe677577d051c5a48f"
+    },
+    {
+      "path": ".deps/nuget/microsoft.netcore.app.runtime.win-x64/8.0.28/runtimes/win-x64/native/mscordaccore.dll",
+      "sha256": "6f7a3520fb5a30d1c747e7d232b219c1c97a2270429da7aa1f572ac2c60b28be"
     }
-  ]
+  ],
+  "playerRateDac": {
+    "version": "8.0.28",
+    "archive": ".deps/nuget/microsoft.netcore.app.runtime.win-x64/8.0.28/microsoft.netcore.app.runtime.win-x64.8.0.28.nupkg",
+    "source": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.runtime.win-x64/8.0.28/microsoft.netcore.app.runtime.win-x64.8.0.28.nupkg",
+    "sha512": "4917509e8ba65109148eb3bf20a782f63a2c71719616dc4ec61226c221df042691ca2402652397ec6f8dbeba58d4729a78311d937a6561a5c033653649ae7dcd"
+  }
 }

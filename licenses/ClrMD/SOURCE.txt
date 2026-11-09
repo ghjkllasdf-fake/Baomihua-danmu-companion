@@ -1,0 +1,16 @@
+NuGet diagnostic component license provenance
+Prepared 2026-11-10; proposed package output, not final-package validation.
+Component distribution by Microsoft; retain copyright exactly as in the original notices.
+
+Package: Microsoft.Diagnostics.Runtime 3.1.512801
+NuGet: https://www.nuget.org/packages/Microsoft.Diagnostics.Runtime/3.1.512801
+License from nuspec: MIT
+License URL: https://licenses.nuget.org/MIT
+NUPKG SHA256: 9C3134708F685463C4E1A2AC9AAF35A23462CD90BF3A2FB95B837DEDB8377380
+Cache: raw archive matches SHA512 sidecar; .nupkg.metadata contentHash matches lock. NuGet signatures were not independently verified.
+
+Source: https://github.com/microsoft/clrmd/tree/c9edb15ebd4c58a1f2db3e17693124b70235faa1
+Original: https://raw.githubusercontent.com/microsoft/clrmd/c9edb15ebd4c58a1f2db3e17693124b70235faa1/LICENSE
+
+Files and SHA256:
+cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310  LICENSE

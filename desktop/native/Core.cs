@@ -29,7 +29,7 @@ public sealed class SyncClock
 {
     private readonly PlaybackClock clock=new();
     private readonly List<(double Stamp,double Position)> rateSamples=new();
-    private (double Movement,double Elapsed,double Rate)? rateJump;
+    private (double Movement,double Elapsed,double Rate,double EndPosition,double EndStamp,double Uncertainty)? rateJump;
     private double lastStamp=-1, manualStamp=-1, lastPosition, lastResolution=1000, lastMotionStamp;
     private string media="";
     public string Mode { get; private set; } = "unavailable";
@@ -56,7 +56,8 @@ public sealed class SyncClock
         lastStamp=stamp;
         double resolution=double.IsFinite(resolutionMs) ? Math.Clamp(resolutionMs,1,1000) : 1000;
         bool tracking=(Mode is "automatic" or "stale") && LastProofMs>0 && !changed;
-        double rate=playbackRate.HasValue && double.IsFinite(playbackRate.Value) && playbackRate.Value>0 && playbackRate.Value<=16 ? playbackRate.Value : tracking ? clock.Rate : 1;
+        bool observedRate=playbackRate.HasValue && double.IsFinite(playbackRate.Value) && playbackRate.Value>0 && playbackRate.Value<=16;
+        double rate=observedRate ? playbackRate.Value : tracking ? clock.Rate : 1;
         double motionRate=rate;
         bool inferredSeek=false;
         if (!playbackRate.HasValue && position.HasValue && double.IsFinite(position.Value) && playing==true && resolution<=200)
@@ -66,6 +67,7 @@ public sealed class SyncClock
         // endpoint's rate without mistaking ordinary forward motion for a seek.
         double expectedMotion=sampleElapsed*Math.Max(Math.Max(tracking ? clock.Rate : rate,rate),motionRate);
         double uncertainty=tracking ? Math.Max(resolution,lastResolution) : resolution;
+        double displacementUncertainty=tracking && observedRate ? resolution+lastResolution : uncertainty;
         if (!position.HasValue || !playing.HasValue || !double.IsFinite(position.Value))
         {
             if (changed)
@@ -76,7 +78,7 @@ public sealed class SyncClock
             }
             Tick(now);
             if(tracking && position.HasValue && double.IsFinite(position.Value) &&
-                (position.Value-lastPosition-expectedMotion>Math.Max(100,uncertainty) ||
+                (position.Value-lastPosition-expectedMotion>Math.Max(100,displacementUncertainty) ||
                  position.Value-lastPosition< -Math.Max(100,uncertainty*.5)))
             {
                 // The slider already proves the new target while SMTC is still
@@ -96,6 +98,7 @@ public sealed class SyncClock
         // Stop extrapolating a repeatedly held position; a clock prediction
         // disagreeing with stationary media is not evidence of another seek.
         bool held=stationary && playing.Value && stamp-lastMotionStamp>=Math.Max(400,uncertainty*2/Math.Min(rate,1));
+        if(held)rateJump=null;
         // A slower rate or quantized source can trail the previous prediction.
         // Wait for observed progress to catch up instead of accumulating lead.
         bool ahead=tracking && drift< -uncertainty;
@@ -103,7 +106,7 @@ public sealed class SyncClock
         // Only observed motion outside the sampled interval (plus source
         // uncertainty) proves a seek, including across pause/resume and gaps.
         bool seek=!tracking || changed || inferredSeek ||
-            movement-expectedMotion>Math.Max(100,uncertainty) || movement< -Math.Max(100,uncertainty*.5) ||
+            movement-expectedMotion>Math.Max(100,displacementUncertainty) || movement< -Math.Max(100,uncertainty*.5) ||
             (!playing.Value && !clock.Running && Math.Abs(position.Value-lastPosition)>Math.Max(20,uncertainty*.5));
         if (seek) {SeekRevision++;rateSamples.Clear();rateJump=null;}
         if (seek || drift>Math.Max(20,resolution*.3) || running!=clock.Running || !playing.Value || rate!=clock.Rate)
@@ -138,15 +141,23 @@ public sealed class SyncClock
                 motionRate=Math.Clamp(stepRate,.25,4);
                 // A small forward seek can resemble one faster sample. The next
                 // sample distinguishes that isolated displacement from sustained speed.
-                var jump=rateJump;rateJump=null;
-                // This compares two sampled movements. Their shared endpoint's
-                // read/quantization error enters the difference twice.
-                if(jump.HasValue && jump.Value.Movement>jump.Value.Elapsed*Math.Max(jump.Value.Rate,stepRate)+uncertainty*2)
+                var jump=rateJump;
+                if(jump.HasValue)
                 {
-                    seek=true;rateSamples.Clear();rateSamples.Add((stamp,position));
-                    return Math.Clamp(stepRate,.25,4);
+                    double confirmation=stamp-jump.Value.EndStamp;
+                    double continuation=(position-jump.Value.EndPosition)/confirmation;
+                    double continuingRate=Math.Max(stepRate,continuation);
+                    // Normalize the confirmation interval before comparing its
+                    // displacement; a short noisy follow-up has less confidence.
+                    double margin=Math.Max(uncertainty,jump.Value.Uncertainty)*(1+jump.Value.Elapsed/confirmation);
+                    if(jump.Value.Movement>jump.Value.Elapsed*Math.Max(jump.Value.Rate,continuingRate)+margin)
+                    {
+                        seek=true;rateSamples.Clear();rateSamples.Add((stamp,position));
+                        return Math.Clamp(continuingRate,.25,4);
+                    }
+                    if(confirmation>=jump.Value.Elapsed)rateJump=null;
                 }
-                if(movement>elapsed*fallback+uncertainty)rateJump=(movement,elapsed,fallback);
+                if(!rateJump.HasValue && movement>elapsed*fallback+uncertainty)rateJump=(movement,elapsed,fallback,position,stamp,uncertainty);
             }
         }
         rateSamples.Add((stamp,position));

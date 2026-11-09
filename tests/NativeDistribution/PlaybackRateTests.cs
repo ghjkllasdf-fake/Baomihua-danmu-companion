@@ -54,8 +54,50 @@ internal static class PlaybackRateTests
         VerifyQuantizedTiming();
         VerifyJitteredTiming();
         VerifyRecordedJitter();
+        VerifyUnequalSampleIntervals();
         VerifySurface();
+        PlayerRateBindingTests.Run();
+        NativePlayerRateSourceTests.Run();
         Console.WriteLine($"PASS: {checks} checks for 1/1.5/2/3x timing, real seeks, pauses, rate transitions and probe packet compatibility.");
+    }
+    private static void VerifyUnequalSampleIntervals()
+    {
+        var transition=new SyncClock();
+        for(int i=0;i<=20;i++)transition.Observe(20000+i*100-(i==20 ? 100 : 0),true,1000+i*100,1000+i*100,"gap-transition",200);
+        foreach(var point in new[]{new[]{4000d,24120},new[]{4100d,24120},new[]{4200d,24280},new[]{4300d,24600}})
+        {
+            transition.Observe(point[1],true,point[0],point[0],"gap-transition",200);
+            Check(transition.SeekRevision==1,"A 1x-to-2x transition across unequal sampling intervals and bounded jitter must retain its scene.");
+        }
+        var resumed=new SyncClock();
+        resumed.Observe(20000,false,1000,1000,"cold-resume",200);
+        resumed.Observe(21120,true,1500,1500,"cold-resume",200);
+        resumed.Observe(21200,true,1600,1600,"cold-resume",200);
+        Check(resumed.SeekRevision==1,"A long first 2x sample and short confirmation sample with bounded read jitter are not a seek.");
+        for(int i=1;i<=5;i++)resumed.Observe(21200+i*200,true,1600+i*100,1600+i*100,"cold-resume",200);
+        Check(resumed.SeekRevision==1,"A provisional rate step must remain continuous while confidence accumulates.");
+
+        var jump=new SyncClock();
+        for(int i=0;i<6;i++)jump.Observe(10000+i*250,true,1000+i*250,1000+i*250,"unequal-seek",200);
+        jump.Observe(12250,true,2750,2750,"unequal-seek",200);
+        for(int i=1;i<=4;i++)jump.Observe(12250+i*100,true,2750+i*100,2750+i*100,"unequal-seek",200);
+        Check(jump.SeekRevision==2 && Math.Abs(jump.Rate-1)<.01,"A true 500ms seek must still be confirmed after shorter follow-up samples.");
+
+        var buffered=new SyncClock();
+        buffered.Observe(20000,false,1000,1000,"rate-then-buffer",200);
+        buffered.Observe(21000,true,1500,1500,"rate-then-buffer",200);
+        for(int i=1;i<=6;i++)buffered.Observe(21000,true,1500+i*100,1500+i*100,"rate-then-buffer",200);
+        Check(!buffered.Running && buffered.SeekRevision==1,"A real hold after a speed change must freeze without resetting the scene.");
+        buffered.Observe(21200,true,2200,2200,"rate-then-buffer",200);
+        Check(buffered.SeekRevision==1,"Buffer recovery must not confirm an obsolete provisional rate step as a seek.");
+
+        var exactRate=new SyncClock();double previous=20000;
+        for(int i=0;i<80;i++)
+        {
+            double position=Math.Max(previous,20000+i*200+(i%8==4 ? -120 : i%8==5 ? 120 : 0));previous=position;
+            exactRate.Observe(position,true,1000+i*100,1000+i*100,"native-rate",200,2);
+            Check(exactRate.SeekRevision==1,"A supplied exact rate must account for both sampled positions' uncertainty.");
+        }
     }
     private static void VerifyRecordedJitter()
     {

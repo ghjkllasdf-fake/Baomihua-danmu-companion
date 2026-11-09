@@ -1,0 +1,18 @@
+NuGet diagnostic component license provenance
+Prepared 2026-11-10; proposed package output, not final-package validation.
+Component distribution by Microsoft; retain copyright exactly as in the original notices.
+
+Package: Microsoft.NETCore.App.Runtime.win-x64 8.0.28
+NuGet: https://www.nuget.org/packages/Microsoft.NETCore.App.Runtime.win-x64/8.0.28
+Source: https://github.com/dotnet/runtime/tree/46295af5828b062bbbf93a9cef50fd8cb9fbcb09
+NUPKG SHA256: CD995F0E5A47962965DC3A37FDA2DC8B3042A67BFE692C64CA9C146466B24614
+Original entry: runtimes/win-x64/native/mscordaccore.dll
+Distributed name: Baomihua.PlayerRate.Dac.dll
+Only renamed; DLL bytes unchanged. Application remains .NET 10; this is not a .NET 8 runtime requirement.
+DAC SHA256: 6F7A3520FB5A30D1C747E7D232B219C1C97A2270429DA7AA1F572AC2C60B28BE
+DAC bytes: 1348488
+Copy LICENSE.TXT and THIRD-PARTY-NOTICES.TXT from this exact 8.0.28 package, not the .NET 10 SDK.
+
+Files and SHA256:
+d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b  LICENSE.TXT
+b60b2912da28eaa6518593c9e2efb5334ee062d3c42e80d8fdfa806b3dc52977  THIRD-PARTY-NOTICES.TXT
