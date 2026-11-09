@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text.Json;
@@ -31,8 +32,39 @@ internal static class PackagedPlaybackEvidence
         Type("DesktopWindow").GetProperty("SuppressErrorDialogs",BindingFlags.Instance|BindingFlags.NonPublic).SetValue(host,true);
         var sync=Field(host,"sync");var overlay=Field(host,"overlay");
         using var trace=new StreamWriter(Path.Combine(evidence,"trace.jsonl")){AutoFlush=true};
+        using var samples=new StreamWriter(Path.Combine(evidence,"probe-samples.jsonl")){AutoFlush=true};
+        using var processed=new StreamWriter(Path.Combine(evidence,"processed-samples.jsonl")){AutoFlush=true};
+        var frames=new Dictionary<double,string>();
+        var probe=Field(host,"probe");
+        double started=Monotonic.Now;
+        double lastProcessedStamp=-1;
+        bool capturingSamples=true;
+        Action observeProcessed=()=>{
+            if(host.IsDisposed)return;
+            double stamp=(double)Field(sync,"lastStamp");string frame;
+            lock(samples)
+            {
+                if(!capturingSamples || stamp==lastProcessedStamp || !frames.TryGetValue(stamp,out frame))return;
+                lastProcessedStamp=stamp;
+            }
+            double now=Monotonic.Now;
+            using var input=JsonDocument.Parse(frame);
+            processed.WriteLine(JsonSerializer.Serialize(new{now,stamp,seekRevision=Get(sync,"SeekRevision"),mode=Get(sync,"Mode"),
+                rate=Get(sync,"Rate"),position=sync.GetType().GetMethod("At").Invoke(sync,new object[]{now}),sample=input.RootElement}));
+        };
+        Action observeSample=()=>{
+            var sample=Get(probe,"Latest");
+            string frame=JsonSerializer.Serialize(new{elapsed=Monotonic.Now-started,now=Monotonic.Now,
+                position=Get(sample,"PositionMs"),playing=Get(sample,"Playing"),stamp=Get(sample,"StampMs"),
+                resolution=Get(sample,"PositionResolutionMs"),rate=Get(sample,"PlaybackRate"),title=Get(sample,"Title"),
+                episode=Get(sample,"EpisodeNumber"),source=Get(sample,"Source")});
+            lock(samples){if(!capturingSamples)return;frames[(double)Get(sample,"StampMs")]=frame;samples.WriteLine(frame);}
+            if(host.IsHandleCreated && !host.IsDisposed)
+                try{host.BeginInvoke(observeProcessed);}catch(InvalidOperationException) when(host.IsDisposed || !host.IsHandleCreated){}
+        };
+        var sampleEvent=probe.GetType().GetEvent("SampleUpdated");sampleEvent.AddEventHandler(probe,observeSample);
         using var timer=new Timer{Interval=200};
-        double started=Monotonic.Now;int maxComments=0,maxActive=0;Exception failure=null;
+        int maxComments=0,maxActive=0;Exception failure=null;
         bool reading=false,exiting=false,timedExit=false;
         timer.Tick+=(_,_)=>{
             if(reading || exiting)return;
@@ -59,7 +91,8 @@ internal static class PackagedPlaybackEvidence
             catch(Exception error){failure=error;exiting=true;timer.Stop();Type("DesktopWindow").GetMethod("RequestExit").Invoke(host,null);}
             finally{reading=false;}
         };
-        timer.Start();Application.Run(host);timer.Stop();
+        try{timer.Start();Application.Run(host);}
+        finally{timer.Stop();sampleEvent.RemoveEventHandler(probe,observeSample);lock(samples)capturingSamples=false;}
         if(failure!=null)throw failure;
         if(!timedExit || !(bool)Get(host,"Ready"))throw new Exception("Packaged observation did not complete its timed native lifecycle.");
         if(requireComments && (maxComments==0 || maxActive==0))throw new Exception("Packaged live host did not load and display real comments.");
