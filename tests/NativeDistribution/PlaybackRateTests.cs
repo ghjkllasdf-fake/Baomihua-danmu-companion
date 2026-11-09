@@ -51,8 +51,34 @@ internal static class PlaybackRateTests
         Check(changing.Rate==1,"A new media identity must not inherit the old rate.");
         VerifyMissingRate();
         VerifyObservedTiming();
+        VerifyQuantizedTiming();
         VerifySurface();
         Console.WriteLine($"PASS: {checks} checks for 1/1.5/2/3x timing, real seeks, pauses, rate transitions and probe packet compatibility.");
+    }
+    private static void VerifyQuantizedTiming()
+    {
+        foreach(double rate in new[]{1d,1.5,1.75,2})
+        foreach(double quantum in new[]{100d,200})
+        foreach(double interval in new[]{100d,200})
+        {
+            var sync=new SyncClock();
+            for(int i=0;i<=600;i++)
+            {
+                double elapsed=i*interval,stamp=1000+elapsed,actual=20000+elapsed*rate;
+                double sampled=20000+Math.Floor(elapsed*rate/quantum)*quantum;
+                sync.Observe(sampled,true,stamp,stamp,"quantized",quantum);
+                Check(sync.SeekRevision==1,"Quantized continuous playback must retain the scene.");
+                Check(Math.Abs(sync.At(stamp)-actual)<=quantum+interval*rate,"Quantized samples must not cause unbounded clock lead or lag.");
+                if(elapsed>=3000)Check(Math.Abs(sync.Rate-rate)<=.08,"Quantized timing must converge to the actual rate, including repeated positions.");
+            }
+            double finalPosition=20000+600*interval*rate;
+            for(int i=1;i<=20;i++)
+            {
+                double stamp=1000+(600+i)*interval;
+                sync.Observe(finalPosition,true,stamp,stamp,"quantized",quantum);
+            }
+            Check(!sync.Running && sync.SeekRevision==1,"A genuinely held source must still freeze without inventing a seek.");
+        }
     }
     private static void VerifyObservedTiming()
     {

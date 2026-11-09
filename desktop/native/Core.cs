@@ -95,8 +95,11 @@ public sealed class SyncClock
         // SMTC can stay Playing while VLC buffers at the exact seek target.
         // Stop extrapolating a repeatedly held position; a clock prediction
         // disagreeing with stationary media is not evidence of another seek.
-        bool held=stationary && playing.Value && stamp-lastMotionStamp>=Math.Max(400,uncertainty*2);
-        bool running=playing.Value && !held;
+        bool held=stationary && playing.Value && stamp-lastMotionStamp>=Math.Max(400,uncertainty*2/Math.Min(rate,1));
+        // A slower rate or quantized source can trail the previous prediction.
+        // Wait for observed progress to catch up instead of accumulating lead.
+        bool ahead=tracking && drift< -uncertainty;
+        bool running=playing.Value && !held && !ahead;
         // Only observed motion outside the sampled interval (plus source
         // uncertainty) proves a seek, including across pause/resume and gaps.
         bool seek=!tracking || changed || inferredSeek ||
@@ -122,26 +125,30 @@ public sealed class SyncClock
         {
             var previous=rateSamples[^1];
             double elapsed=stamp-previous.Stamp,movement=position-previous.Position;
-            // Only continuous precise motion is eligible. Seeks, held sliders and
-            // long sampling gaps must not teach the clock a new playback speed.
-            if (elapsed<=0 || elapsed>1500 || movement<.5 || movement>elapsed*4+uncertainty)
+            // Repeated slider values are part of the rate window: dropping them
+            // biases a quantized 1x source toward its nonzero 2x steps.
+            if (elapsed<=0 || elapsed>1500 || movement<-.5 || movement>elapsed*4+uncertainty ||
+                (movement<.5 && stamp-lastMotionStamp>=Math.Max(1600,uncertainty*2/.25)))
             {
                 rateSamples.Clear();rateJump=null;rateSamples.Add((stamp,position));return fallback;
             }
             double stepRate=movement/elapsed;
-            motionRate=Math.Clamp(stepRate,.25,4);
-            // A small forward seek can resemble one faster sample. The next
-            // sample distinguishes that isolated displacement from sustained speed.
-            var jump=rateJump;rateJump=null;
-            if(jump.HasValue && jump.Value.Movement>jump.Value.Elapsed*Math.Max(jump.Value.Rate,stepRate)+uncertainty)
+            if(movement>=.5)
             {
-                seek=true;rateSamples.Clear();rateSamples.Add((stamp,position));
-                return Math.Clamp(stepRate,.25,4);
+                motionRate=Math.Clamp(stepRate,.25,4);
+                // A small forward seek can resemble one faster sample. The next
+                // sample distinguishes that isolated displacement from sustained speed.
+                var jump=rateJump;rateJump=null;
+                if(jump.HasValue && jump.Value.Movement>jump.Value.Elapsed*Math.Max(jump.Value.Rate,stepRate)+uncertainty)
+                {
+                    seek=true;rateSamples.Clear();rateSamples.Add((stamp,position));
+                    return Math.Clamp(stepRate,.25,4);
+                }
+                if(movement>elapsed*fallback+uncertainty)rateJump=(movement,elapsed,fallback);
             }
-            if(movement>elapsed*fallback+uncertainty)rateJump=(movement,elapsed,fallback);
         }
         rateSamples.Add((stamp,position));
-        while(rateSamples.Count>2 && stamp-rateSamples[1].Stamp>=1000)rateSamples.RemoveAt(0);
+        while(rateSamples.Count>2 && stamp-rateSamples[1].Stamp>=2000)rateSamples.RemoveAt(0);
         var first=rateSamples[0];double span=stamp-first.Stamp;
         if(span<100)return fallback;
         double observed=(position-first.Position)/span;
