@@ -28,6 +28,62 @@ node scripts/test-release.mjs --version 0.2.1
 
 构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.1` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
 
+### 播放器倍速诊断组件与许可输入
+
+Probe 单独引用 `Microsoft.Diagnostics.Runtime` 3.1.512801；以 `desktop/NativeProbe/packages.lock.json` 为准，新增的托管输出共 11 个 DLL：
+
+```text
+Microsoft.Diagnostics.Runtime.dll                         3.1.512801
+Microsoft.Diagnostics.NETCore.Client.dll                  0.2.410101
+Microsoft.Bcl.AsyncInterfaces.dll                         1.1.0
+Microsoft.Extensions.Configuration.dll                    2.1.1
+Microsoft.Extensions.Configuration.Abstractions.dll       2.1.1
+Microsoft.Extensions.Configuration.Binder.dll             2.1.1
+Microsoft.Extensions.DependencyInjection.Abstractions.dll  2.1.1
+Microsoft.Extensions.Logging.dll                          2.1.1
+Microsoft.Extensions.Logging.Abstractions.dll             2.1.1
+Microsoft.Extensions.Options.dll                          2.1.1
+Microsoft.Extensions.Primitives.dll                       2.1.1
+```
+
+使用同一固定依赖的 locked restore，不按“当前最新版”重新选择许可。包 nuspec 中未选中的 .NET Standard 依赖组不等于本目标实际新增的运行文件。
+
+原生诊断输入来自 `Microsoft.NETCore.App.Runtime.win-x64` 8.0.28 的 `runtimes/win-x64/native/mscordaccore.dll`，发布到应用根目录为 `Baomihua.PlayerRate.Dac.dll`。原 DLL 长度为 1,348,488 字节，SHA256 为 `6f7a3520fb5a30d1c747e7d232b219c1c97a2270429da7aa1f572ac2c60b28be`；重命名后必须保持相同字节。`native-toolchain.json` 的 `playerRateDac` 固定 NuGet 归档来源与 SHA512，`runtimeFiles` 固定 DLL SHA256，Probe 的 `PackageDownload` 固定包版本。Probe 从自身目录加载固定 DAC，不从播放器目录加载或锁定播放器的诊断 DLL，也不创建 DAC 运行时缓存。应用目标仍是 .NET 10；只分发此诊断文件，不新增 .NET 8 运行环境要求。
+
+倍速定位对受支持播放器的文件身份及对象结构进行核对，非挂起地读取当前进程状态；后续绑定通过只读进程句柄读取，不执行播放器代码、注入模块或修改设置。此说明不是对所有播放器版本、权限策略或 DPI 环境的兼容保证，局部采样耗时也不等于端到端响应或性能验收。
+
+#### 固定源码与许可归属
+
+| 组件 | NuGet 版本 | 源码仓库与固定提交 | 许可 |
+|---|---|---|---|
+| ClrMD | 3.1.512801 | [microsoft/clrmd · c9edb15](https://github.com/microsoft/clrmd/tree/c9edb15ebd4c58a1f2db3e17693124b70235faa1) | MIT |
+| Diagnostics Client | 0.2.410101 | [dotnet/diagnostics · f993832](https://github.com/dotnet/diagnostics/tree/f99383213ea19741908f5aa3cf0ed400db2e5f0a) | MIT，加原始第三方声明 |
+| AsyncInterfaces | 1.1.0 | [dotnet/corefx · 0f7f38c](https://github.com/dotnet/corefx/tree/0f7f38c4fd323b26da10cce95f857f77f0f09b48)，由包内 `version.txt` 标识 | MIT，加包内第三方声明 |
+| Extensions.Configuration、Configuration.Abstractions、Configuration.Binder | 2.1.1 | [aspnet/Configuration · 2679cfd](https://github.com/aspnet/Configuration/tree/2679cfd94694a29230726708717ab9c4579a5d80) | Apache-2.0 |
+| Extensions.DependencyInjection.Abstractions | 2.1.1 | [aspnet/DependencyInjection · 930037a](https://github.com/aspnet/DependencyInjection/tree/930037a4f8b74a9c1e30d881507a05bea0a7c2e0) | Apache-2.0 |
+| Extensions.Logging、Logging.Abstractions | 2.1.1 | [aspnet/Logging · a0398f0](https://github.com/aspnet/Logging/tree/a0398f0baf9ecc8e5fb6afc3a9b89f0d49cf041e) | Apache-2.0 |
+| Extensions.Options | 2.1.1 | [aspnet/Options · 686e26b](https://github.com/aspnet/Options/tree/686e26b3a2999c841d736b689b0a1a768fdecbf8) | Apache-2.0 |
+| Extensions.Primitives | 2.1.1 | [aspnet/Common · dcc0f3b](https://github.com/aspnet/Common/tree/dcc0f3ba2aef1cd6b0c6403171af7c91e6094382) | Apache-2.0 |
+| DAC | 8.0.28 | [dotnet/runtime · 46295af](https://github.com/dotnet/runtime/tree/46295af5828b062bbbf93a9cef50fd8cb9fbcb09) | MIT，加该包第三方声明 |
+
+#### 随包许可文件
+
+构建器须将下列独立输入复制进普通版和 includeAPI payload，并让对应源码保留来源与说明。路径为发布输出约定；源码工作树不要求预置生成后的 `licenses/` 目录。
+
+| 发布目录 | 需要复制的原始文件 |
+|---|---|
+| `licenses/ClrMD/` | 固定 ClrMD 源码的 `LICENSE` |
+| `licenses/DiagnosticsClient/` | 固定 Diagnostics 源码的 `LICENSE.TXT`、`THIRD-PARTY-NOTICES.TXT` |
+| `licenses/AsyncInterfaces/` | AsyncInterfaces 1.1.0 包内的 `LICENSE.TXT`、`THIRD-PARTY-NOTICES.TXT` |
+| `licenses/Extensions-2.1.1/` | nuspec 指向的 `aspnet/Home` 2.0.0 `LICENSE.txt` 告知、Apache-2.0 完整许可文本，以及五个固定 Extensions 源码仓库各自的 `LICENSE.txt`（可加仓库名前缀，避免覆盖） |
+| `licenses/PlayerRateDac/` | .NET 8.0.28 runtime NuGet 包自己的 `LICENSE.TXT`、`THIRD-PARTY-NOTICES.TXT` |
+
+每组另附 `SOURCE.txt`，记录 NuGet 标识与版本、源码提交及原文地址、校验值和上游版权；DAC 还记录原文件路径与重命名关系。当前固定 Extensions 源码根目录未包含独立 `NOTICE` 文件，不能编造该文件或据此删除其原有版权告知；以后依赖改变时重新核对。
+
+保留原始许可文件，不以包元数据里的 Microsoft 作者字段覆盖原文的 .NET Foundation and Contributors 归属，也不将八个 Extensions 2.1.1 包归为 MIT。已有 `licenses/Dotnet/` 的 .NET 10 文件继续保留，但不能覆盖这里的独立声明。
+
+发布白名单、文件清单、hash 和最终 ZIP／安装结果须同时核对这 11 个托管 DLL、固定 DAC 及相应许可文件。源码或许可输入更新后重新生成对应产物与清单，不将旧包哈希当作新包证明。
+
 ### 多季匹配回归
 
 `SeriesIdentity` 将已知季数归一为“片名 第N季”，沿用现有采样协议、媒体版本、旧请求隔离和来源绑定链路，不增加不兼容的消息字段。`CachedSeasonReader` 只解析当前用户爆米花既有的首页及最近观看相册缓存，核对片名、集数、分集名、文件名季号和时长。首页使用哈希文件名的 `/v2/homepage`；最近观看使用限定名称的 `/v3/albums` 缓存，且相册类型和 ID 必须同时为 `recent_play`。无关命名缓存不打开，其他端点不解码；继续拒绝过期、损坏、矛盾和超预算数据。首页停留在旧集时，可由最近观看相册中的当前集提供证据，不依赖打开详情页。
