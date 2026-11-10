@@ -27,7 +27,9 @@ internal sealed class ProbeProcess : IProbeChild
     private int started,stopped,reaped,launchState,stopFinished;
     private readonly object reapGate=new();
     private Task<bool> reaping;
+    private string errorTail="";
     public bool ErrorDrainFailed=>drain.IsFaulted;
+    internal string ErrorTail=>Volatile.Read(ref errorTail);
     public int Id=>process.Id;
     public long StartTimeTicks=>process.StartTime.ToUniversalTime().Ticks;
     public bool Reaped=>Volatile.Read(ref reaped)!=0;
@@ -86,6 +88,8 @@ internal sealed class ProbeProcess : IProbeChild
                 int count=await error.ReadAsync(bytes.AsMemory(),drainStop.Token).ConfigureAwait(false);
                 if (count==0) return;
                 total+=count; if (total>65536) throw new InvalidDataException("Probe stderr budget exceeded.");
+                string text=errorTail+Encoding.UTF8.GetString(bytes,0,count);
+                Volatile.Write(ref errorTail,text.Length>4096 ? text[^4096..] : text);
             }
         }
         catch (OperationCanceledException) when (drainStop.IsCancellationRequested) { }

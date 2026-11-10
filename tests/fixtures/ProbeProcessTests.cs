@@ -65,6 +65,7 @@ public static class ProbeProcessTests
                 {
                     for (int i=0;i<100 && !child.ErrorDrainFailed;i++) await Task.Delay(10);
                     Check(child.ErrorDrainFailed,"stderr was buffered without a byte budget.");
+                    Check(child.ErrorTail.Length==4096 && child.ErrorTail.Trim('x').Length==0,"Probe diagnostics must retain only the bounded stderr tail.");
                 }
             }
             finally { Check(await child.StopAndReapAsync(),"The owned child or one of its pipe reads did not finish during bounded cleanup."); }

@@ -25,6 +25,7 @@ internal static class DistributionTests
         try
         {
             if(args.Length==1 && args[0]=="--playback-rate-tests"){PlaybackRateTests.Run();ProbeTransportTests.Run("All").GetAwaiter().GetResult();return 0;}
+            if(args.Length==1 && args[0]=="--probe-process-tests"){NativeChildTests.Run().GetAwaiter().GetResult();return 0;}
             if(args.Length==1 && args[0]=="--fixed-comment-tests"){FixedCommentTests.Run();return 0;}
             if(args.Length==1 && args[0]=="--tray-view-tests"){TrayViewRuntimeTests.Run();return 0;}
             if(args.Length==1 && args[0]=="--shadow-tests"){ShadowTests.Run();return 0;}
@@ -40,6 +41,7 @@ internal static class DistributionTests
             if(args.Length==2 && args[0]=="--seek-live-sampler"){SeasonLiveEvidence.Trace(int.Parse(args[1]));return 0;}
             if(args.Length==1 && args[0]=="--seek-recovery-tests"){SeekRecoveryTests.Run();return 0;}
             if(args.Length==3 && args[0]=="--packaged-playback"){PackagedPlaybackEvidence.Run(args[1],int.Parse(args[2]));return 0;}
+            if(args.Length==4 && args[0]=="--packaged-playback-passive"){PackagedPlaybackEvidence.Run(args[1],int.Parse(args[2]),true,double.Parse(args[3],System.Globalization.CultureInfo.InvariantCulture));return 0;}
             if(args.Length==3 && args[0]=="--packaged-shutdown"){PackagedPlaybackEvidence.Run(args[1],int.Parse(args[2]),false);return 0;}
             if(args.Length==3 && args[0]=="--season-live-api"){SeasonLiveEvidence.RunApi(args[1],int.Parse(args[2])).GetAwaiter().GetResult();return 0;}
             if(args.Length==3 && args[0]=="--season-live-catalog"){SeasonLiveEvidence.RunCatalog(args[1],args[2]).GetAwaiter().GetResult();return 0;}

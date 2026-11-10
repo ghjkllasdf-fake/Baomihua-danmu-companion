@@ -19,6 +19,11 @@ internal static class NativeProbe
             ProbeWorkerRuntime.Run(rates.Read);
             return 0;
         }
-        catch(Exception){Console.Error.WriteLine("Player probe failed.");return 2;}
+        catch(Exception error)
+        {
+            // Report code identity only: exception messages can contain player data.
+            Console.Error.WriteLine("Player probe failed: "+error.GetType().Name+" @ "+error.TargetSite?.DeclaringType?.Name+"."+error.TargetSite?.Name);
+            return 2;
+        }
     }
 }

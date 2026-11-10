@@ -16,6 +16,9 @@ namespace Popcorn;
 
 internal sealed class NativePlayerRateSource : IDisposable
 {
+    // DAC/metadata cold initialization is independent of the sampling cadence.
+    // Keep it bounded without applying the shorter interactive-call budget.
+    private const int DefaultDiscoveryTimeoutMs=8000;
     [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window,out uint processId);
     private readonly object gate=new();
     private PlayerRateBinding binding;
@@ -26,7 +29,7 @@ internal sealed class NativePlayerRateSource : IDisposable
     private readonly int discoveryTimeoutMs;
 
     internal NativePlayerRateSource():this(target=>{var found=Locate(target,out bool unsupported);return(found,unsupported);}) { }
-    internal NativePlayerRateSource(Func<int,(PlayerRateBinding Binding,bool Unsupported)> locate,int discoveryTimeoutMs=3000)
+    internal NativePlayerRateSource(Func<int,(PlayerRateBinding Binding,bool Unsupported)> locate,int discoveryTimeoutMs=DefaultDiscoveryTimeoutMs)
     {
         this.locate=locate??throw new ArgumentNullException(nameof(locate));
         if(discoveryTimeoutMs<1)throw new ArgumentOutOfRangeException(nameof(discoveryTimeoutMs));
@@ -122,10 +125,12 @@ internal sealed class NativePlayerRateSource : IDisposable
             using var providerMetadata=MetadataReaderProvider.FromMetadataImage(ImmutableArray.CreateRange(metadata));
             var reader=providerMetadata.GetMetadataReader();
             if(reader.GetGuid(reader.GetModuleDefinition().Mvid)!=new Guid("6ac6abaa-0316-4746-a5c1-5094e919785f")){unsupported=true;return null;}
-            var nativeModule=process.Modules.Cast<ProcessModule>().Single(item=>item.ModuleName.Equals("playerkit.dll",StringComparison.OrdinalIgnoreCase));
+            var nativeModule=target.EnumerateModules().Single(item=>string.Equals(Path.GetFileName(item.FileName),"playerkit.dll",StringComparison.OrdinalIgnoreCase));
             if(!Path.GetFullPath(nativeModule.FileName).Equals(Path.GetFullPath(Path.Combine(directory,"playerkit.dll")),StringComparison.OrdinalIgnoreCase))return null;
-            ulong nativeMinimum=(ulong)nativeModule.BaseAddress.ToInt64(),nativeMaximum=nativeMinimum+(ulong)nativeModule.ModuleMemorySize;
-            var appHandle=runtime.EnumerateHandles().FirstOrDefault(handle=>handle.HandleKind==ClrHandleKind.RefCounted && handle.Object.Type?.Name=="Filmly.App");
+            ulong nativeMinimum=nativeModule.ImageBase,nativeMaximum=checked(nativeMinimum+(ulong)nativeModule.ImageSize);
+            var appType=module.GetTypeByName("Filmly.App");
+            if(appType==null)return null;
+            var appHandle=runtime.EnumerateHandles().FirstOrDefault(handle=>handle.HandleKind==ClrHandleKind.RefCounted && handle.Object.Type?.MethodTable==appType.MethodTable);
             if(appHandle==null)return null;
             var app=appHandle.Object;var host=app.ReadObjectField("cR");
             var provider=host.ReadObjectField("<Services>k__BackingField");var scope=provider.ReadObjectField("<Root>k__BackingField");
