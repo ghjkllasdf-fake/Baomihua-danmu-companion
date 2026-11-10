@@ -30,6 +30,9 @@ public sealed class AutomaticMatcher : IDisposable
     internal long OperationId=>generation;
     private CancellationTokenSource pending;
     private long generation;
+    private long observedMediaRevision;
+    private long? manualMediaRevision;
+    private string observedApi="",manualApi="";
     private string key="";
     private SourceBinding binding;
     private bool disposed;
@@ -64,6 +67,11 @@ public sealed class AutomaticMatcher : IDisposable
     public void Observe(string apiBase,string title,int episode,long revision)
     {
         if(disposed)return;
+        observedMediaRevision=revision;
+        observedApi=apiBase;
+        // Window/title availability is not a media change and must not release a manual choice.
+        if(manualMediaRevision==revision && manualApi==apiBase)return;
+        manualMediaRevision=null;
         string next=apiBase+"\n"+title+"\n"+episode+"\n"+revision;
         if(next==key)return;
         key=next;Cancel();
@@ -79,6 +87,8 @@ public sealed class AutomaticMatcher : IDisposable
     public void Suspend()
     {
         if(disposed)return;
+        manualMediaRevision=observedMediaRevision;
+        manualApi=observedApi;
         Cancel();binding=null;
         Set(new("manual","正在手动处理弹幕来源；下次切换视频后恢复自动匹配。"));
     }

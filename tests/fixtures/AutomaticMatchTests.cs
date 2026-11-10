@@ -38,6 +38,17 @@ public static class AutomaticMatchTests
             Check(loaded.Count==2 && loaded[1].EpisodeId=="e3" && calls.Last()=="comments:e3","The next episode must automatically load from the bound source.");
             matcher.Suspend();matcher.Observe("http://fixture.invalid/token","测试作品",3,5);await matcher.Completion;
             Check(loaded.Count==2,"A manual fallback must own the current media without automatic interference.");
+            int manualCalls=calls.Count;
+            matcher.Observe("http://fixture.invalid/token","",0,5);await matcher.Completion;
+            matcher.Observe("http://fixture.invalid/token","测试作品",3,5);await matcher.Completion;
+            Check(calls.Count==manualCalls && loaded.Count==2 && matcher.Status.State=="manual",
+                "A missing fullscreen/window sample and recovery must preserve manual media ownership without another API request.");
+            matcher.Observe("http://fixture.invalid/token","暂时变化的识别标题",0,5);await matcher.Completion;
+            Check(calls.Count==manualCalls && matcher.Status.State=="manual",
+                "Metadata changes without a new media epoch must not override a manual selection.");
+            matcher.Observe("http://fixture.invalid/token","测试作品",2,6);await matcher.Completion;
+            Check(loaded.Count==3 && loaded[^1].MediaRevision==6 && loaded[^1].EpisodeId=="e2",
+                "A real next-media epoch must release manual ownership and restore automatic matching.");
         }
         using(var matcher=new AutomaticMatcher((a,b,c,d)=>Task.FromResult(Json("""{"animes":[]}""")),loaded.Add,_=>{},notices.Add))
         {
@@ -46,6 +57,38 @@ public static class AutomaticMatchTests
             Check(notices.Count==1 && matcher.Status.State=="failed","An unsuccessful search must notify exactly once for the current media.");
             matcher.Observe("","找不到的作品",1,1);await matcher.Completion;
             Check(notices.Count==2 && notices.All(n=>!n.Contains("fixture.invalid")),"Missing configuration must notify without exposing an API address.");
+        }
+        loaded.Clear();notices.Clear();
+        using(var matcher=new AutomaticMatcher(Fetch,loaded.Add,_=>{},notices.Add))
+        {
+            matcher.Observe("","",0,7);matcher.Suspend();
+            matcher.Observe("http://fixture.invalid/token","测试作品",2,7);await matcher.Completion;
+            Check(loaded.Count==1 && matcher.Status.State=="loaded",
+                "Embedded API startup must still match when its endpoint becomes ready in the same media epoch.");
+            matcher.Suspend();
+            matcher.Observe("http://fixture.invalid/reconnected","测试作品",2,7);await matcher.Completion;
+            Check(loaded.Count==2 && matcher.Status.State=="loaded",
+                "An explicit API connection change must release manual ownership of the old service.");
+        }
+        loaded.Clear();notices.Clear();
+        var lateManual=new TaskCompletionSource<JsonObject>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var manualStarted=new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationToken manualToken=default;
+        int manualRequests=0;
+        using(var matcher=new AutomaticMatcher((a,action,value,stop)=>{
+            manualRequests++;manualToken=stop;manualStarted.TrySetResult(true);return lateManual.Task;
+        },loaded.Add,_=>{},notices.Add))
+        {
+            matcher.Observe("http://fixture.invalid/token","测试作品",2,7);
+            var oldManual=matcher.Completion;await manualStarted.Task;
+            matcher.Suspend();
+            matcher.Observe("http://fixture.invalid/token","",0,7);
+            matcher.Observe("http://fixture.invalid/token","测试作品",2,7);
+            Check(manualToken.IsCancellationRequested && manualRequests==1,
+                "Manual ownership must cancel the old automatic request and prevent fullscreen recovery requests.");
+            lateManual.SetResult(Json("""{"animes":[{"animeId":"old","animeTitle":"测试作品"}]}"""));await oldManual;
+            Check(loaded.Count==0 && notices.Count==0 && matcher.Status.State=="manual",
+                "A server response ignoring cancellation must not replace manual comments or their status.");
         }
         var held=new TaskCompletionSource<JsonObject>(TaskCreationOptions.RunContinuationsAsynchronously);
         var oldStarted=new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

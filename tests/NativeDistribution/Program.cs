@@ -24,6 +24,7 @@ internal static class DistributionTests
         Console.OutputEncoding=System.Text.Encoding.UTF8;
         try
         {
+            if(args.Length==1 && args[0]=="--automatic-match-tests"){AutomaticMatchTests.Run().GetAwaiter().GetResult();return 0;}
             if(args.Length==1 && args[0]=="--playback-rate-tests"){PlaybackRateTests.Run();ProbeTransportTests.Run("All").GetAwaiter().GetResult();return 0;}
             if(args.Length==1 && args[0]=="--probe-process-tests"){NativeChildTests.Run().GetAwaiter().GetResult();return 0;}
             if(args.Length==1 && args[0]=="--fixed-comment-tests"){FixedCommentTests.Run();return 0;}
