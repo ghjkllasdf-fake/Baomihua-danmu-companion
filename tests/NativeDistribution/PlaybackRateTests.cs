@@ -55,10 +55,39 @@ internal static class PlaybackRateTests
         VerifyJitteredTiming();
         VerifyRecordedJitter();
         VerifyUnequalSampleIntervals();
+        VerifyDelayedClockAnchors();
         VerifySurface();
         PlayerRateBindingTests.Run();
         NativePlayerRateSourceTests.Run();
         Console.WriteLine($"PASS: {checks} checks for 1/1.5/2/3x timing, real seeks, pauses, rate transitions and probe packet compatibility.");
+    }
+    private static void VerifyDelayedClockAnchors()
+    {
+        foreach(double rate in new[]{1d,1.75,2,3})
+        {
+            var sync=new SyncClock();
+            sync.Observe(10000,true,1000,1025,"delayed-freeze",200,rate);
+            double stamp=1000+Math.Floor(200/rate)+10,now=stamp+25;
+            double displayed=sync.At(now);var entering=new Motion(displayed-10,10000);
+            Check(entering.Progress(displayed)>0,"The regression comment must already have entered before the delayed sample.");
+            sync.Observe(10000,true,stamp,now,"delayed-freeze",200,rate);
+            Check(sync.SeekRevision==1 && !sync.Running,"A delayed held sample must stop extrapolation without inventing a seek.");
+            Check(sync.At(now)>=displayed && entering.Progress(sync.At(now))>=0,"Freezing at an old sample stamp must not rewind the displayed clock or delete a newly entered comment.");
+            double frozen=sync.At(now);
+            Check(sync.At(now+100)==frozen,"A frozen delayed clock must not drift.");
+            double resumedStamp=stamp+200,resumedNow=resumedStamp+25;
+            sync.Observe(10000+(resumedStamp-1000)*rate,true,resumedStamp,resumedNow,"delayed-freeze",200,rate);
+            Check(sync.SeekRevision==1 && sync.Running && sync.At(resumedNow)>=frozen,"Recovery must continue the same scene without rewinding it.");
+            sync.Observe(5000,false,resumedStamp+200,resumedNow+200,"delayed-freeze",200,rate);
+            Check(sync.SeekRevision==2 && sync.At(resumedNow+1200)==5000,"A genuine backward seek and pause must remain exact.");
+        }
+        var slowing=new SyncClock();
+        slowing.Observe(10000,true,1000,1025,"delayed-slowdown",200,2);
+        double before=slowing.At(1225);
+        slowing.Observe(10400,true,1200,1225,"delayed-slowdown",200,1);
+        Check(slowing.SeekRevision==1 && slowing.Rate==1 && slowing.At(1225)>=before,"A delayed rate decrease must not rewind the displayed scene.");
+        slowing.Observe(10420,false,1300,1325,"delayed-slowdown",200,1);
+        Check(slowing.SeekRevision==1 && slowing.At(2325)==10420,"A real pause must still use its exact observed position, not a forward-only playback clamp.");
     }
     private static void VerifyUnequalSampleIntervals()
     {

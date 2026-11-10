@@ -111,10 +111,12 @@ public sealed class SyncClock
         if (seek) {SeekRevision++;rateSamples.Clear();rateJump=null;}
         if (seek || drift>Math.Max(20,resolution*.3) || running!=clock.Running || !playing.Value || rate!=clock.Rate)
         {
-            // Only a proven displacement may rewind a playing scene. Buffering
-            // and its recovery retain the already displayed comment positions.
+            // A delayed sample can stop/slow a clock after its timestamp was
+            // displayed. Only a genuine seek or pause may rewind that scene.
+            double displayed=clock.At(now);
             double next=seek || !playing.Value ? position.Value : Math.Max(position.Value,clock.At(stamp));
             clock.Set(next,running,stamp,rate);
+            if(!seek && playing.Value && clock.At(now)<displayed)clock.Set(displayed,running,now,rate);
         }
         Mode="automatic"; LastProofMs=stamp; lastPosition=position.Value; lastResolution=resolution; media=mediaKey;
         Tick(now);
