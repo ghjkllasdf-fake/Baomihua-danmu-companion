@@ -1,0 +1,18 @@
+NuGet diagnostic component license provenance
+Prepared 2026-11-10; proposed package output, not final-package validation.
+Component distribution by Microsoft; retain copyright exactly as in the original notices.
+
+Package: Microsoft.Bcl.AsyncInterfaces 1.1.0
+NuGet: https://www.nuget.org/packages/Microsoft.Bcl.AsyncInterfaces/1.1.0
+License from nuspec: MIT
+License URL: https://licenses.nuget.org/MIT
+NUPKG SHA256: 4185688DFA9264A6C5F0FE83FDA69C7F17EE98C691503F5210441BCF0EF705B7
+Cache: raw archive matches SHA512 sidecar; .nupkg.metadata contentHash matches lock. NuGet signatures were not independently verified.
+
+Source: https://github.com/dotnet/corefx/tree/0f7f38c4fd323b26da10cce95f857f77f0f09b48
+Original: https://raw.githubusercontent.com/dotnet/corefx/0f7f38c4fd323b26da10cce95f857f77f0f09b48/LICENSE.TXT
+Original: https://raw.githubusercontent.com/dotnet/corefx/0f7f38c4fd323b26da10cce95f857f77f0f09b48/THIRD-PARTY-NOTICES.TXT
+
+Files and SHA256:
+d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b  LICENSE.TXT
+388c07f579998286e5df706a2e68bf6e01100187ccb0ff0310e26c3383f7b2b2  THIRD-PARTY-NOTICES.TXT

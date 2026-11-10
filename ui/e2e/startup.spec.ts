@@ -31,8 +31,8 @@ test('fresh compact panel shows requested display defaults and never enables Win
   await expect(page.getByLabel('弹幕字号', { exact: true })).toHaveValue('22');
   await expect(page.getByLabel('文字描边', { exact: true })).toHaveValue('0');
   await expect(page.locator('.preview')).toHaveCount(0);
-  await expect(page.getByLabel('滚动速度', { exact: true })).toHaveValue('0.8');
-  await expect(page.getByRole('switch', { name: '随视频窗口等比缩放', exact: false })).not.toBeChecked();
+  await expect(page.getByLabel('滚动速度', { exact: true })).toHaveValue('0.6');
+  await expect(page.getByRole('switch', { name: '随视频窗口等比缩放', exact: false })).toBeChecked();
   await expect(page.getByRole('switch', { name: '开机自动启动', exact: true })).toBeDisabled();
 });
 

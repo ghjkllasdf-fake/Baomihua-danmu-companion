@@ -41,7 +41,7 @@ let { sourceDirty, customDanAny } = releaseSourceStatus(Boolean(source.status), 
 for (const name of [names.portable, names.installer, 'SHA256SUMS.txt']) {
   if (existsSync(join(output, name))) throw new Error('Refusing to overwrite an existing release artifact.');
 }
-for (const dependency of [lock.dotnetSdk, lock.webview2Sdk, lock.windowsProjection, lock.webview2Bootstrapper, lock.inno]) {
+for (const dependency of [lock.dotnetSdk, lock.webview2Sdk, lock.windowsProjection, lock.webview2Bootstrapper, lock.inno, lock.playerRateDac]) {
   const algorithm = dependency.sha512 ? 'sha512' : 'sha256';
   if (await fileHash(join(root, dependency.archive), algorithm) !== dependency[algorithm]) throw new Error('Pinned build archive checksum mismatch.');
 }
@@ -106,6 +106,24 @@ for (const file of ['LICENSE.txt', 'NOTICE.txt', 'Microsoft.Web.WebView2.nuspec'
 }
 await copyLicense('licenses/Windows-SDK.rtf', 'WindowsSDK', 'Windows-SDK.rtf');
 await copyLicense('.deps/windows-sdk/Microsoft.Windows.SDK.NET.Ref.nuspec', 'WindowsSDK', 'Microsoft.Windows.SDK.NET.Ref.nuspec');
+const rateLicenses = JSON.parse(await readFile(join(root, 'licenses', 'player-rate-inventory.json'), 'utf8'));
+if (rateLicenses.schemaVersion !== 1 || !Array.isArray(rateLicenses.files) || rateLicenses.files.length !== 19)
+  throw new Error('Incomplete player-rate license inventory.');
+const rateLicensePaths = new Set();
+for (const record of rateLicenses.files) {
+  if (!/^licenses\/(?:ClrMD|DiagnosticsClient|AsyncInterfaces|Extensions-2\.1\.1|PlayerRateDac)\/[A-Za-z0-9_.-]+$/.test(record.path) ||
+      rateLicensePaths.has(record.path) || await fileHash(join(root, record.path)) !== record.sha256)
+    throw new Error('Player-rate license input differs from its reviewed bytes.');
+  rateLicensePaths.add(record.path);
+  const [, component, name] = record.path.split('/');
+  await copyLicense(record.path, component, name);
+}
+for (const name of ['Baomihua.PlayerRate.Dac.dll', 'Microsoft.Diagnostics.Runtime.dll', 'Microsoft.Diagnostics.NETCore.Client.dll',
+  'Microsoft.Bcl.AsyncInterfaces.dll', 'Microsoft.Extensions.Configuration.dll', 'Microsoft.Extensions.Configuration.Abstractions.dll',
+  'Microsoft.Extensions.Configuration.Binder.dll', 'Microsoft.Extensions.DependencyInjection.Abstractions.dll',
+  'Microsoft.Extensions.Logging.dll', 'Microsoft.Extensions.Logging.Abstractions.dll', 'Microsoft.Extensions.Options.dll', 'Microsoft.Extensions.Primitives.dll']) {
+  if (!existsSync(join(payload, name))) throw new Error('Missing pinned player-rate runtime file: ' + name);
+}
 for (const [component, name] of [['react', 'React'], ['react-dom', 'ReactDOM'], ['scheduler', 'Scheduler']]) {
   await copyLicense(`ui/node_modules/${component}/LICENSE`, name, 'LICENSE.txt');
 }
@@ -127,7 +145,7 @@ await writeFile(payloadFileList, 'procedure AddIncomingPayloadFiles(Files: TStri
   payloadFiles.map(file => `  Files.Add('${file.replaceAll('/', '\\').replaceAll("'", "''")}');`).join('\n') + '\nend;\n');
 const manifest = { schemaVersion: 1, version, sourceCommit, sourceDirty, baseline: 'v0.1.0-preview.15', browserDistribution: 'evergreen', variant: includeApi ? 'includeAPI' : 'standard',
   ...(includeApi ? { apiInventorySha256, customDanAny } : {}),
-  dependencies: { ...Object.fromEntries(['dotnetSdk', 'dotnetRuntime', 'webview2Sdk', 'windowsProjection', 'webview2Bootstrapper', 'inno'].map(key => [key, lock[key]])),
+  dependencies: { ...Object.fromEntries(['dotnetSdk', 'dotnetRuntime', 'webview2Sdk', 'windowsProjection', 'webview2Bootstrapper', 'inno', 'playerRateDac'].map(key => [key, lock[key]])),
     webview2Runtime: { distribution: 'evergreen', minimumMajor: 124, bundled: false } },
   files: await inventory(payload, apiInventory) };
 const manifestText = JSON.stringify(manifest, null, 2) + '\n';

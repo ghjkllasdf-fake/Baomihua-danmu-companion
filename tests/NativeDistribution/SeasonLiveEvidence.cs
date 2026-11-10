@@ -26,9 +26,9 @@ internal static class SeasonLiveEvidence
                     string key=sample.Title.Length>0 ? sample.Title+"#"+sample.EpisodeNumber : media;
                     if(media!=key){media=key;clock.BeginMediaEpoch(now);}
                     bool identified=sample.Window!=null && sample.Title.Length>0;
-                    clock.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,key,sample.PositionResolutionMs);
+                    clock.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,key,sample.PositionResolutionMs,sample.PlaybackRate);
                     Console.WriteLine(JsonSerializer.Serialize(new{now,sample.Title,sample.EpisodeNumber,sample.PositionMs,sample.Playing,sample.Source,
-                        age=now-sample.StampMs,clock.SeekRevision,clock.Mode,clockRunning=clock.Running,clockPosition=clock.At(now),seasonEvidence=sampler.SeasonEvidence}));
+                        sample.PlaybackRate,sample.PositionResolutionMs,age=now-sample.StampMs,clock.SeekRevision,clock.Mode,clockRunning=clock.Running,clockRate=clock.Rate,clockPosition=clock.At(now),seasonEvidence=sampler.SeasonEvidence}));
                     Console.Out.Flush();sampler.WaitForNext(100);
                 }
             }

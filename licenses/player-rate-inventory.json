@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "path": "licenses/ClrMD/LICENSE",
+      "length": 1116,
+      "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310"
+    },
+    {
+      "path": "licenses/ClrMD/SOURCE.txt",
+      "length": 917,
+      "sha256": "651eb04d8e487fd77b9e4c6859c612fac1340c3c6cda051ef9d0f03551de0d61"
+    },
+    {
+      "path": "licenses/DiagnosticsClient/LICENSE.TXT",
+      "length": 1116,
+      "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310"
+    },
+    {
+      "path": "licenses/DiagnosticsClient/THIRD-PARTY-NOTICES.TXT",
+      "length": 25825,
+      "sha256": "eb1599cd261c6abcd6a823baec34234e077d3df9b36e7edbc533ef6e8d7fde8f"
+    },
+    {
+      "path": "licenses/DiagnosticsClient/SOURCE.txt",
+      "length": 1163,
+      "sha256": "8f1abff1f2b3130ded0cc652a22023a512a18ad48e6ec6921bebf0bb99204ca5"
+    },
+    {
+      "path": "licenses/AsyncInterfaces/LICENSE.TXT",
+      "length": 1139,
+      "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+    },
+    {
+      "path": "licenses/AsyncInterfaces/THIRD-PARTY-NOTICES.TXT",
+      "length": 18886,
+      "sha256": "388c07f579998286e5df706a2e68bf6e01100187ccb0ff0310e26c3383f7b2b2"
+    },
+    {
+      "path": "licenses/AsyncInterfaces/SOURCE.txt",
+      "length": 1124,
+      "sha256": "1068c7b02a5e4d4b92b414b9156c6e1de2938f2aa5ec1ccc003491b5cbeb40bd"
+    },
+    {
+      "path": "licenses/Extensions-2.1.1/aspnet-Home-2.0.0-LICENSE.txt",
+      "length": 593,
+      "sha256": "9e1510118e6fabdc2af3c7f3b8bce967b0d467897d84f11d66350baccec7abfb"
+    },
+    {
+      "path": "licenses/Extensions-2.1.1/Apache-2.0-LICENSE.txt",
+      "length": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/Extensions-2.1.1/Configuration-LICENSE.txt",
+      "length": 594,
+      "sha256": "66c040f0c39673c81b2fab2446c2ee88bec6c323b3e7752cc255f928539f6aca"
+    },
+    {
+      "path": "licenses/Extensions-2.1.1/DependencyInjection-LICENSE.txt",
+      "length": 594,
+      "sha256": "66c040f0c39673c81b2fab2446c2ee88bec6c323b3e7752cc255f928539f6aca"
+    },
+    {
+      "path": "licenses/Extensions-2.1.1/Logging-LICENSE.txt",
+      "length": 594,
+      "sha256": "66c040f0c39673c81b2fab2446c2ee88bec6c323b3e7752cc255f928539f6aca"
+    },
+    {
+      "path": "licenses/Extensions-2.1.1/Options-LICENSE.txt",
+      "length": 594,
+      "sha256": "66c040f0c39673c81b2fab2446c2ee88bec6c323b3e7752cc255f928539f6aca"
+    },
+    {
+      "path": "licenses/Extensions-2.1.1/Common-LICENSE.txt",
+      "length": 594,
+      "sha256": "66c040f0c39673c81b2fab2446c2ee88bec6c323b3e7752cc255f928539f6aca"
+    },
+    {
+      "path": "licenses/Extensions-2.1.1/SOURCE.txt",
+      "length": 6094,
+      "sha256": "7b152239b4f29e057e9e85e49322adcf3f76974b42553aefc20d188d81f21acc"
+    },
+    {
+      "path": "licenses/PlayerRateDac/LICENSE.TXT",
+      "length": 1139,
+      "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+    },
+    {
+      "path": "licenses/PlayerRateDac/THIRD-PARTY-NOTICES.TXT",
+      "length": 68910,
+      "sha256": "b60b2912da28eaa6518593c9e2efb5334ee062d3c42e80d8fdfa806b3dc52977"
+    },
+    {
+      "path": "licenses/PlayerRateDac/SOURCE.txt",
+      "length": 1107,
+      "sha256": "248b3f4fbea8c0ead6272a17dcff018a1e1c82d35b46ce902dd893c32d49d577"
+    }
+  ]
+}

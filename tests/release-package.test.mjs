@@ -14,6 +14,30 @@ test('stable release names and native numeric versions support 0.2 without weake
   for (const version of ['0.2', '0.2.0-rc.1', '../0.2.0', '0.2.0;cmd']) assert.throws(() => releaseNames(version));
 });
 
+test('pinned player-rate diagnostic licenses retain their reviewed bytes and are admitted without admitting scripts', async () => {
+  const source = JSON.parse(await readFile(new URL('../licenses/player-rate-inventory.json', import.meta.url), 'utf8'));
+  assert.equal(source.schemaVersion, 1);
+  assert.equal(source.files.length, 19);
+  const paths = new Set(source.files.map(record => record.path));
+  assert.equal(paths.size, 19);
+  for (const required of ['licenses/ClrMD/LICENSE', 'licenses/DiagnosticsClient/THIRD-PARTY-NOTICES.TXT',
+    'licenses/AsyncInterfaces/THIRD-PARTY-NOTICES.TXT', 'licenses/Extensions-2.1.1/Apache-2.0-LICENSE.txt',
+    'licenses/PlayerRateDac/LICENSE.TXT', 'licenses/PlayerRateDac/THIRD-PARTY-NOTICES.TXT']) assert.ok(paths.has(required));
+  for (const record of source.files) {
+    const bytes = await readFile(new URL('../' + record.path, import.meta.url));
+    assert.equal(bytes.length, record.length);
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), record.sha256);
+    assert.equal(allowedEntry(record.path), true);
+  }
+  assert.equal(allowedEntry('licenses/ClrMD/steal.ps1'), false);
+  assert.equal(allowedEntry('licenses/ClrMD/../private.txt'), false);
+  assert.equal(allowedEntry('Baomihua.PlayerRate.Dac.dll'), true);
+  const toolchain = JSON.parse(await readFile(new URL('../native-toolchain.json', import.meta.url), 'utf8'));
+  assert.equal(toolchain.playerRateDac.version, '8.0.28');
+  assert.ok(toolchain.runtimeFiles.some(record => record.path.endsWith('/8.0.28/runtimes/win-x64/native/mscordaccore.dll') &&
+    record.sha256 === '6f7a3520fb5a30d1c747e7d232b219c1c97a2270429da7aa1f572ac2c60b28be'));
+});
+
 test('release verification normalizes the trailing separator returned by Inno registration', async () => {
   const source = await readFile(new URL('../scripts/test-release.mjs', import.meta.url), 'utf8');
   const implementation = source.match(/function registered\(\) \{[\s\S]*?\n\}/)?.[0];

@@ -141,6 +141,8 @@ test('glass exposes the native material instead of repainting an opaque sheet, w
   await page.getByRole('button', { name: '切换皮肤', exact: true }).click();
   await page.getByRole('button', { name: 'B · 流光玻璃', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-backdrop', 'acrylic');
+  await expect(page.locator('.mini-app')).toHaveCSS('border-top-left-radius', '8px');
+  await expect(page.locator('.mini-app')).toHaveCSS('border-bottom-right-radius', '8px');
   const coating = await page.locator('.mini-app').evaluate(node => {
     const style = getComputedStyle(node);
     return { colour: style.backgroundColor, sheen: style.backgroundImage };
@@ -152,6 +154,7 @@ test('glass exposes the native material instead of repainting an opaque sheet, w
   expect(await page.locator('body').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   await page.getByRole('switch', { name: '减少透明效果', exact: true }).check();
   await expect(page.locator('html')).toHaveAttribute('data-transparency', 'reduced');
+  await expect(page.locator('.mini-app')).toHaveCSS('border-top-left-radius', '8px');
   expect(await page.locator('.mini-app').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgb(237, 243, 247)');
   expect(await page.locator('.mini-app').evaluate(node => getComputedStyle(node).backgroundImage)).toBe('none');
   expect(await page.locator('.mini-toolbar').evaluate(node => getComputedStyle(node).backdropFilter)).toBe('none');

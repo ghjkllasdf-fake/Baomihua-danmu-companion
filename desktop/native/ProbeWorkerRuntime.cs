@@ -5,10 +5,11 @@ namespace Popcorn;
 
 public static class ProbeWorkerRuntime
 {
-    public static void Run()
+    public static void Run()=>Run(null);
+    public static void Run(Func<VideoWindow,double?> readRate)
     {
         if (Thread.CurrentThread.GetApartmentState()!=ApartmentState.MTA) throw new InvalidOperationException("The player sampler requires MTA.");
-        using var sampler=new PlayerSampler(CancellationToken.None);
+        using var sampler=new PlayerSampler(CancellationToken.None,readRate:readRate);
         using var output=Console.OpenStandardOutput(); long sequence=0;
         while (true)
         {

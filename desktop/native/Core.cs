@@ -15,24 +15,30 @@ public sealed class PlaybackClock
 {
     private double position, stamp;
     public bool Running { get; private set; }
-    public void Set(double positionMs, bool playing, double now)
+    public double Rate { get; private set; } = 1;
+    public void Set(double positionMs, bool playing, double now, double rate=1)
     {
+        if (!double.IsFinite(rate) || rate<=0 || rate>16) throw new ArgumentOutOfRangeException(nameof(rate));
         position = Math.Max(0, positionMs); stamp = now; Running = playing;
+        Rate=rate;
     }
-    public double At(double now) => Math.Max(0, position + (Running ? Math.Max(0, now - stamp) : 0));
+    public double At(double now) => Math.Max(0, position + (Running ? Math.Max(0, now - stamp)*Rate : 0));
 }
 
 public sealed class SyncClock
 {
     private readonly PlaybackClock clock=new();
+    private readonly List<(double Stamp,double Position)> rateSamples=new();
+    private (double Movement,double Elapsed,double Rate,double EndPosition,double EndStamp,double Uncertainty)? rateJump;
     private double lastStamp=-1, manualStamp=-1, lastPosition, lastResolution=1000, lastMotionStamp;
     private string media="";
     public string Mode { get; private set; } = "unavailable";
     public int SeekRevision { get; private set; }
     public bool Running=>clock.Running;
+    public double Rate=>clock.Rate;
     public double At(double now)=>clock.At(now);
     public double LastProofMs { get; private set; }
-    public void Observe(double? position,bool? playing,double stamp,double now,string mediaKey,double resolutionMs=1000)
+    public void Observe(double? position,bool? playing,double stamp,double now,string mediaKey,double resolutionMs=1000,double? playbackRate=null)
     {
         if (!double.IsFinite(now) || now<0) return;
         if (!double.IsFinite(stamp) || stamp<0 || stamp>now) { Tick(now); return; }
@@ -50,7 +56,18 @@ public sealed class SyncClock
         lastStamp=stamp;
         double resolution=double.IsFinite(resolutionMs) ? Math.Clamp(resolutionMs,1,1000) : 1000;
         bool tracking=(Mode is "automatic" or "stale") && LastProofMs>0 && !changed;
+        bool observedRate=playbackRate.HasValue && double.IsFinite(playbackRate.Value) && playbackRate.Value>0 && playbackRate.Value<=16;
+        double rate=observedRate ? playbackRate.Value : tracking ? clock.Rate : 1;
+        double motionRate=rate;
+        bool inferredSeek=false;
+        if (!playbackRate.HasValue && position.HasValue && double.IsFinite(position.Value) && playing==true && resolution<=200)
+            rate=InferRate(position.Value,stamp,tracking,Math.Max(resolution,lastResolution),rate,out inferredSeek,out motionRate);
+        else {rateSamples.Clear();rateJump=null;}
+        // A speed change may occur anywhere between two samples; allow either
+        // endpoint's rate without mistaking ordinary forward motion for a seek.
+        double expectedMotion=sampleElapsed*Math.Max(Math.Max(tracking ? clock.Rate : rate,rate),motionRate);
         double uncertainty=tracking ? Math.Max(resolution,lastResolution) : resolution;
+        double displacementUncertainty=tracking && observedRate ? resolution+lastResolution : uncertainty;
         if (!position.HasValue || !playing.HasValue || !double.IsFinite(position.Value))
         {
             if (changed)
@@ -61,16 +78,16 @@ public sealed class SyncClock
             }
             Tick(now);
             if(tracking && position.HasValue && double.IsFinite(position.Value) &&
-                (position.Value-lastPosition-sampleElapsed>Math.Max(100,uncertainty) ||
+                (position.Value-lastPosition-expectedMotion>Math.Max(100,displacementUncertainty) ||
                  position.Value-lastPosition< -Math.Max(100,uncertainty*.5)))
             {
                 // The slider already proves the new target while SMTC is still
                 // changing state. Isolate the old scene once, without inventing
                 // a running status or resetting it again when that status arrives.
-                clock.Set(position.Value,false,stamp);Mode="stale";SeekRevision++;
+                clock.Set(position.Value,false,stamp,rate);Mode="stale";SeekRevision++;
                 lastPosition=position.Value;lastResolution=resolution;lastMotionStamp=stamp;
             }
-            if (Mode=="automatic") { clock.Set(clock.At(now),false,now); Mode="stale"; }
+            if (Mode=="automatic") { clock.Set(clock.At(now),false,now,clock.Rate); Mode="stale"; }
             return;
         }
         double drift=position.Value-clock.At(stamp);
@@ -80,30 +97,92 @@ public sealed class SyncClock
         // SMTC can stay Playing while VLC buffers at the exact seek target.
         // Stop extrapolating a repeatedly held position; a clock prediction
         // disagreeing with stationary media is not evidence of another seek.
-        bool held=stationary && playing.Value && stamp-lastMotionStamp>=Math.Max(400,uncertainty*2);
-        bool running=playing.Value && !held;
+        bool held=stationary && playing.Value && stamp-lastMotionStamp>=Math.Max(400,uncertainty*2/Math.Min(rate,1));
+        if(held)rateJump=null;
+        // A slower rate or quantized source can trail the previous prediction.
+        // Wait for observed progress to catch up instead of accumulating lead.
+        bool ahead=tracking && drift< -uncertainty;
+        bool running=playing.Value && !held && !ahead;
         // Only observed motion outside the sampled interval (plus source
         // uncertainty) proves a seek, including across pause/resume and gaps.
-        bool seek=!tracking || changed ||
-            movement-sampleElapsed>Math.Max(100,uncertainty) || movement< -Math.Max(100,uncertainty*.5) ||
+        bool seek=!tracking || changed || inferredSeek ||
+            movement-expectedMotion>Math.Max(100,displacementUncertainty) || movement< -Math.Max(100,uncertainty*.5) ||
             (!playing.Value && !clock.Running && Math.Abs(position.Value-lastPosition)>Math.Max(20,uncertainty*.5));
-        if (seek) SeekRevision++;
-        if (seek || drift>Math.Max(20,resolution*.3) || running!=clock.Running || !playing.Value)
+        if (seek) {SeekRevision++;rateSamples.Clear();rateJump=null;}
+        if (seek || drift>Math.Max(20,resolution*.3) || running!=clock.Running || !playing.Value || rate!=clock.Rate)
         {
-            // Only a proven displacement may rewind a playing scene. Buffering
-            // and its recovery retain the already displayed comment positions.
+            // A delayed sample can stop/slow a clock after its timestamp was
+            // displayed. Only a genuine seek or pause may rewind that scene.
+            double displayed=clock.At(now);
             double next=seek || !playing.Value ? position.Value : Math.Max(position.Value,clock.At(stamp));
-            clock.Set(next,running,stamp);
+            clock.Set(next,running,stamp,rate);
+            if(!seek && playing.Value && clock.At(now)<displayed)clock.Set(displayed,running,now,rate);
         }
         Mode="automatic"; LastProofMs=stamp; lastPosition=position.Value; lastResolution=resolution; media=mediaKey;
         Tick(now);
     }
+    private double InferRate(double position,double stamp,bool tracking,double uncertainty,double fallback,out bool seek,out double motionRate)
+    {
+        seek=false;motionRate=fallback;
+        if (!tracking) {rateSamples.Clear();rateJump=null;}
+        else if(rateSamples.Count==0 && stamp-LastProofMs<=1500)rateSamples.Add((LastProofMs,lastPosition));
+        if (rateSamples.Count>0)
+        {
+            var previous=rateSamples[^1];
+            double elapsed=stamp-previous.Stamp,movement=position-previous.Position;
+            // Repeated slider values are part of the rate window: dropping them
+            // biases a quantized 1x source toward its nonzero 2x steps.
+            if (elapsed<=0 || elapsed>1500 || movement<-.5 || movement>elapsed*4+uncertainty ||
+                (movement<.5 && stamp-lastMotionStamp>=Math.Max(1600,uncertainty*2/.25)))
+            {
+                rateSamples.Clear();rateJump=null;rateSamples.Add((stamp,position));return fallback;
+            }
+            double stepRate=movement/elapsed;
+            if(movement>=.5)
+            {
+                motionRate=Math.Clamp(stepRate,.25,4);
+                // A small forward seek can resemble one faster sample. The next
+                // sample distinguishes that isolated displacement from sustained speed.
+                var jump=rateJump;
+                if(jump.HasValue)
+                {
+                    double confirmation=stamp-jump.Value.EndStamp;
+                    double continuation=(position-jump.Value.EndPosition)/confirmation;
+                    double continuingRate=Math.Max(stepRate,continuation);
+                    // Normalize the confirmation interval before comparing its
+                    // displacement; a short noisy follow-up has less confidence.
+                    double margin=Math.Max(uncertainty,jump.Value.Uncertainty)*(1+jump.Value.Elapsed/confirmation);
+                    if(jump.Value.Movement>jump.Value.Elapsed*Math.Max(jump.Value.Rate,continuingRate)+margin)
+                    {
+                        seek=true;rateSamples.Clear();rateSamples.Add((stamp,position));
+                        return Math.Clamp(continuingRate,.25,4);
+                    }
+                    if(confirmation>=jump.Value.Elapsed)rateJump=null;
+                }
+                if(!rateJump.HasValue && movement>elapsed*fallback+uncertainty)rateJump=(movement,elapsed,fallback,position,stamp,uncertainty);
+            }
+        }
+        rateSamples.Add((stamp,position));
+        while(rateSamples.Count>2 && stamp-rateSamples[1].Stamp>=2000)rateSamples.RemoveAt(0);
+        var first=rateSamples[0];double span=stamp-first.Stamp;
+        if(span<100)return fallback;
+        double observed=(position-first.Position)/span;
+        if(observed<.25 || observed>4)return fallback;
+        // Use a whole sampling window rather than the noisy latest slider step.
+        // Quarter-step rates match the player's menu once enough evidence exists.
+        double rounded=Math.Round(observed*4)/4;
+        return span>=800 && rounded>=.25 && Math.Abs(rounded-observed)<=.08 ? rounded : observed;
+    }
     private void InvalidateMedia(double position,double stamp,string key)
     {
+        rateSamples.Clear();
+        rateJump=null;
         clock.Set(position,false,stamp); Mode="unavailable"; LastProofMs=0; media=key; lastPosition=position; manualStamp=-1; SeekRevision++;
     }
     public void BeginMediaEpoch(double now)
     {
+        rateSamples.Clear();
+        rateJump=null;
         // The host's identified media revision is authoritative; timing proofs from distinct media are not ordered together.
         clock.Set(0,false,now); Mode="unavailable"; LastProofMs=0; media=""; lastStamp=-1; manualStamp=-1; lastPosition=0;
     }
@@ -111,7 +190,7 @@ public sealed class SyncClock
     {
         if (Mode=="automatic" && now-LastProofMs>1500)
         {
-            clock.Set(clock.At(LastProofMs+1500),false,now); Mode="stale";
+            clock.Set(clock.At(LastProofMs+1500),false,now,clock.Rate); Mode="stale";
         }
     }
     public void Manual(double position,bool playing,double now)

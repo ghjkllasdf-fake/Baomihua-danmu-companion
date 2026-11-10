@@ -5,6 +5,8 @@
     <AssemblyName>NativeDistribution.Tests</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Diagnostics.Runtime" Version="3.1.512801" />
+    <Compile Include="../../desktop/NativeProbe/NativePlayerRateSource.cs" Link="Native/NativePlayerRateSource.cs" />
     <None Include="../../.deps/webview2/runtimes/win-x64/native/WebView2Loader.dll" Link="WebView2Loader.dll" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../desktop/native/*.cs" Link="Native/%(Filename)%(Extension)" />
     <Compile Include="../../scripts/NativeReleaseTools/ProcessImage.cs" Link="ReleaseTools/ProcessImage.cs" />

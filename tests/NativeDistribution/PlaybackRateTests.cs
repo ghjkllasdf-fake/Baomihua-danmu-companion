@@ -1,0 +1,282 @@
+using System;
+using System.IO;
+using System.Text.Json.Nodes;
+using System.Windows;
+
+namespace Popcorn;
+
+internal static class PlaybackRateTests
+{
+    private static int checks;
+    private static void Check(bool value,string message){checks++;if(!value)throw new Exception(message);}
+    internal static void Run()
+    {
+        foreach(double rate in new[]{1d,1.5,2,3})
+        {
+            var sync=new SyncClock();
+            for(int i=0;i<13;i++)
+            {
+                double stamp=1000+i*500,position=20000+i*500*rate;
+                sync.Observe(position,true,stamp,stamp,"same-video",200,rate);
+                Check(sync.SeekRevision==1,$"Stable {rate}x playback must not create a seek at sample {i}.");
+                Check(Math.Abs(sync.At(stamp+100)-(position+100*rate))<.001,"Between-sample prediction must use playback rate.");
+            }
+            sync.Observe(100000,true,7500,7500,"same-video",200,rate);
+            Check(sync.SeekRevision==2,"A real forward seek must still reset once at higher rates.");
+            sync.Observe(1000,false,8000,8000,"same-video",200,rate);
+            Check(sync.SeekRevision==3 && sync.At(8500)==1000,"A backward seek and pause must freeze the corrected clock.");
+
+            var sample=new PlayerSample(new VideoWindow(new IntPtr(9),"fixture",0,0,800,600),"fixture",1,20000,true,1000,"fixture","smtc",200,120000,rate);
+            byte[] bytes=ProbeProtocol.Encode(sample,1);
+            Check(ProbeProtocol.Decode(bytes,0,1000).Sample.PlaybackRate==rate,"Probe transport must preserve the observed rate.");
+            var legacy=JsonNode.Parse(bytes).AsObject();legacy.Remove("playbackRate");
+            Check(ProbeProtocol.Decode(System.Text.Encoding.UTF8.GetBytes(legacy.ToJsonString()),0,1000).Sample.PlaybackRate==null,"Legacy packets without rate remain readable.");
+            foreach(double invalid in new[]{0d,-1,17})
+            {
+                bool rejected=false;
+                try{ProbeProtocol.Encode(sample with{PlaybackRate=invalid},1);}catch(InvalidDataException){rejected=true;}
+                Check(rejected,"Invalid rates must be rejected at the probe boundary.");
+            }
+        }
+        var changing=new SyncClock();
+        changing.Observe(10000,true,1000,1000,"same-video",200,1);
+        changing.Observe(10750,true,1500,1500,"same-video",200,2);
+        Check(changing.SeekRevision==1 && changing.Rate==2,"A rate change is not a seek.");
+        changing.Observe(11750,true,2000,2000,"same-video",200,null);
+        Check(changing.SeekRevision==1 && changing.Rate==2,"Briefly unavailable rate metadata preserves the known rate.");
+        changing.Observe(12500,true,2500,2500,"same-video",200,1.5);
+        Check(changing.SeekRevision==1 && changing.Rate==1.5,"Slowing playback must not reset comments.");
+        changing.BeginMediaEpoch(3000);
+        changing.Observe(0,true,3000,3000,"new-video",200,null);
+        Check(changing.Rate==1,"A new media identity must not inherit the old rate.");
+        VerifyMissingRate();
+        VerifyObservedTiming();
+        VerifyQuantizedTiming();
+        VerifyJitteredTiming();
+        VerifyRecordedJitter();
+        VerifyUnequalSampleIntervals();
+        VerifyDelayedClockAnchors();
+        VerifySurface();
+        PlayerRateBindingTests.Run();
+        NativePlayerRateSourceTests.Run();
+        Console.WriteLine($"PASS: {checks} checks for 1/1.5/2/3x timing, real seeks, pauses, rate transitions and probe packet compatibility.");
+    }
+    private static void VerifyDelayedClockAnchors()
+    {
+        foreach(double rate in new[]{1d,1.75,2,3})
+        {
+            var sync=new SyncClock();
+            sync.Observe(10000,true,1000,1025,"delayed-freeze",200,rate);
+            double stamp=1000+Math.Floor(200/rate)+10,now=stamp+25;
+            double displayed=sync.At(now);var entering=new Motion(displayed-10,10000);
+            Check(entering.Progress(displayed)>0,"The regression comment must already have entered before the delayed sample.");
+            sync.Observe(10000,true,stamp,now,"delayed-freeze",200,rate);
+            Check(sync.SeekRevision==1 && !sync.Running,"A delayed held sample must stop extrapolation without inventing a seek.");
+            Check(sync.At(now)>=displayed && entering.Progress(sync.At(now))>=0,"Freezing at an old sample stamp must not rewind the displayed clock or delete a newly entered comment.");
+            double frozen=sync.At(now);
+            Check(sync.At(now+100)==frozen,"A frozen delayed clock must not drift.");
+            double resumedStamp=stamp+200,resumedNow=resumedStamp+25;
+            sync.Observe(10000+(resumedStamp-1000)*rate,true,resumedStamp,resumedNow,"delayed-freeze",200,rate);
+            Check(sync.SeekRevision==1 && sync.Running && sync.At(resumedNow)>=frozen,"Recovery must continue the same scene without rewinding it.");
+            sync.Observe(5000,false,resumedStamp+200,resumedNow+200,"delayed-freeze",200,rate);
+            Check(sync.SeekRevision==2 && sync.At(resumedNow+1200)==5000,"A genuine backward seek and pause must remain exact.");
+        }
+        var slowing=new SyncClock();
+        slowing.Observe(10000,true,1000,1025,"delayed-slowdown",200,2);
+        double before=slowing.At(1225);
+        slowing.Observe(10400,true,1200,1225,"delayed-slowdown",200,1);
+        Check(slowing.SeekRevision==1 && slowing.Rate==1 && slowing.At(1225)>=before,"A delayed rate decrease must not rewind the displayed scene.");
+        slowing.Observe(10420,false,1300,1325,"delayed-slowdown",200,1);
+        Check(slowing.SeekRevision==1 && slowing.At(2325)==10420,"A real pause must still use its exact observed position, not a forward-only playback clamp.");
+    }
+    private static void VerifyUnequalSampleIntervals()
+    {
+        var transition=new SyncClock();
+        for(int i=0;i<=20;i++)transition.Observe(20000+i*100-(i==20 ? 100 : 0),true,1000+i*100,1000+i*100,"gap-transition",200);
+        foreach(var point in new[]{new[]{4000d,24120},new[]{4100d,24120},new[]{4200d,24280},new[]{4300d,24600}})
+        {
+            transition.Observe(point[1],true,point[0],point[0],"gap-transition",200);
+            Check(transition.SeekRevision==1,"A 1x-to-2x transition across unequal sampling intervals and bounded jitter must retain its scene.");
+        }
+        var resumed=new SyncClock();
+        resumed.Observe(20000,false,1000,1000,"cold-resume",200);
+        resumed.Observe(21120,true,1500,1500,"cold-resume",200);
+        resumed.Observe(21200,true,1600,1600,"cold-resume",200);
+        Check(resumed.SeekRevision==1,"A long first 2x sample and short confirmation sample with bounded read jitter are not a seek.");
+        for(int i=1;i<=5;i++)resumed.Observe(21200+i*200,true,1600+i*100,1600+i*100,"cold-resume",200);
+        Check(resumed.SeekRevision==1,"A provisional rate step must remain continuous while confidence accumulates.");
+
+        var jump=new SyncClock();
+        for(int i=0;i<6;i++)jump.Observe(10000+i*250,true,1000+i*250,1000+i*250,"unequal-seek",200);
+        jump.Observe(12250,true,2750,2750,"unequal-seek",200);
+        for(int i=1;i<=4;i++)jump.Observe(12250+i*100,true,2750+i*100,2750+i*100,"unequal-seek",200);
+        Check(jump.SeekRevision==2 && Math.Abs(jump.Rate-1)<.01,"A true 500ms seek must still be confirmed after shorter follow-up samples.");
+
+        var buffered=new SyncClock();
+        buffered.Observe(20000,false,1000,1000,"rate-then-buffer",200);
+        buffered.Observe(21000,true,1500,1500,"rate-then-buffer",200);
+        for(int i=1;i<=6;i++)buffered.Observe(21000,true,1500+i*100,1500+i*100,"rate-then-buffer",200);
+        Check(!buffered.Running && buffered.SeekRevision==1,"A real hold after a speed change must freeze without resetting the scene.");
+        buffered.Observe(21200,true,2200,2200,"rate-then-buffer",200);
+        Check(buffered.SeekRevision==1,"Buffer recovery must not confirm an obsolete provisional rate step as a seek.");
+
+        var exactRate=new SyncClock();double previous=20000;
+        for(int i=0;i<80;i++)
+        {
+            double position=Math.Max(previous,20000+i*200+(i%8==4 ? -120 : i%8==5 ? 120 : 0));previous=position;
+            exactRate.Observe(position,true,1000+i*100,1000+i*100,"native-rate",200,2);
+            Check(exactRate.SeekRevision==1,"A supplied exact rate must account for both sampled positions' uncertainty.");
+        }
+    }
+    private static void VerifyRecordedJitter()
+    {
+        var fixture=JsonNode.Parse(File.ReadAllText(Path.Combine("tests","fixtures","recorded-playback-rate-jitter.json"))).AsObject();
+        foreach(var scenario in fixture["cases"].AsArray())
+        {
+            var sync=new SyncClock();string media="";
+            foreach(var point in scenario["samples"].AsArray())
+            {
+                double stamp=point[0].GetValue<double>(),now=point[2].GetValue<double>();
+                double? position=point[1]?.GetValue<double>();bool? playing=point[3]?.GetValue<bool>();
+                bool identified=point[4].GetValue<bool>();
+                if(identified && media.Length==0){media="recorded";sync.BeginMediaEpoch(now);}
+                sync.Observe(identified ? position : null,identified ? playing : null,stamp,now,media,point[5].GetValue<double>());
+                Check(sync.SeekRevision<=1,"Recorded pause/resume and steady 2x inputs must not manufacture a seek.");
+            }
+            Check(sync.SeekRevision==1 && sync.Mode=="automatic","Recorded input replay must establish one live media epoch.");
+        }
+    }
+    private static void VerifyJitteredTiming()
+    {
+        foreach(double rate in new[]{1d,1.5,1.75,2})
+        {
+            var sync=new SyncClock();double previous=20000;
+            for(int i=0;i<=240;i++)
+            {
+                double elapsed=i*100,stamp=1000+elapsed,actual=20000+elapsed*rate;
+                double jitter=i%8==4 ? -120 : i%8==5 ? 120 : 0;
+                double sampled=Math.Max(previous,actual+jitter);previous=sampled;
+                sync.Observe(sampled,true,stamp,stamp,"jittered",200);
+                Check(sync.SeekRevision==1,"Bounded monotonic slider jitter must not be classified as an isolated seek.");
+                Check(Math.Abs(sync.At(stamp)-actual)<=400,"Slider jitter must retain a bounded media clock.");
+                if(elapsed>=3000)Check(Math.Abs(sync.Rate-rate)<=.15,"The rate window must tolerate bounded source timestamp jitter.");
+            }
+        }
+    }
+    private static void VerifyQuantizedTiming()
+    {
+        foreach(double rate in new[]{1d,1.5,1.75,2})
+        foreach(double quantum in new[]{100d,200})
+        foreach(double interval in new[]{100d,200})
+        {
+            var sync=new SyncClock();
+            for(int i=0;i<=600;i++)
+            {
+                double elapsed=i*interval,stamp=1000+elapsed,actual=20000+elapsed*rate;
+                double sampled=20000+Math.Floor(elapsed*rate/quantum)*quantum;
+                sync.Observe(sampled,true,stamp,stamp,"quantized",quantum);
+                Check(sync.SeekRevision==1,"Quantized continuous playback must retain the scene.");
+                Check(Math.Abs(sync.At(stamp)-actual)<=quantum+interval*rate,"Quantized samples must not cause unbounded clock lead or lag.");
+                if(elapsed>=3000)Check(Math.Abs(sync.Rate-rate)<=.08,"Quantized timing must converge to the actual rate, including repeated positions.");
+            }
+            double finalPosition=20000+600*interval*rate;
+            for(int i=1;i<=20;i++)
+            {
+                double stamp=1000+(600+i)*interval;
+                sync.Observe(finalPosition,true,stamp,stamp,"quantized",quantum);
+            }
+            Check(!sync.Running && sync.SeekRevision==1,"A genuinely held source must still freeze without inventing a seek.");
+        }
+    }
+    private static void VerifyObservedTiming()
+    {
+        // Relative stamps/positions from the real 2x reproduction; no media metadata.
+        double[][] samples={
+            [1000,20000],[2166.379,22180.899],[2363.838,22619.688],[2679.943,23259.673],
+            [2860.044,23679.964],[3311.413,24541.497],[3529.146,24959.336],[3692.765,25380.655],
+            [3848.793,25600.339],[4093.095,26020.081],[4257.337,26460.9],[4398.401,26659.648],
+            [4757.799,27301.352],[5041.362,27940.728],[5187.244,28199.851],[5330.628,28580.108],
+            [5786.989,29480.431],[6292.498,30563.079],[6645.063,31200.924],[6800.601,31400.832],
+            [7306.616,32519.88],[7607.002,33180.774],[7833.097,33561.023],[8229.569,34201.335]
+        };
+        var sync=new SyncClock();
+        foreach(var sample in samples)
+        {
+            sync.Observe(sample[1],true,sample[0],sample[0],"relative-timing",200);
+            Check(sync.SeekRevision==1,"Observed irregular 2x slider timings must not repeatedly reset the scene.");
+        }
+        Check(Math.Abs(sync.Rate-2)<.2,"Observed missing-rate playback must converge near 2x.");
+    }
+    private static void VerifyMissingRate()
+    {
+        foreach(double rate in new[]{.25,.5,.75,1,1.25,1.5,1.75,2,3})
+        {
+            var sync=new SyncClock();
+            for(int i=0;i<25;i++)
+            {
+                double stamp=1000+i*250,position=20000+i*250*rate;
+                sync.Observe(position,true,stamp,stamp,"no-rate",200,null);
+                Check(sync.SeekRevision==1,$"Missing SMTC rate must not clear continuous {rate}x playback at {i}.");
+                if(i>=4)Check(Math.Abs(sync.Rate-rate)<.01,"Precise continuous motion must supply the missing rate.");
+            }
+            sync.Observe(100000,true,7500,7500,"no-rate",200,null);
+            Check(sync.SeekRevision==2,"A forward seek must not be inferred as an extreme speed.");
+            sync.Observe(1000,false,8000,8000,"no-rate",200,null);
+            Check(sync.SeekRevision==3 && sync.At(9000)==1000,"Backward seeks and pauses remain exact with inferred rate.");
+        }
+        var smallSeek=new SyncClock();
+        for(int i=0;i<6;i++)smallSeek.Observe(10000+i*250,true,1000+i*250,1000+i*250,"small-seek",200);
+        smallSeek.Observe(12250,true,2500,2500,"small-seek",200);
+        smallSeek.Observe(12500,true,2750,2750,"small-seek",200);
+        Check(smallSeek.SeekRevision==2 && Math.Abs(smallSeek.Rate-1)<.01,"An isolated small forward jump must reset once rather than becoming a sustained rate.");
+        var halfSecondSeek=new SyncClock();
+        for(int i=0;i<6;i++)halfSecondSeek.Observe(10000+i*250,true,1000+i*250,1000+i*250,"half-second-seek",200);
+        halfSecondSeek.Observe(12000,true,2500,2500,"half-second-seek",200);
+        halfSecondSeek.Observe(12250,true,2750,2750,"half-second-seek",200);
+        Check(halfSecondSeek.SeekRevision==2 && Math.Abs(halfSecondSeek.Rate-1)<.01,"A genuine 500ms forward seek must still reset once after the confirmation sample.");
+        foreach(double interval in new[]{125d,250,500})
+        {
+            var transition=new SyncClock();
+            double positionMs=10000;
+            for(int i=0;i<40;i++)
+            {
+                double rate=i<10 ? 1 : i<20 ? 2 : i<30 ? 1.75 : 1;
+                if(i>0)positionMs+=interval*rate;
+                double stamp=1000+i*interval;
+                transition.Observe(positionMs,true,stamp,stamp,"rate-change",200);
+                Check(transition.SeekRevision==1,"Continuous menu rate changes must preserve the comment scene when SMTC has no rate.");
+            }
+        }
+    }
+    private static void VerifySurface()
+    {
+        foreach(double rate in new[]{1d,1.5,2,3})
+        {
+            var sync=new SyncClock();
+            sync.Observe(10000,false,1000,1000,"same-video",200,rate);
+            var surface=new OverlaySurface();
+            try
+            {
+                surface.Measure(new Size(1280,720));surface.Arrange(new Rect(0,0,1280,720));
+                double predictionStamp=Monotonic.Now-100;
+                surface.UpdateClock(10000,true,predictionStamp,0,false,0,rate);
+                double predicted=surface.Snapshot(true).PositionMs,after=Monotonic.Now;
+                Check(predicted>=10000+100*rate && predicted<=10000+(after-predictionStamp)*rate+.01,"The renderer clock must receive the supplied rate, not coast at 1x.");
+                surface.Load(new[]{new Comment(10000,1,0xffffff,"rate fixture")});
+                surface.UpdateClock(10000,false,Monotonic.Now,sync.SeekRevision,false,0,rate);surface.Frame();
+                var previous=surface.Snapshot(true);
+                Check(previous.ActiveCount==1,"A precisely timed fixture comment must be admitted.");
+                for(int i=1;i<=4;i++)
+                {
+                    double stamp=1000+i*500;
+                    sync.Observe(10000+i*500*rate,true,stamp,stamp,"same-video",200,rate);
+                    surface.UpdateClock(sync.At(stamp),sync.Running,Monotonic.Now,sync.SeekRevision,false,0,sync.Rate);surface.Frame();
+                    var current=surface.Snapshot(true);
+                    Check(current.ActiveCount==1 && current.X[0]<previous.X[0],"Rate-aware samples must retain the same moving comment instead of clearing/rebuilding it.");
+                    previous=current;
+                }
+            }
+            finally{surface.Detach();}
+        }
+    }
+}

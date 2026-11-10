@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Popcorn;
 
-internal sealed record MediaSample(string Title,double PositionMs,double DurationMs,bool? Playing,double StampMs,bool TimelineFresh);
+internal sealed record MediaSample(string Title,double PositionMs,double DurationMs,bool? Playing,double StampMs,bool TimelineFresh,double? PlaybackRate=null);
 
 internal sealed class MediaSessionReader(CancellationToken stop,PlaybackEventSignal changes=null)
 {
@@ -53,13 +53,15 @@ internal sealed class MediaSessionReader(CancellationToken stop,PlaybackEventSig
             };
             double age=(DateTimeOffset.UtcNow-timeline.LastUpdatedTime).TotalMilliseconds;
             double position=timeline.Position.TotalMilliseconds;
+            double? rate=(double?)info.PlaybackRate;
+            if(rate.HasValue && (!double.IsFinite(rate.Value) || rate.Value<=0 || rate.Value>16))rate=null;
             if (playing==true)
             {
                 if (!double.IsFinite(age) || age< -500) return null;
-                position+=Math.Max(0,age)*((double?)info.PlaybackRate??1);
+                position+=Math.Max(0,age)*(rate??1);
             }
             // LastUpdatedTime is the last timeline update, not the freshness of this successful status read.
-            return new(title,Math.Clamp(position,0,Math.Max(0,timeline.EndTime.TotalMilliseconds)),timeline.EndTime.TotalMilliseconds,playing,Monotonic.Now,playing!=true || age<=1500);
+            return new(title,Math.Clamp(position,0,Math.Max(0,timeline.EndTime.TotalMilliseconds)),timeline.EndTime.TotalMilliseconds,playing,Monotonic.Now,playing!=true || age<=1500,rate);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or ProbeRestartException or TimeoutException))
         {

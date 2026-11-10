@@ -12,12 +12,14 @@ internal sealed class PlayerSampler : IDisposable
     private readonly MediaSessionReader media;
     private readonly PlayerControlCache<AutomationElement> controls;
     private readonly LibrarySeasonReader seasons;
+    private readonly Func<VideoWindow,double?> readRate;
     internal string SeasonEvidence=>seasons.LastReason;
-    public PlayerSampler(CancellationToken stop,PlayerControlCache<AutomationElement> controlCache=null)
+    public PlayerSampler(CancellationToken stop,PlayerControlCache<AutomationElement> controlCache=null,Func<VideoWindow,double?> readRate=null)
     {
         media=new(stop,changes);
         seasons=new(stop);
         controls=controlCache??new(window=>UiaPlayerControls.Discover(window,stop),UiaPlayerControls.Read,()=>Monotonic.Now,stop);
+        this.readRate=readRate;
     }
     public void WaitForNext(int delay)=>changes.Wait(delay);
     public void Dispose()=>changes.Dispose();
@@ -27,11 +29,12 @@ internal sealed class PlayerSampler : IDisposable
         try
         {
             var window=NativeWindows.FindPlayer(media.PreferredTitle);
-            if(window==null) { controls.Invalidate(); changes.Attach(null); return latest=new(null,"",0,null,null,Monotonic.Now,"未检测到播放器","unavailable"); }
+            if(window==null) { readRate?.Invoke(null); controls.Invalidate(); changes.Attach(null); return latest=new(null,"",0,null,null,Monotonic.Now,"未检测到播放器","unavailable"); }
             return latest=Read(window);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or ProbeRestartException or TimeoutException))
         {
+            readRate?.Invoke(null);
             controls.Invalidate(); changes.Attach(null);
             return latest=new(null,"",0,null,null,Monotonic.Now,"无法读取播放器可访问性信息","unavailable");
         }
@@ -40,7 +43,7 @@ internal sealed class PlayerSampler : IDisposable
     {
         var identity=SeriesIdentity.Parse(window.Title);
         string title=identity.Title; int episode=identity.Episode; double? position=null, sliderValue=null, sliderMaximum=null, duration=null; bool? playing=null;
-        double sampleStamp=Monotonic.Now;
+        double sampleStamp=Monotonic.Now; double? rate=null;
         if (title is "网易爆米花" or "爆米花") title="";
         foreach(var current in controls.Read(window))
         {
@@ -77,15 +80,17 @@ internal sealed class PlayerSampler : IDisposable
         if (session!=null && (position.HasValue || session.TimelineFresh) && MediaIdentity.Matches(window.Title,session.Title,duration,session.DurationMs))
         {
             playing=session.Playing;
+            rate=session.PlaybackRate;
             if (!position.HasValue) { position=session.PositionMs; sampleStamp=session.StampMs; precise=true; }
             duration=session.DurationMs;
             source=source=="uia-seekbar-ms" ? "uia-seekbar-ms+smtc" : "smtc";
         }
         int season=title.Length>0 ? seasons.Read(window,identity with{Episode=episode},duration) : 0;
+        rate=readRate?.Invoke(window)??rate;
         if(season>0)title=(identity with{Title=title,Season=season}).QualifiedTitle;
         return new(window,title,episode,position,playing,precise ? sampleStamp : Monotonic.Now,
             position.HasValue && playing.HasValue ? "Windows 媒体会话 + 可访问性 · 窗口客户区" : position.HasValue ? "已读到真实进度，播放/暂停状态尚未确认" : "已识别窗口客户区，但尚未读到完整播放状态/进度",
-            source,precise ? 200 : 1000,duration);
+            source,precise ? 200 : 1000,duration,rate);
     }
     public static double? ParseTime(string text)
     {

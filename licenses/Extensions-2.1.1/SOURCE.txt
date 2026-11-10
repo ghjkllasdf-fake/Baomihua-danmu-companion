@@ -1,0 +1,87 @@
+NuGet diagnostic component license provenance
+Prepared 2026-11-10; proposed package output, not final-package validation.
+Component distribution by Microsoft; retain copyright exactly as in the original notices.
+
+Package: Microsoft.Extensions.Configuration 2.1.1
+NuGet: https://www.nuget.org/packages/Microsoft.Extensions.Configuration/2.1.1
+License from nuspec: licenseUrl; Apache-2.0 for Extensions 2.1.1
+License URL: https://github.com/aspnet/Home (tag 2.0.0, file LICENSE.txt)
+NUPKG SHA256: A673BA19D9A73C9F03E2998CA64C7080CE06820C06776524FB9B3A39F2678408
+Cache: raw archive matches SHA512 sidecar; .nupkg.metadata contentHash matches lock. NuGet signatures were not independently verified.
+
+Package: Microsoft.Extensions.Configuration.Abstractions 2.1.1
+NuGet: https://www.nuget.org/packages/Microsoft.Extensions.Configuration.Abstractions/2.1.1
+License from nuspec: licenseUrl; Apache-2.0 for Extensions 2.1.1
+License URL: https://github.com/aspnet/Home (tag 2.0.0, file LICENSE.txt)
+NUPKG SHA256: DC374770D9B2F8929607843C8B1CC4E0DFE1500BF1DA8E189586A5E118B08B2C
+Cache: raw archive matches SHA512 sidecar; .nupkg.metadata contentHash matches lock. NuGet signatures were not independently verified.
+
+Package: Microsoft.Extensions.Configuration.Binder 2.1.1
+NuGet: https://www.nuget.org/packages/Microsoft.Extensions.Configuration.Binder/2.1.1
+License from nuspec: licenseUrl; Apache-2.0 for Extensions 2.1.1
+License URL: https://github.com/aspnet/Home (tag 2.0.0, file LICENSE.txt)
+NUPKG SHA256: 1557406BCF0F2C06D65D39C4A1AEC0552682F4012343AE8BA3176D2799D12159
+Cache: raw archive matches SHA512 sidecar; .nupkg.metadata contentHash matches lock. NuGet signatures were not independently verified.
+
+Package: Microsoft.Extensions.DependencyInjection.Abstractions 2.1.1
+NuGet: https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection.Abstractions/2.1.1
+License from nuspec: licenseUrl; Apache-2.0 for Extensions 2.1.1
+License URL: https://github.com/aspnet/Home (tag 2.0.0, file LICENSE.txt)
+NUPKG SHA256: 04C534D109A686D1F78CFE5C7A9267A13AF1ACF11259E0D4D22E54AC8A48C066
+Cache: raw archive matches SHA512 sidecar; .nupkg.metadata contentHash matches lock. NuGet signatures were not independently verified.
+
+Package: Microsoft.Extensions.Logging 2.1.1
+NuGet: https://www.nuget.org/packages/Microsoft.Extensions.Logging/2.1.1
+License from nuspec: licenseUrl; Apache-2.0 for Extensions 2.1.1
+License URL: https://github.com/aspnet/Home (tag 2.0.0, file LICENSE.txt)
+NUPKG SHA256: 1E71019808707816A5080797F8A6789042F71971150C183A52AE07E0B279EA8A
+Cache: raw archive matches SHA512 sidecar; .nupkg.metadata contentHash matches lock. NuGet signatures were not independently verified.
+
+Package: Microsoft.Extensions.Logging.Abstractions 2.1.1
+NuGet: https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions/2.1.1
+License from nuspec: licenseUrl; Apache-2.0 for Extensions 2.1.1
+License URL: https://github.com/aspnet/Home (tag 2.0.0, file LICENSE.txt)
+NUPKG SHA256: 4F36D8833E047A6AD828732F07D1D60E4166AB40644DEB4A3D4C01A581E4F7E9
+Cache: raw archive matches SHA512 sidecar; .nupkg.metadata contentHash matches lock. NuGet signatures were not independently verified.
+
+Package: Microsoft.Extensions.Options 2.1.1
+NuGet: https://www.nuget.org/packages/Microsoft.Extensions.Options/2.1.1
+License from nuspec: licenseUrl; Apache-2.0 for Extensions 2.1.1
+License URL: https://github.com/aspnet/Home (tag 2.0.0, file LICENSE.txt)
+NUPKG SHA256: 7423C0E7A5AFF5C2EECFBDB43E655B936A1775AD6DF5948094FF3F7250D4F771
+Cache: raw archive matches SHA512 sidecar; .nupkg.metadata contentHash matches lock. NuGet signatures were not independently verified.
+
+Package: Microsoft.Extensions.Primitives 2.1.1
+NuGet: https://www.nuget.org/packages/Microsoft.Extensions.Primitives/2.1.1
+License from nuspec: licenseUrl; Apache-2.0 for Extensions 2.1.1
+License URL: https://github.com/aspnet/Home (tag 2.0.0, file LICENSE.txt)
+NUPKG SHA256: 9DBBB639E40659E1BC40AA6800EC4843C68FCC36D61E06F32D7879E71A9E790C
+Cache: raw archive matches SHA512 sidecar; .nupkg.metadata contentHash matches lock. NuGet signatures were not independently verified.
+
+Source: https://github.com/aspnet/Configuration/tree/2679cfd94694a29230726708717ab9c4579a5d80
+Original: https://raw.githubusercontent.com/aspnet/Configuration/2679cfd94694a29230726708717ab9c4579a5d80/LICENSE.txt
+
+Source: https://github.com/aspnet/DependencyInjection/tree/930037a4f8b74a9c1e30d881507a05bea0a7c2e0
+Original: https://raw.githubusercontent.com/aspnet/DependencyInjection/930037a4f8b74a9c1e30d881507a05bea0a7c2e0/LICENSE.txt
+
+Source: https://github.com/aspnet/Logging/tree/a0398f0baf9ecc8e5fb6afc3a9b89f0d49cf041e
+Original: https://raw.githubusercontent.com/aspnet/Logging/a0398f0baf9ecc8e5fb6afc3a9b89f0d49cf041e/LICENSE.txt
+
+Source: https://github.com/aspnet/Options/tree/686e26b3a2999c841d736b689b0a1a768fdecbf8
+Original: https://raw.githubusercontent.com/aspnet/Options/686e26b3a2999c841d736b689b0a1a768fdecbf8/LICENSE.txt
+
+Source: https://github.com/aspnet/Common/tree/dcc0f3ba2aef1cd6b0c6403171af7c91e6094382
+Original: https://raw.githubusercontent.com/aspnet/Common/dcc0f3ba2aef1cd6b0c6403171af7c91e6094382/LICENSE.txt
+
+Nuspec license notice: https://github.com/aspnet/Home (tag 2.0.0, file LICENSE.txt)
+Full license: https://www.apache.org/licenses/LICENSE-2.0.txt
+No standalone NOTICE file in the pinned source repository roots. Root LICENSE copyright notices retained individually.
+
+Files and SHA256:
+9e1510118e6fabdc2af3c7f3b8bce967b0d467897d84f11d66350baccec7abfb  aspnet-Home-2.0.0-LICENSE.txt
+cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30  Apache-2.0-LICENSE.txt
+66c040f0c39673c81b2fab2446c2ee88bec6c323b3e7752cc255f928539f6aca  Configuration-LICENSE.txt
+66c040f0c39673c81b2fab2446c2ee88bec6c323b3e7752cc255f928539f6aca  DependencyInjection-LICENSE.txt
+66c040f0c39673c81b2fab2446c2ee88bec6c323b3e7752cc255f928539f6aca  Logging-LICENSE.txt
+66c040f0c39673c81b2fab2446c2ee88bec6c323b3e7752cc255f928539f6aca  Options-LICENSE.txt
+66c040f0c39673c81b2fab2446c2ee88bec6c323b3e7752cc255f928539f6aca  Common-LICENSE.txt

@@ -74,7 +74,7 @@ export function allowedEntry(path, apiEntries = null) {
     /^(?:en|zh-Hans|zh-Hant)\/[A-Za-z0-9_.-]+\.resources\.dll$/.test(path) ||
     /^assets\/(?:app|tray)\.ico$/.test(path) ||
     /^ui\/dist\/(?:index\.html|favicon\.ico|assets\/[A-Za-z0-9_.-]+\.(?:js|css|svg|png|jpg|webp|woff2))$/.test(path) ||
-    /^licenses\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\.(?:txt|rtf|json|nuspec|html|md)$/.test(path);
+    /^licenses\/[A-Za-z0-9_.-]+\/(?:LICENSE|[A-Za-z0-9_.-]+\.(?:txt|rtf|json|nuspec|html|md))$/i.test(path);
 }
 
 export function assertPayloadBudget(records, extraBytes = 0, includeApi = false) {

@@ -16,17 +16,75 @@ npm.cmd --prefix ui run test:e2e
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release
 node --test tests/release-package.test.mjs tests/native-archive.test.mjs tests/installer-guard.test.mjs tests/browser-prerequisite.test.mjs tests/source-state.test.mjs
 node scripts/check-release-mutation.mjs
-node scripts/build-release.mjs --version 0.2.0
-node scripts/test-release.mjs --version 0.2.0
+node scripts/build-release.mjs --version 0.2.1
+node scripts/test-release.mjs --version 0.2.1
 ```
 
-运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.0/`，同一变体的安装版和 Portable 来自同一 manifest payload；普通版应用文件不得超过 210 MiB，includeAPI 使用独立的 400 MiB 预算，且白名单拒绝私有浏览器目录。
+运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.1/`，同一变体的安装版和 Portable 来自同一 manifest payload；普通版应用文件不得超过 210 MiB，includeAPI 使用独立的 400 MiB 预算，且白名单拒绝私有浏览器目录。
 
 `test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝已有安装直接换目录、原位重装、安装清单内同名替换文件覆盖、卸载及额外用户文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
 
 非 `app` profile 使用隔离 `data-root/profile`，测试禁止读写真实 API 或浏览器数据。正常应用配置使用 `%LOCALAPPDATA%/BaomihuaDanmuCompanion`，不再使用程序目录下的 `.cache`。启动项迁移须用户显式操作；卸载按 Inno 安装日志删除程序文件（包括同名替换文件），只清理指向本安装的开机快捷方式；不递归清空目录或删除个人数据。
 
-构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.0` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
+构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.1` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
+
+### 播放器倍速诊断组件与许可输入
+
+Probe 单独引用 `Microsoft.Diagnostics.Runtime` 3.1.512801；以 `desktop/NativeProbe/packages.lock.json` 为准，新增的托管输出共 11 个 DLL：
+
+```text
+Microsoft.Diagnostics.Runtime.dll                         3.1.512801
+Microsoft.Diagnostics.NETCore.Client.dll                  0.2.410101
+Microsoft.Bcl.AsyncInterfaces.dll                         1.1.0
+Microsoft.Extensions.Configuration.dll                    2.1.1
+Microsoft.Extensions.Configuration.Abstractions.dll       2.1.1
+Microsoft.Extensions.Configuration.Binder.dll             2.1.1
+Microsoft.Extensions.DependencyInjection.Abstractions.dll  2.1.1
+Microsoft.Extensions.Logging.dll                          2.1.1
+Microsoft.Extensions.Logging.Abstractions.dll             2.1.1
+Microsoft.Extensions.Options.dll                          2.1.1
+Microsoft.Extensions.Primitives.dll                       2.1.1
+```
+
+使用同一固定依赖的 locked restore，不按“当前最新版”重新选择许可。包 nuspec 中未选中的 .NET Standard 依赖组不等于本目标实际新增的运行文件。
+
+原生诊断输入来自 `Microsoft.NETCore.App.Runtime.win-x64` 8.0.28 的 `runtimes/win-x64/native/mscordaccore.dll`，发布到应用根目录为 `Baomihua.PlayerRate.Dac.dll`。原 DLL 长度为 1,348,488 字节，SHA256 为 `6f7a3520fb5a30d1c747e7d232b219c1c97a2270429da7aa1f572ac2c60b28be`；重命名后必须保持相同字节。`native-toolchain.json` 的 `playerRateDac` 固定 NuGet 归档来源与 SHA512，`runtimeFiles` 固定 DLL SHA256，Probe 的 `PackageDownload` 固定包版本。Probe 从自身目录加载固定 DAC，不从播放器目录加载或锁定播放器的诊断 DLL，也不创建 DAC 运行时缓存。应用目标仍是 .NET 10；只分发此诊断文件，不新增 .NET 8 运行环境要求。
+
+倍速定位对受支持播放器的文件身份及对象结构进行核对，非挂起地读取当前进程状态；后续绑定通过只读进程句柄读取，不执行播放器代码、注入模块或修改设置。此说明不是对所有播放器版本、权限策略或 DPI 环境的兼容保证，局部采样耗时也不等于端到端响应或性能验收。
+
+每次后台定位（包括首次冷初始化、绑定失效及换进程后的重绑）使用独立的 8 秒上限；这不是采样或交互响应等待时间，也不延长原有媒体调用与采样帧期限。定位期间继续正常采样，真正超时仍回收自有 Probe；模块范围复用诊断目标已有清单，不重复全量枚举系统模块。Probe 失败只报告异常类型及代码位置，不输出异常消息中的播放器数据，宿主最多保留末尾 4096 字符，原有 stderr 总量上限不变。
+
+#### 固定源码与许可归属
+
+| 组件 | NuGet 版本 | 源码仓库与固定提交 | 许可 |
+|---|---|---|---|
+| ClrMD | 3.1.512801 | [microsoft/clrmd · c9edb15](https://github.com/microsoft/clrmd/tree/c9edb15ebd4c58a1f2db3e17693124b70235faa1) | MIT |
+| Diagnostics Client | 0.2.410101 | [dotnet/diagnostics · f993832](https://github.com/dotnet/diagnostics/tree/f99383213ea19741908f5aa3cf0ed400db2e5f0a) | MIT，加原始第三方声明 |
+| AsyncInterfaces | 1.1.0 | [dotnet/corefx · 0f7f38c](https://github.com/dotnet/corefx/tree/0f7f38c4fd323b26da10cce95f857f77f0f09b48)，由包内 `version.txt` 标识 | MIT，加包内第三方声明 |
+| Extensions.Configuration、Configuration.Abstractions、Configuration.Binder | 2.1.1 | [aspnet/Configuration · 2679cfd](https://github.com/aspnet/Configuration/tree/2679cfd94694a29230726708717ab9c4579a5d80) | Apache-2.0 |
+| Extensions.DependencyInjection.Abstractions | 2.1.1 | [aspnet/DependencyInjection · 930037a](https://github.com/aspnet/DependencyInjection/tree/930037a4f8b74a9c1e30d881507a05bea0a7c2e0) | Apache-2.0 |
+| Extensions.Logging、Logging.Abstractions | 2.1.1 | [aspnet/Logging · a0398f0](https://github.com/aspnet/Logging/tree/a0398f0baf9ecc8e5fb6afc3a9b89f0d49cf041e) | Apache-2.0 |
+| Extensions.Options | 2.1.1 | [aspnet/Options · 686e26b](https://github.com/aspnet/Options/tree/686e26b3a2999c841d736b689b0a1a768fdecbf8) | Apache-2.0 |
+| Extensions.Primitives | 2.1.1 | [aspnet/Common · dcc0f3b](https://github.com/aspnet/Common/tree/dcc0f3ba2aef1cd6b0c6403171af7c91e6094382) | Apache-2.0 |
+| DAC | 8.0.28 | [dotnet/runtime · 46295af](https://github.com/dotnet/runtime/tree/46295af5828b062bbbf93a9cef50fd8cb9fbcb09) | MIT，加该包第三方声明 |
+
+#### 随包许可文件
+
+构建器须将下列独立输入复制进普通版和 includeAPI payload，并让对应源码保留来源与说明。路径为发布输出约定；源码工作树不要求预置生成后的 `licenses/` 目录。
+
+| 发布目录 | 需要复制的原始文件 |
+|---|---|
+| `licenses/ClrMD/` | 固定 ClrMD 源码的 `LICENSE` |
+| `licenses/DiagnosticsClient/` | 固定 Diagnostics 源码的 `LICENSE.TXT`、`THIRD-PARTY-NOTICES.TXT` |
+| `licenses/AsyncInterfaces/` | AsyncInterfaces 1.1.0 包内的 `LICENSE.TXT`、`THIRD-PARTY-NOTICES.TXT` |
+| `licenses/Extensions-2.1.1/` | nuspec 指向的 `aspnet/Home` 2.0.0 `LICENSE.txt` 告知、Apache-2.0 完整许可文本，以及五个固定 Extensions 源码仓库各自的 `LICENSE.txt`（可加仓库名前缀，避免覆盖） |
+| `licenses/PlayerRateDac/` | .NET 8.0.28 runtime NuGet 包自己的 `LICENSE.TXT`、`THIRD-PARTY-NOTICES.TXT` |
+
+每组另附 `SOURCE.txt`，记录 NuGet 标识与版本、源码提交及原文地址、校验值和上游版权；DAC 还记录原文件路径与重命名关系。当前固定 Extensions 源码根目录未包含独立 `NOTICE` 文件，不能编造该文件或据此删除其原有版权告知；以后依赖改变时重新核对。
+
+保留原始许可文件，不以包元数据里的 Microsoft 作者字段覆盖原文的 .NET Foundation and Contributors 归属，也不将八个 Extensions 2.1.1 包归为 MIT。已有 `licenses/Dotnet/` 的 .NET 10 文件继续保留，但不能覆盖这里的独立声明。
+
+发布白名单、文件清单、hash 和最终 ZIP／安装结果须同时核对这 11 个托管 DLL、固定 DAC 及相应许可文件。源码或许可输入更新后重新生成对应产物与清单，不将旧包哈希当作新包证明。
 
 ### 多季匹配回归
 
@@ -47,6 +105,8 @@ node scripts/test-release.mjs --version 0.2.0
 显式诊断 `--seek-live-sampler SECONDS` 只读输出当前播放器与时钟状态；`--packaged-playback ABS_INCLUDEAPI_PAYLOAD SECONDS` 在隔离配置中实际加载指定成品的主程序 DLL、采样器和内置服务，并记录渲染状态。后者需要当前播放器保持可见且允许实际联网；会短暂显示真实弹幕，不操作视频。输出仅保存在忽略的 `artifacts`，含当前片名与弹幕文本，不应原样公开。
 
 `--packaged-shutdown ABS_INCLUDEAPI_PAYLOAD SECONDS` 只验证观察器定时结束、原生握手与关闭收尾，不要求视频或弹幕出现，不能代替播放验收。观察器防止跨 Dispatcher 取样时的计时器重入，关闭前先停止取样；启动未完成或提前退出仍视为失败。
+
+`--packaged-playback-passive ABS_INCLUDEAPI_PAYLOAD SECONDS RATE` 在同一观察器中额外检查整段无输入播放的连续性：不能重启 Probe、首个有效帧之后不能失联、已读取的原生速率必须匹配指定值且 seek revision 不能变化。录制开头不裁作热身；需另外记录输入活动确认没有用户操作。普通观察器的“加载过评论并正常退出”通过结果不能替代此连续性验收。
 
 ### 中英文资源
 

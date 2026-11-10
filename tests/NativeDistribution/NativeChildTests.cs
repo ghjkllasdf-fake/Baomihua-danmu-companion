@@ -60,6 +60,7 @@ internal static class NativeChildTests
                     {
                         for(int i=0;i<100 && !child.ErrorDrainFailed;i++)await Task.Delay(10);
                         DistributionTests.Check(child.ErrorDrainFailed,"Native stderr must retain its byte budget.");
+                        DistributionTests.Check(child.ErrorTail.Length==4096 && child.ErrorTail.Trim('x').Length==0,"Native diagnostics must retain only the bounded stderr tail.");
                     }
                 }
                 finally{DistributionTests.Check(await child.StopAndReapAsync(),"Native child and reads must finish bounded cleanup.");}

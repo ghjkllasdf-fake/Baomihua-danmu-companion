@@ -7,7 +7,15 @@
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Diagnostics.Runtime" Version="3.1.512801" />
+    <None Include="../../.deps/nuget/microsoft.netcore.app.runtime.win-x64/8.0.28/runtimes/win-x64/native/mscordaccore.dll" Link="Baomihua.PlayerRate.Dac.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Compile Include="../native/PlayerRateBinding.cs" Link="Native/PlayerRateBinding.cs" />
     <Compile Include="../native/SeriesIdentity.cs;../native/LibrarySeasonReader.cs;../native/CachedSeasonReader.cs" Link="Native/%(Filename)%(Extension)" />
     <Compile Include="../native/Core.cs;../native/PlaybackModels.cs;../native/ProbeGate.cs;../native/ProbeTransport.cs;../native/ProbeOperation.cs;../native/PlaybackEventSignal.cs;../native/MediaSession.cs;../native/Windows.cs;../native/PlayerControlCache.cs;../native/UiaPlayerControls.cs;../native/PlayerSampler.cs;../native/ProbeCadence.cs;../native/ProbeWorkerRuntime.cs;../native/NativeRuntime.cs;../native/ApplicationPaths.cs" Link="Native/%(Filename)%(Extension)" />
   </ItemGroup>
+  <Target Name="IncludePlayerRateDiagnosticPack" BeforeTargets="CollectPackageDownloads" DependsOnTargets="ProcessFrameworkReferences">
+    <ItemGroup>
+      <PackageDownload Update="Microsoft.NETCore.App.Runtime.win-x64" Version="[8.0.28];[$(RuntimeFrameworkVersion)]" />
+    </ItemGroup>
+  </Target>
 </Project>
