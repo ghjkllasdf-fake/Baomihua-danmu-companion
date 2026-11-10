@@ -16,17 +16,17 @@ npm.cmd --prefix ui run test:e2e
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release
 node --test tests/release-package.test.mjs tests/native-archive.test.mjs tests/installer-guard.test.mjs tests/browser-prerequisite.test.mjs tests/source-state.test.mjs
 node scripts/check-release-mutation.mjs
-node scripts/build-release.mjs --version 0.2.1
-node scripts/test-release.mjs --version 0.2.1
+node scripts/build-release.mjs --version 0.2.2
+node scripts/test-release.mjs --version 0.2.2
 ```
 
-运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.1/`，同一变体的安装版和 Portable 来自同一 manifest payload；普通版应用文件不得超过 210 MiB，includeAPI 使用独立的 400 MiB 预算，且白名单拒绝私有浏览器目录。
+运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.2/`，同一变体的安装版和 Portable 来自同一 manifest payload；普通版应用文件不得超过 210 MiB，includeAPI 使用独立的 400 MiB 预算，且白名单拒绝私有浏览器目录。
 
 `test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝已有安装直接换目录、原位重装、安装清单内同名替换文件覆盖、卸载及额外用户文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
 
 非 `app` profile 使用隔离 `data-root/profile`，测试禁止读写真实 API 或浏览器数据。正常应用配置使用 `%LOCALAPPDATA%/BaomihuaDanmuCompanion`，不再使用程序目录下的 `.cache`。启动项迁移须用户显式操作；卸载按 Inno 安装日志删除程序文件（包括同名替换文件），只清理指向本安装的开机快捷方式；不递归清空目录或删除个人数据。
 
-构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.1` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
+构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.2` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
 
 ### 播放器倍速诊断组件与许可输入
 
@@ -85,6 +85,10 @@ Microsoft.Extensions.Primitives.dll                       2.1.1
 保留原始许可文件，不以包元数据里的 Microsoft 作者字段覆盖原文的 .NET Foundation and Contributors 归属，也不将八个 Extensions 2.1.1 包归为 MIT。已有 `licenses/Dotnet/` 的 .NET 10 文件继续保留，但不能覆盖这里的独立声明。
 
 发布白名单、文件清单、hash 和最终 ZIP／安装结果须同时核对这 11 个托管 DLL、固定 DAC 及相应许可文件。源码或许可输入更新后重新生成对应产物与清单，不将旧包哈希当作新包证明。
+
+### 手选弹幕与识别连续性
+
+手动选择弹幕后，在当前媒体版本和 API 服务端点内保留手选归属；窗口、片名暂时不可用不等同于换片，不因此重新应用自动分集。真正切换媒体版本或 API 服务端点才恢复自动匹配。该修复不改变分集序号或季数匹配算法。
 
 ### 多季匹配回归
 

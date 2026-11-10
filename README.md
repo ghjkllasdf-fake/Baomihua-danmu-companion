@@ -8,9 +8,9 @@
 
 它是配合播放器使用的小工具，不提供影视资源。获取弹幕需要联网。
 
-**0.2.1**：修复倍速播放时弹幕消失或闪现，以及流光玻璃皮肤圆角显示。
+**0.2.2**：修复手动选择弹幕后，全屏切换可能恢复错误自动分集的问题。
 
-**[下载 0.2.1 正式版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.2.1)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
+**[下载 0.2.2 正式版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.2.2)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
 
 **0.2 正式版**：includeAPI 取消本地弹幕拉取次数限流。全新配置默认使用第一款皮肤、0.6 倍弹幕速度、100% 不透明度、零描边、100% 阴影，开启等比缩放并使用密集弹幕；已有保存偏好不变。详见 [更新记录](CHANGELOG.md)。
 
@@ -34,14 +34,14 @@
 
 **没有自己的弹幕服务，选 includeAPI 安装版。** 它会自动启动包内的本机服务，无需填写地址。已有可用弹幕 API 的用户可以选普通版，文件更小。
 
-本文对应 `0.2.1`，提供普通版和 includeAPI 的安装版／Portable、对应源码 ZIP 及 `SHA256SUMS.txt`，共六项附件。
+本文对应 `0.2.2`，提供普通版和 includeAPI 的安装版／Portable、对应源码 ZIP 及 `SHA256SUMS.txt`，共六项附件。
 
 | 版本 | 适合谁 | 安装包 | 免安装包 |
 |---|---|---|---|
-| includeAPI 版 | 想直接使用，不自行部署服务 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.1/DanmuCompanion-0.2.1-win-x64-includeAPI-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.1/DanmuCompanion-0.2.1-win-x64-includeAPI-portable.zip) |
-| 普通版 | 已有兼容的弹幕 API 地址 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.1/DanmuCompanion-0.2.1-win-x64-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.1/DanmuCompanion-0.2.1-win-x64-portable.zip) |
+| includeAPI 版 | 想直接使用，不自行部署服务 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/DanmuCompanion-0.2.2-win-x64-includeAPI-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/DanmuCompanion-0.2.2-win-x64-includeAPI-portable.zip) |
+| 普通版 | 已有兼容的弹幕 API 地址 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/DanmuCompanion-0.2.2-win-x64-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/DanmuCompanion-0.2.2-win-x64-portable.zip) |
 
-其他附件：[对应源码 ZIP](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.1/DanmuCompanion-0.2.1-corresponding-source.zip) · [SHA256SUMS.txt](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.1/SHA256SUMS.txt)。
+其他附件：[对应源码 ZIP](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/DanmuCompanion-0.2.2-corresponding-source.zip) · [SHA256SUMS.txt](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/SHA256SUMS.txt)。
 
 - **安装版**：运行下载的安装包，按提示完成安装，再从开始菜单打开“爆米花弹幕伴侣”或“爆米花弹幕伴侣 includeAPI”。默认安装到当前用户目录。
 - **Portable 版**：把 ZIP **完整解压**到本地可写文件夹，再运行其中的 `DanmuCompanion.exe`。无需额外准备或登记即可检查新版本；升级时退出旧版并解压到新文件夹，不要只复制 EXE 或在压缩软件里直接运行。
@@ -121,7 +121,7 @@ includeAPI 版在“更多设置 → 选择弹幕来源”中调整来源。可�
 3. 选中正确的作品和来源，点击 **“载入分集”**。
 4. 确认当前分集，点击 **“加载这一集的弹幕”**。
 
-手动选择后，当前视频使用你选的弹幕；切换视频时恢复自动匹配。弹幕时间不合适时，先确认来源和集数，再到“更多设置 → 过滤与时间微调”调整偏移：**正值让弹幕晚出现，负值让弹幕早出现**。
+手动选择后，当前视频使用你选的弹幕；全屏切换等造成当前视频暂时无法识别时仍保留手选。真正切换媒体或更换 API 服务端点时，才恢复自动匹配。弹幕时间不合适时，先确认来源和集数，再到“更多设置 → 过滤与时间微调”调整偏移：**正值让弹幕晚出现，负值让弹幕早出现**。
 
 <details>
 <summary>查看手动搜索和更多设置</summary>
