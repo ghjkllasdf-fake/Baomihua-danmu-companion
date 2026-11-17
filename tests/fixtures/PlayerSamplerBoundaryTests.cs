@@ -54,6 +54,7 @@ public static class PlayerSamplerBoundaryTests
         CheckEventIntegration();
         CheckPrivilegeIntegration();
         CheckNativeIntegration();
+        CheckSlowTimelineIntegration();
         CheckSeasonsWithoutAccessibility();
         Console.WriteLine("PASS: restart failures escape actual sampler/SMTC filters; ordinary loss clears stale window and playback proof.");
     }
@@ -64,6 +65,8 @@ public static class PlayerSamplerBoundaryTests
             if(video!=null)reads++;
             return new(1000,60000,true,1);
         });
+        var media=(MediaSessionReader)typeof(PlayerSampler).GetField("media",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(sampler);
+        typeof(MediaSessionReader).GetField("manager",BindingFlags.NonPublic|BindingFlags.Instance).SetValue(media,new EmptyMediaManager());
         window=new(new IntPtr(1),"fixture movie",0,0,1280,720);
         try
         {
@@ -123,7 +126,7 @@ public static class PlayerSamplerBoundaryTests
             value=new(8000,60000,false,1.75);sample=sampler.Poll();
             if(sample.Source!="player-memory" || sample.PositionMs!=8000 || sample.Playing!=false)
                 throw new Exception("New native proof must replace rejected fallback evidence.");
-            window=window with{Title="next fixture movie"};value=new(1200,90000,true,1);sample=sampler.Poll();
+            window=window with{Title="next fixture movie"};value=new(1200,90000,true,1);SetSession(window.Title,0);sample=sampler.Poll();
             if(sample.Title!=window.Title || sample.PositionMs!=1200 || sample.DurationMs!=90000 || sample.Playing!=true)
                 throw new Exception("A real media/title change must publish its new native position and duration, not the previous movie.");
             value=null;SetSession(window.Title,10000);sample=sampler.Poll();
@@ -132,6 +135,46 @@ public static class PlayerSamplerBoundaryTests
         }
         finally{window=null;}
         Console.WriteLine("PASS: native progress/state/rate, pause/seek, wire, fresh matching SMTC, stale/mismatched rejection and loss of proof never access a toxic UIA provider.");
+    }
+    private static void CheckSlowTimelineIntegration()
+    {
+        foreach(double rate in new[]{1d,1.75,2})
+        {
+            var poison=new PlayerControlCache<AutomationElement>(_=>throw new Exception("SMTC compatibility must not access UIA."),_=>throw new Exception("Unexpected UIA read."),()=>Monotonic.Now);
+            using var sampler=new PlayerSampler(CancellationToken.None,poison,readPlayback:_=>null);
+            var reader=(MediaSessionReader)typeof(PlayerSampler).GetField("media",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(sampler);
+            var session=new SamplerEventSession();session.Info.PlaybackRate=rate;
+            session.Timeline.LastUpdatedTime=DateTimeOffset.UtcNow.AddSeconds(-5);
+            window=new(new IntPtr(1),"fixture slow timeline",0,0,1280,720);
+            try
+            {
+                foreach(var (name,value) in new (string,object)[]{("manager",new SamplerEventManager{Sessions=new object[]{session}}),("session",session),("title",window.Title),("requestedTitle",window.Title),("metadataAt",Monotonic.Now)})
+                    typeof(MediaSessionReader).GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).SetValue(reader,value);
+                var sample=sampler.Poll();
+                if(sample.Source!="smtc" || sample.Playing!=true || sample.PlaybackRate!=rate || sample.PositionMs<1000+5000*rate || sample.PositionMs>1000+5500*rate)
+                    throw new Exception("A successful matching SMTC read with a normal five-second anchor must remain synchronized at its real rate.");
+                var clock=new SyncClock();clock.Observe(sample.PositionMs,sample.Playing,sample.StampMs,Monotonic.Now,"fixture",sample.PositionResolutionMs,sample.PlaybackRate);
+                if(clock.Mode!="automatic" || clock.Rate!=rate)throw new Exception("A timeline anchor is not the freshness timestamp of the current status read.");
+                session.Info.PlaybackStatus="Paused";sample=sampler.Poll();
+                if(sample.Playing!=false || sample.PositionMs<1000+5000*rate)throw new Exception("Pause with an unchanged old anchor must freeze the displayed position, not rewind to that anchor.");
+                session.Timeline.Position=TimeSpan.FromSeconds(3);session.Timeline.LastUpdatedTime=DateTimeOffset.UtcNow;sample=sampler.Poll();
+                if(sample.Playing!=false || sample.PositionMs!=3000)throw new Exception("A new pause/seek anchor must supply its exact position.");
+                session.Info.PlaybackStatus="Changing";session.Timeline.EndTime=TimeSpan.Zero;sample=sampler.Poll();
+                sample=ProbeProtocol.Decode(ProbeProtocol.Encode(sample,1),0,Monotonic.Now).Sample;
+                if(sample.PositionMs!=null || sample.Playing!=null || !sample.PlaybackBlocked)throw new Exception("Explicit buffering/transition status must survive sampler and wire even without a valid duration.");
+                clock.Observe(sample.PositionMs,sample.Playing,sample.StampMs,Monotonic.Now,"fixture",200,sample.PlaybackRate,sample.PlaybackBlocked);
+                if(clock.Running || clock.Mode!="stale")throw new Exception("An explicit transition must not use the missing-read continuity lease.");
+                session.Info.PlaybackStatus="Playing";session.Timeline.EndTime=TimeSpan.FromSeconds(60);session.Timeline.Position=TimeSpan.FromSeconds(30);session.Timeline.LastUpdatedTime=DateTimeOffset.UtcNow;sample=sampler.Poll();
+                clock.Observe(sample.PositionMs,sample.Playing,sample.StampMs,Monotonic.Now,"fixture",200,sample.PlaybackRate,sample.PlaybackBlocked);
+                if(!clock.Running)throw new Exception("The pause regression must begin with admitted playing proof.");
+                session.Info.PlaybackStatus="Paused";session.Timeline.EndTime=TimeSpan.Zero;sample=sampler.Poll();
+                sample=ProbeProtocol.Decode(ProbeProtocol.Encode(sample,1),0,Monotonic.Now).Sample;
+                clock.Observe(sample.PositionMs,sample.Playing,sample.StampMs,Monotonic.Now,"fixture",200,sample.PlaybackRate,sample.PlaybackBlocked);
+                if(!sample.PlaybackBlocked || clock.Running || clock.Mode!="stale")throw new Exception("An explicit pause with invalid timeline must immediately stop through sampler/wire/Core, without coasting or old-anchor rewind.");
+            }
+            finally{window=null;}
+        }
+        Console.WriteLine("PASS: normal five-second SMTC anchors remain usable without a native profile or UIA; exact rates and explicit pause survive projection.");
     }
     private static void CheckSeasonsWithoutAccessibility()
     {
@@ -253,12 +296,12 @@ public sealed class SamplerEventSession
 }
 public sealed class SamplerEventInfo
 {
-    public string PlaybackStatus=>"Playing";
-    public double? PlaybackRate=>1;
+    public string PlaybackStatus {get;set;}="Playing";
+    public double? PlaybackRate {get;set;}=1;
 }
 public sealed class SamplerEventTimeline
 {
-    public TimeSpan Position=>TimeSpan.FromSeconds(1);
-    public TimeSpan EndTime=>TimeSpan.FromSeconds(60);
+    public TimeSpan Position {get;set;}=TimeSpan.FromSeconds(1);
+    public TimeSpan EndTime {get;set;}=TimeSpan.FromSeconds(60);
     public DateTimeOffset LastUpdatedTime {get;set;}=DateTimeOffset.UtcNow;
 }

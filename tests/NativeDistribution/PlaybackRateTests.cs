@@ -56,10 +56,43 @@ internal static class PlaybackRateTests
         VerifyRecordedJitter();
         VerifyUnequalSampleIntervals();
         VerifyDelayedClockAnchors();
+        VerifyBriefMissingProof();
+        MediaTimelineTests.Run();
         VerifySurface();
         PlayerRateBindingTests.Run();
         NativePlayerRateSourceTests.Run();
         Console.WriteLine($"PASS: {checks} checks for 1/1.5/2/3x timing, real seeks, pauses, rate transitions and probe packet compatibility.");
+    }
+    private static void VerifyBriefMissingProof()
+    {
+        var sync=new SyncClock();sync.Observe(10000,true,1000,1000,"gap",200,2);
+        for(int stamp=1200;stamp<=2400;stamp+=200)
+        {
+            sync.Observe(null,null,stamp,stamp,"gap",200);
+            Check(sync.Mode=="automatic" && sync.Running && sync.SeekRevision==1,"A brief complete read gap must preserve the admitted scene within its existing proof lease.");
+            Check(sync.LastProofMs==1000 && sync.Rate==2,"Missing samples cannot refresh proof or erase the confirmed playback rate.");
+        }
+        sync.Observe(null,null,2600,2600,"gap",200);
+        Check(sync.Mode=="stale" && !sync.Running && sync.LastProofMs==1000,"Repeated empty packets must still expire at the original 1500ms proof deadline.");
+        sync.Observe(13200,true,2601,2601,"gap",200,2);
+        Check(sync.Mode=="automatic" && sync.SeekRevision==1,"Continuous recovery must not replay the same scene as a seek.");
+        sync.Observe(13300,false,2800,2800,"gap",200,2);
+        Check(!sync.Running && sync.At(4000)==13300,"An explicit pause must remain immediate, not use the missing-read lease.");
+        sync.Observe(13300,null,3000,3000,"gap",200,2);
+        Check(sync.Mode=="stale" && !sync.Running,"Known-position buffering must not be mistaken for a completely missing read.");
+        sync.Observe(null,null,3200,3200,"different-media",200);
+        Check(sync.Mode=="unavailable" && !sync.Running,"A new media identity cannot inherit the old proof lease.");
+        var cold=new SyncClock();cold.Observe(null,null,1000,1000,"cold",200);
+        Check(cold.Mode=="unavailable" && !cold.Running,"Missing startup data must never invent a playing clock.");
+        foreach(double elapsed in new[]{1499d,1500,1501})
+        {
+            var boundary=new SyncClock();boundary.Observe(10000,true,1000,1000,"lease",200,2);
+            boundary.Observe(null,null,1000+elapsed,1000+elapsed,"lease",200);
+            Check(boundary.Mode==(elapsed<=1500 ? "automatic" : "stale") && boundary.LastProofMs==1000 && boundary.SeekRevision==1,"Read gaps must obey the exact unchanged 1500ms proof boundary.");
+        }
+        var buffering=new SyncClock();buffering.Observe(10000,true,1000,1000,"buffer",200,2);
+        buffering.Observe(null,null,1200,1200,"buffer",200,null,true);
+        Check(buffering.Mode=="stale" && !buffering.Running,"Explicit buffering without a valid duration/position must stop immediately, not coast as a missing packet.");
     }
     private static void VerifyDelayedClockAnchors()
     {

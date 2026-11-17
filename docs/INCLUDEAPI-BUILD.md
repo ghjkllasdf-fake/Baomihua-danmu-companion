@@ -103,3 +103,14 @@ Use a draft Release, verify uploaded assets by downloaded bytes, then publish
 with the concise version title and Changelog-only notes. Mark `-beta.N` versions
 as prereleases and `0.2.3` as stable. Do not rewrite old assets/tags. The
 corresponding-source asset and checksums must remain available with the executable release.
+
+The withdrawn 0.2.3 has a one-time, explicitly user-authorized same-version
+republication exception; use plain 0.2.3, not a hotfix suffix or 0.2.4.
+Retain the old byte digests, withdrawal evidence, QA/DOCS_GO and failure history
+locally. Freeze a new exact candidate and use separate local output/evidence
+directories; do not overwrite old build outputs. Before the authorized tag/asset
+replacement, obtain new matching QA and documentation approval for all six new
+assets. The release tag, corresponding source and uploaded bytes must match;
+old GO records do not approve the new bytes. Other releases retain the normal
+no-rewrite rule. Tell existing 0.2.3 users to download and reinstall manually:
+an equal version will not trigger the update notification.
