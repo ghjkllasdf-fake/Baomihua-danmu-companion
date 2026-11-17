@@ -41,6 +41,19 @@ internal sealed class NativePlayerRateSource : IDisposable
         uint selected=0;if(window!=null)GetWindowThreadProcessId(window.Handle,out selected);
         return ReadProcess(selected<=int.MaxValue ? (int)selected : 0);
     }
+    internal PlayerPlaybackReading ReadPlayback(VideoWindow window)
+    {
+        uint selected=0;if(window!=null)GetWindowThreadProcessId(window.Handle,out selected);
+        return ReadProcessPlayback(selected<=int.MaxValue ? (int)selected : 0);
+    }
+    internal PlayerPlaybackReading ReadProcessPlayback(int selected)
+    {
+        _=ReadProcess(selected);
+        lock(gate)
+        {
+            return !disposed && pid==selected && binding!=null && binding.TryReadPlayback(out var sample) ? sample : null;
+        }
+    }
     internal double? ReadProcess(int selected)
     {
         lock(gate)
@@ -156,7 +169,8 @@ internal sealed class NativePlayerRateSource : IDisposable
                 Offset(selectedService,"SU"),Offset(selectedPlayer,"Bol"),Offset(selectedNative,"TN")};
             ulong[] types={app.Type.MethodTable,host.Type.MethodTable,provider.Type.MethodTable,scope.Type.MethodTable,list.Type.MethodTable,
                 itemsObject.Type.MethodTable,selectedService.Type.MethodTable,selectedPlayer.Type.MethodTable,selectedNative.Type.MethodTable};
-            var result=new PlayerRateBinding(new ProcessMemory(pid,processCreated),appHandle.Address,offsets,types,7,Offset(selectedPlayer,"BoW"),nativeMinimum,nativeMaximum);
+            var result=new PlayerRateBinding(new ProcessMemory(pid,processCreated),appHandle.Address,offsets,types,7,Offset(selectedPlayer,"BoW"),nativeMinimum,nativeMaximum,
+                Offset(selectedPlayer,"BoU"),Offset(selectedPlayer,"Bou"),Offset(selectedPlayer,"Bot"));
             if(!result.TryRead(out _)){result.Dispose();return null;}
             return result;
         }

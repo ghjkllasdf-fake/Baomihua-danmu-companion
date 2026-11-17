@@ -16,7 +16,7 @@ internal static class NativeProbe
             // Do not load projections or activate player APIs before the owned-parent gate.
             NativeRuntime.LoadMediaProjection(AppContext.BaseDirectory);
             using var rates=new NativePlayerRateSource();
-            ProbeWorkerRuntime.Run(rates.Read);
+            ProbeWorkerRuntime.Run(null,rates.ReadPlayback);
             return 0;
         }
         catch(Exception error)

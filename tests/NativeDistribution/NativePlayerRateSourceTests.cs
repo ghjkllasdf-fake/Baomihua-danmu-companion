@@ -16,7 +16,9 @@ internal static class NativePlayerRateSourceTests
             Check(SpinWait.SpinUntil(()=>source.ReadProcess(77)==1.75,1500),"Asynchronous discovery must publish the validated rate.");
             for(int i=0;i<20;i++)Check(source.ReadProcess(77)==1.75,"A bound player must not start another discovery.");
             Check(calls==1,"Steady reads must reuse their binding.");
+            Check(source.ReadProcessPlayback(77) is {PositionMs:12345,DurationMs:60000,Playing:true,Rate:1.75},"The same verified binding must supply playback proof without UIA.");
             Check(source.ReadProcess(0)==null && fixture.Memory.DisposeCount==1,"A missing player must release its owned process reader.");
+            Check(source.ReadProcessPlayback(0)==null,"A lost player must not retain native playback proof.");
         }
         using var release=new ManualResetEventSlim();using var entered=new ManualResetEventSlim();
         var late=new PlayerRateBindingTests.Fixture();

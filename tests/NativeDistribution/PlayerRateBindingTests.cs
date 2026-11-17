@@ -32,7 +32,8 @@ internal static class PlayerRateBindingTests
             Memory.Pointer(Root,Nodes[0]);
             for(int i=0;i<Nodes.Length;i++){Memory.Pointer(Nodes[i],Types[i]);Memory.Pointer(Nodes[i]+8,i==8 ? Handle : Nodes[i+1]);}
             Memory.Write(Nodes[7]+297,new byte[]{0});SetEngine(Handle,1.75f);
-            Binding=new(Memory,Root,Offsets,Types,7,297,0x40000,0xa0000);
+            Memory.Write(Nodes[7]+312,BitConverter.GetBytes(123450000L));Memory.Write(Nodes[7]+320,BitConverter.GetBytes(600000000L));Memory.Write(Nodes[7]+272,BitConverter.GetBytes(3));
+            Binding=new(Memory,Root,Offsets,Types,7,297,0x40000,0xa0000,312,320,272);
         }
         internal void SetEngine(ulong handle,float rate)
         {
@@ -77,6 +78,37 @@ internal static class PlayerRateBindingTests
         invalid.Memory.Pointer(Fixture.Handle+0x3000+0x50,0xb0000);invalid.Memory.Write(0xb0000,Convert.FromHexString("8B8120030000660F6EC0C3"));
         Check(!invalid.Binding.TryRead(out _),"A lookalike getter outside the identified native module must be rejected.");
         invalid.Binding.Dispose();
+        var playback=new Fixture();
+        using var full=new PlayerRateBinding(playback.Memory,Fixture.Root,playback.Offsets,playback.Types,7,297,0x40000,0xa0000,312,320,272);
+        void SetPlayback(long position,long duration,int state)
+        {
+            playback.Memory.Write(playback.Nodes[7]+312,BitConverter.GetBytes(position));
+            playback.Memory.Write(playback.Nodes[7]+320,BitConverter.GetBytes(duration));
+            playback.Memory.Write(playback.Nodes[7]+272,BitConverter.GetBytes(state));
+        }
+        SetPlayback(123450000,600000000,3);
+        Check(full.TryReadPlayback(out var sample) && sample.PositionMs==12345 && sample.DurationMs==60000 && sample.Playing==true && sample.Rate==1.75,"Verified playback fields must supply live milliseconds/state/rate without UI Automation.");
+        SetPlayback(200000000,600000000,4);
+        Check(full.TryReadPlayback(out sample) && sample.PositionMs==20000 && sample.Playing==false,"Paused state and updated position must be read afresh.");
+        SetPlayback(200000000,600000000,2);
+        Check(full.TryReadPlayback(out sample) && sample.Playing==null,"Buffering is not proof of running playback.");
+        SetPlayback(400000000,600000000,3);
+        Check(full.TryReadPlayback(out sample) && sample.PositionMs==40000,"A genuine forward seek must publish the new position.");
+        SetPlayback(10000000,900000000,3);
+        Check(full.TryReadPlayback(out sample) && sample.PositionMs==1000 && sample.DurationMs==90000,"A new media duration and backward position must replace the old playback fields.");
+        SetPlayback(200000000,600000000,3);bool paused=false;
+        playback.Memory.BeforeRead=address=>{if(address==playback.Nodes[7]+312 && !paused){paused=true;playback.Memory.Write(playback.Nodes[7]+272,BitConverter.GetBytes(4));}};
+        Check(!full.TryReadPlayback(out _),"A pause transition during field reads must reject mixed running evidence.");
+        playback.Memory.BeforeRead=null;
+        Check(full.TryReadPlayback(out sample) && sample.Playing==false,"A consistent post-pause snapshot must recover on the next read.");
+        foreach(var value in new[]{(-1L,600000000L,3),(600000001L,600000000L,3),(0L,0L,3),(0L,600000000L,99)})
+        {
+            SetPlayback(value.Item1,value.Item2,value.Item3);
+            Check(!full.TryReadPlayback(out _),"Invalid playback ticks, duration or enum values must not become media proof.");
+        }
+        SetPlayback(200000000,600000000,3);bool replaced=false;
+        playback.Memory.BeforeRead=address=>{if(address==playback.Nodes[7]+312 && !replaced){replaced=true;playback.ReplacePlayer();}};
+        Check(!full.TryReadPlayback(out _),"A player replacement must reject a mixed position/state snapshot.");
         Console.WriteLine($"PASS: {checks} read-only player-rate binding checks for GC relocation, replacement, consistency and rejection.");
     }
 }
