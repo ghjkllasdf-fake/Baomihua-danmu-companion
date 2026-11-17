@@ -38,7 +38,7 @@ public sealed class SyncClock
     public double Rate=>clock.Rate;
     public double At(double now)=>clock.At(now);
     public double LastProofMs { get; private set; }
-    public void Observe(double? position,bool? playing,double stamp,double now,string mediaKey,double resolutionMs=1000,double? playbackRate=null)
+    public void Observe(double? position,bool? playing,double stamp,double now,string mediaKey,double resolutionMs=1000,double? playbackRate=null,bool playbackBlocked=false)
     {
         if (!double.IsFinite(now) || now<0) return;
         if (!double.IsFinite(stamp) || stamp<0 || stamp>now) { Tick(now); return; }
@@ -77,6 +77,9 @@ public sealed class SyncClock
                 return;
             }
             Tick(now);
+            // A missed read is not a new pause or buffering proof. Keep the
+            // existing scene only until its unchanged proof deadline expires.
+            if(!position.HasValue && !playing.HasValue && !playbackBlocked && Mode=="automatic")return;
             if(tracking && position.HasValue && double.IsFinite(position.Value) &&
                 (position.Value-lastPosition-expectedMotion>Math.Max(100,displacementUncertainty) ||
                  position.Value-lastPosition< -Math.Max(100,uncertainty*.5)))

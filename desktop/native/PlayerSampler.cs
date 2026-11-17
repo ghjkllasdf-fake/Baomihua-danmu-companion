@@ -105,30 +105,36 @@ internal sealed class PlayerSampler : IDisposable
     {
         var identity=SeriesIdentity.Parse(window.Title);
         string title=identity.Title is "网易爆米花" or "爆米花" ? "" : identity.Title;
-        var native=readPlayback(window);
         double stamp=Monotonic.Now;
-        double? position=native?.PositionMs,duration=native?.DurationMs,rate=native?.Rate;
-        bool? playing=native?.Playing;
-        string source=native!=null ? "player-memory" : "unavailable";
+        double? position=null,duration=null,rate=null;
+        bool? playing=null;bool blocked=false;
+        string source="unavailable";
         // Keep the subtitle UIA provider out of production sampling, including
         // fallback on unknown builds. Only fresh matching SMTC is eligible.
-        if(native==null)
+        var session=media.Read(window.Title,window.ProcessId);
+        if(session!=null && !string.IsNullOrWhiteSpace(window.Title) && string.Equals(window.Title.Trim(),session.Title?.Trim(),StringComparison.Ordinal))
         {
-            var session=media.Read(window.Title);
-            // With no independent UIA duration, match the selected caption and
-            // the unique BaoMiHua SMTC session's own fresh, valid timeline.
+            blocked=session.PlaybackBlocked;
             if(session?.TimelineFresh==true && double.IsFinite(session.DurationMs) && session.DurationMs>0 &&
-                !string.IsNullOrWhiteSpace(window.Title) && string.Equals(window.Title.Trim(),session.Title?.Trim(),StringComparison.Ordinal))
+                double.IsFinite(session.PositionMs))
             {
                 position=session.PositionMs;duration=session.DurationMs;rate=session.PlaybackRate;
                 playing=session.Playing;stamp=session.StampMs;source="smtc";
             }
         }
+        // The public channel remains calibrated even while an optional verified
+        // native reading supplies more precise state/rate on known builds.
+        var native=readPlayback(window);
+        if(native!=null)
+        {
+            position=native.PositionMs;duration=native.DurationMs;rate=native.Rate;
+            playing=native.Playing;stamp=Monotonic.Now;source="player-memory";blocked=!playing.HasValue;
+        }
         int season=title.Length>0 ? seasons.Read(window,identity,duration,allowAccessibility:false) : 0;
         if(season>0)title=(identity with{Title=title,Season=season}).QualifiedTitle;
         return new(window,title,identity.Episode,position,playing,stamp,
             native!=null ? "只读播放器状态 · 窗口客户区" : "Windows 媒体会话 · 窗口客户区",
-            source,200,duration,rate);
+            source,200,duration,rate,blocked);
     }
     public static double? ParseTime(string text)
     {

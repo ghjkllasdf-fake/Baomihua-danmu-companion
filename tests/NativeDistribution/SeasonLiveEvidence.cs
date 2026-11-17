@@ -10,15 +10,15 @@ namespace Popcorn;
 
 internal static class SeasonLiveEvidence
 {
-    internal static void Trace(int seconds)
+    internal static void Trace(int seconds,bool smtcOnly=false)
     {
-        Exception failure=null;
+        Exception failure=null;int accepted=0,scene=0;
         var worker=new Thread(()=>{
             try
             {
                 NativeRuntime.LoadMediaProjection(AppContext.BaseDirectory);
                 using var stop=new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(seconds,1,300)));
-                using var sampler=new PlayerSampler(stop.Token);
+                using var sampler=new PlayerSampler(stop.Token,readPlayback:smtcOnly ? _=>null : null);
                 var clock=new SyncClock();string media="";
                 while(!stop.IsCancellationRequested)
                 {
@@ -26,8 +26,14 @@ internal static class SeasonLiveEvidence
                     string key=sample.Title.Length>0 ? sample.Title+"#"+sample.EpisodeNumber : media;
                     if(media!=key){media=key;clock.BeginMediaEpoch(now);}
                     bool identified=sample.Window!=null && sample.Title.Length>0;
-                    clock.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,key,sample.PositionResolutionMs,sample.PlaybackRate);
-                    Console.WriteLine(JsonSerializer.Serialize(new{now,sample.Title,sample.EpisodeNumber,sample.PositionMs,sample.Playing,sample.Source,
+                    clock.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,key,sample.PositionResolutionMs,sample.PlaybackRate,sample.PlaybackBlocked);
+                    if(smtcOnly && clock.Mode=="automatic" && clock.Running)
+                    {
+                        if(accepted++==0)scene=clock.SeekRevision;
+                        if(clock.SeekRevision!=scene)throw new Exception("SMTC-only playback changed scene during the controlled capture.");
+                    }
+                    else if(smtcOnly && accepted>0)throw new Exception("SMTC-only playback lost running synchronization during the controlled capture.");
+                    Console.WriteLine(JsonSerializer.Serialize(new{now,title=smtcOnly ? null : sample.Title,sample.EpisodeNumber,sample.PositionMs,sample.Playing,sample.Source,
                         sample.PlaybackRate,sample.PositionResolutionMs,age=now-sample.StampMs,clock.SeekRevision,clock.Mode,clockRunning=clock.Running,clockRate=clock.Rate,clockPosition=clock.At(now),seasonEvidence=sampler.SeasonEvidence}));
                     Console.Out.Flush();sampler.WaitForNext(100);
                 }
@@ -38,6 +44,8 @@ internal static class SeasonLiveEvidence
         worker.SetApartmentState(ApartmentState.MTA);worker.Start();
         if(!worker.Join((Math.Clamp(seconds,1,300)+10)*1000))throw new TimeoutException("Read-only trace exceeded its deadline.");
         if(failure!=null)throw failure;
+        if(smtcOnly && accepted<100)throw new Exception("SMTC-only live playback precondition/coverage was insufficient.");
+        if(smtcOnly)Console.WriteLine($"PASS: {accepted} actual SMTC-only playing samples, stable scene {scene}; native and UIA disabled, no player inputs.");
     }
     internal static PlayerSample Sample()
     {
