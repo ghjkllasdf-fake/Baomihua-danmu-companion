@@ -15,6 +15,8 @@ public static class PlayerSamplerBoundaryTests
     private static VideoWindow window;
     private static string seasonCache;
     private static int libraryLookups;
+    private static bool accessBlocked;
+    internal static bool AccessBlocked(VideoWindow _)=>accessBlocked;
     internal static bool IsPlayerProcess(VideoWindow _)=>seasonCache!=null;
     internal static VideoWindow[] FindLibraries(VideoWindow _){libraryLookups++;return Array.Empty<VideoWindow>();}
     internal static int ReadCachedSeason(SeriesIdentity playing,double? duration,out bool conflict)
@@ -50,9 +52,36 @@ public static class PlayerSamplerBoundaryTests
         if (sampler.Poll().Window!=null) throw new Exception("A missing player retained a prior window.");
         CheckControlIntegration();
         CheckEventIntegration();
+        CheckPrivilegeIntegration();
         CheckNativeIntegration();
         CheckSeasonsWithoutAccessibility();
         Console.WriteLine("PASS: restart failures escape actual sampler/SMTC filters; ordinary loss clears stale window and playback proof.");
+    }
+    private static void CheckPrivilegeIntegration()
+    {
+        int reads=0;
+        using var sampler=new PlayerSampler(CancellationToken.None,readPlayback:video=>{
+            if(video!=null)reads++;
+            return new(1000,60000,true,1);
+        });
+        window=new(new IntPtr(1),"fixture movie",0,0,1280,720);
+        try
+        {
+            accessBlocked=true;
+            var sample=sampler.Poll();
+            if(sample.Detail!="player-elevated" || sample.Title!="" || sample.Source!="unavailable" || sample.PositionMs!=null || reads!=0)
+                throw new Exception("A confirmed elevation mismatch must produce waiting diagnostics before reading the player.");
+            var packet=ProbeProtocol.Decode(ProbeProtocol.Encode(sample,1),0,Monotonic.Now);
+            var snapshot=PlaybackSnapshot.Capture(packet.Sample,new SyncClock(),Monotonic.Now,1,1);
+            if(snapshot.Detail!="player-elevated" || snapshot.Title!="")throw new Exception("The privilege diagnostic was lost between sampler and UI snapshot.");
+            accessBlocked=false;sample=sampler.Poll();
+            if(sample.Detail=="player-elevated" || sample.PositionMs!=1000 || sample.Title!="fixture movie" || reads!=1)
+                throw new Exception("Privilege recovery must clear the note and resume fresh player reads.");
+            window=null;sample=sampler.Poll();
+            if(sample.Detail=="player-elevated")throw new Exception("A missing/unconfirmed player retained an elevation warning.");
+        }
+        finally{accessBlocked=false;window=null;}
+        Console.WriteLine("PASS: confirmed elevation mismatch waits without player reads, survives wire/snapshot, and clears on recovery or missing detection.");
     }
     private static void CheckNativeIntegration()
     {

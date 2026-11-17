@@ -31,6 +31,11 @@ internal sealed class PlayerSampler : IDisposable
         try
         {
             var window=NativeWindows.FindPlayer(media.PreferredTitle);
+            if(PlayerPrivilege.IsBlocked(window))
+            {
+                readRate?.Invoke(null);readPlayback?.Invoke(null);controls.Invalidate();changes.Attach(null);
+                return latest=new(null,"",0,null,null,Monotonic.Now,PlayerPrivilege.BlockedDetail,"unavailable");
+            }
             if(window==null) { readRate?.Invoke(null); readPlayback?.Invoke(null); controls.Invalidate(); changes.Attach(null); return latest=new(null,"",0,null,null,Monotonic.Now,"未检测到播放器","unavailable"); }
             return latest=Read(window);
         }

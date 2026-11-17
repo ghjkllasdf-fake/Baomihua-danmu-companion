@@ -4,9 +4,11 @@ $root=Split-Path $PSScriptRoot -Parent
 $source=[IO.File]::ReadAllText((Join-Path $root 'desktop\native\PlayerSampler.cs'))
 $boundary='NativeWindows.FindPlayer(media.PreferredTitle)'
 if(($source.Split($boundary).Count-1) -ne 1){ throw 'Sampler lookup boundary changed; refusing to run player APIs.' }
+$accessBoundary='PlayerPrivilege.IsBlocked(window)'
+if(($source.Split($accessBoundary).Count-1) -ne 1){throw 'Player privilege boundary changed; refusing real process inspection.'}
 $folder=Join-Path $root ('.cache\sampler-boundary-'+[Guid]::NewGuid().ToString('N')); [void][IO.Directory]::CreateDirectory($folder)
 $sampler=Join-Path $folder 'PlayerSampler.cs'
-[IO.File]::WriteAllText($sampler,$source.Replace($boundary,'PlayerSamplerBoundaryTests.FindPlayer()'))
+[IO.File]::WriteAllText($sampler,$source.Replace($boundary,'PlayerSamplerBoundaryTests.FindPlayer()').Replace($accessBoundary,'PlayerSamplerBoundaryTests.AccessBlocked(window)'))
 $season=[IO.File]::ReadAllText((Join-Path $root 'desktop\native\LibrarySeasonReader.cs'))
 $seams=@{
     'NativeWindows.IsPlayerProcess(window)'='PlayerSamplerBoundaryTests.IsPlayerProcess(window)'

@@ -183,7 +183,7 @@ export function App() {
       </div>
     </main>
     <footer className="mini-footer">
-      <section className="playback-strip" aria-label="播放器连接状态"><div className="playback-title"><strong>{player.title || '等待爆米花开始播放'}</strong>{player.title && <small>{playbackStatus(player)}{player.episodeNumber ? ` · 第 ${player.episodeNumber} 集` : ''}</small>}</div>{player.positionMs !== null && <span className="timecode">{formatTime(player.positionMs)}</span>}</section>
+      <section className="playback-strip" aria-label="播放器连接状态"><div className="playback-title"><strong>{player.title || '等待爆米花开始播放'}</strong>{!player.title && player.source === 'unavailable' && player.detail === 'player-elevated' && <small className="player-access-note">（检测到网易爆米花正以管理员权限运行，弹幕无法显示）</small>}{player.title && <small>{playbackStatus(player)}{player.episodeNumber ? ` · 第 ${player.episodeNumber} 集` : ''}</small>}</div>{player.positionMs !== null && <span className="timecode">{formatTime(player.positionMs)}</span>}</section>
       <p id="match-status" className="match-status" role="status">{matchNotice}</p>
       <div className="footer-actions">
         <button className="more-link" aria-controls="more-settings" aria-expanded={view === 'more'} aria-label={view === 'more' ? '返回' : updates.available ? `更多设置，有新版本 ${updates.snapshot?.availableVersion}` : '更多设置'} onClick={() => navigate(view === 'more' ? 'display' : 'more')}>
