@@ -8,9 +8,9 @@
 
 它是配合播放器使用的小工具，不提供影视资源。获取弹幕需要联网。
 
-**0.2.2**：修复手动选择弹幕后，全屏切换可能恢复错误自动分集的问题。
+**0.2.3**：修复选择或切换影片字幕时可能失去响应的问题，并新增播放器管理员权限提示。
 
-**[下载 0.2.2 正式版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.2.2)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
+**[下载 0.2.3 正式版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.2.3)** · [版本更新](CHANGELOG.md) · [反馈问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
 
 **0.2 正式版**：includeAPI 取消本地弹幕拉取次数限流。全新配置默认使用第一款皮肤、0.6 倍弹幕速度、100% 不透明度、零描边、100% 阴影，开启等比缩放并使用密集弹幕；已有保存偏好不变。详见 [更新记录](CHANGELOG.md)。
 
@@ -26,6 +26,8 @@
 - **手动搜索、换源**：自动匹配不合适时，自己选择作品、来源和分集。
 - **过滤和校时**：屏蔽关键词、合并重复弹幕，调整时间偏移；也可以按需开启 Windows 开机启动。
 
+**季数识别限制（0.2.3）**：标题没有季数、首页／最近观看缓存无有效证据，且首次打开尚无已确认的连播季数时，会安全返回季数未知，需要手动选片／选集。旧版仅靠媒体库详情页 UIA 才能识别的场景不再自动识季，因此不能视为季数识别完全无退化。
+
 ## 下载与安装
 
 适用于 **Windows 10 2004 或更新版本、Windows 11 的 x64 电脑**。请先安装网易爆米花播放器。
@@ -34,14 +36,14 @@
 
 **没有自己的弹幕服务，选 includeAPI 安装版。** 它会自动启动包内的本机服务，无需填写地址。已有可用弹幕 API 的用户可以选普通版，文件更小。
 
-本文对应 `0.2.2`，提供普通版和 includeAPI 的安装版／Portable、对应源码 ZIP 及 `SHA256SUMS.txt`，共六项附件。
+本文对应 `0.2.3`，提供普通版和 includeAPI 的安装版／Portable、对应源码 ZIP 及 `SHA256SUMS.txt`，共六项附件。
 
 | 版本 | 适合谁 | 安装包 | 免安装包 |
 |---|---|---|---|
-| includeAPI 版 | 想直接使用，不自行部署服务 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/DanmuCompanion-0.2.2-win-x64-includeAPI-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/DanmuCompanion-0.2.2-win-x64-includeAPI-portable.zip) |
-| 普通版 | 已有兼容的弹幕 API 地址 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/DanmuCompanion-0.2.2-win-x64-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/DanmuCompanion-0.2.2-win-x64-portable.zip) |
+| includeAPI 版 | 想直接使用，不自行部署服务 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.3/DanmuCompanion-0.2.3-win-x64-includeAPI-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.3/DanmuCompanion-0.2.3-win-x64-includeAPI-portable.zip) |
+| 普通版 | 已有兼容的弹幕 API 地址 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.3/DanmuCompanion-0.2.3-win-x64-setup.exe) | [下载 Portable](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.3/DanmuCompanion-0.2.3-win-x64-portable.zip) |
 
-其他附件：[对应源码 ZIP](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/DanmuCompanion-0.2.2-corresponding-source.zip) · [SHA256SUMS.txt](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.2/SHA256SUMS.txt)。
+其他附件：[对应源码 ZIP](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.3/DanmuCompanion-0.2.3-corresponding-source.zip) · [SHA256SUMS.txt](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.3/SHA256SUMS.txt)。
 
 - **安装版**：运行下载的安装包，按提示完成安装，再从开始菜单打开“爆米花弹幕伴侣”或“爆米花弹幕伴侣 includeAPI”。默认安装到当前用户目录。
 - **Portable 版**：把 ZIP **完整解压**到本地可写文件夹，再运行其中的 `DanmuCompanion.exe`。无需额外准备或登记即可检查新版本；升级时退出旧版并解压到新文件夹，不要只复制 EXE 或在压缩软件里直接运行。
@@ -158,6 +160,7 @@ includeAPI 版在“更多设置 → 选择弹幕来源”中调整来源。可�
 | 提示缺少 WebView2、版本过旧，或面板白屏 | 运行包内 `MicrosoftEdgeWebview2Setup.exe` 联网安装／更新，退出程序后重新打开。 |
 | 提示应用文件缺失或文件检查失败 | 重新下载安装包，或把完整 ZIP 解压到新文件夹，不要只复制主 EXE。 |
 | 一直显示等待爆米花播放 | 在爆米花中打开实际的视频窗口。仍无法识别时，请反馈播放器版本和当时的播放界面。 |
+| 等待文案下提示“检测到网易爆米花正以管理员权限运行，弹幕无法显示” | 保存当前操作，正常退出网易爆米花，再从开始菜单直接普通打开播放器（不要选择“以管理员身份运行”），并从托盘退出后重启伴侣。不要将播放器或伴侣设置为永久管理员运行。 |
 | 搜不到弹幕，或自动选错作品 | 使用“手动搜索 / 换源”，尝试原名、简称或去掉年份，再核对作品和分集；也可以换一个来源。 |
 | 普通版提示连接或认证失败 | 检查 API 地址是否完整、修改后是否已保存，以及 Token 是否有效。显示“已保存”后仍需服务本身可访问。 |
 | includeAPI 提示本机服务未就绪 | 打开“更多设置 → 选择弹幕来源”，点击“重试启动”；若更改了来源，至少保留一个，再点“应用来源”。 |
@@ -169,12 +172,16 @@ includeAPI 版在“更多设置 → 选择弹幕来源”中调整来源。可�
 
 仍有问题，可以到 [Issues](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues) 反馈。请写明 **伴侣版本、普通版或 includeAPI、Windows 和播放器版本、操作步骤、提示内容**；有截图更容易定位。发图或日志前，请遮住真实 API 地址、Token 和个人信息。安全漏洞请按 [安全问题反馈说明](SECURITY.md) 联系。
 
+管理员权限提示仅在确认播放器已提升、伴侣未提升且当前没有可用播放识别时显示；未知权限或一般访问失败不据此判断。恢复正常权限与播放识别后提示消失，伴侣不会自动提权。未出现提示不代表所有访问权限或兼容性均正常。
+
 ## 数据与隐私
 
 - 普通版的 API 地址使用当前 Windows 用户的加密保护，保存在 `%LOCALAPPDATA%\BaomihuaDanmuCompanion\api.dat`。换电脑或 Windows 账户后需要重新填写。
 - 显示设置保存在 `%LOCALAPPDATA%\BaomihuaDanmuCompanion\app\preferences.json`，普通版和 includeAPI 版共用。
 - 搜索片名和获取弹幕的请求会发送到你配置的服务，或 includeAPI 中启用的来源。本机服务也需要联网获取弹幕，请使用自己信任的服务。
-- 为补足播放窗口省略的季数，伴侣会只读核对爆米花已有的首页、最近观看相册缓存或详情页中的当前季、集、文件名和时长。不会修改播放器缓存，不解析凭据端点、不解密数据库，也不上传文件路径或缓存。信息不足或冲突时会提示处理，不默认猜第一季。
+- 为补足播放窗口省略的季数，伴侣会只读核对爆米花已有的首页、最近观看相册缓存中的当前季、集、文件名和时长。不会修改播放器缓存，不解析凭据端点、不解密数据库，也不上传文件路径或缓存。信息不足或冲突时会提示处理，不默认猜第一季。
+
+- 对文件身份及运行时布局核对通过的爆米花 Windows 构建，伴侣通过只读进程内存获取进度、时长、播放状态和倍速；未识别版本仅使用新鲜且匹配当前媒体的 Windows 媒体会话（SMTC）信息。生产采样不遍历字幕菜单或媒体库可访问性树，不注入代码、不修改字幕内容或播放器设置。信息不足时不会猜测播放进度。
 
 ## 软件更新
 

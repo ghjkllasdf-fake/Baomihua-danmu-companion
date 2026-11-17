@@ -27,7 +27,7 @@ public static class ProbeProtocol
             frame.EpisodeNumber<0 || !Number(frame.PositionMs) || !Number(frame.DurationMs) ||
             frame.PlaybackRate.HasValue && (!double.IsFinite(frame.PlaybackRate.Value) || frame.PlaybackRate.Value<=0 || frame.PlaybackRate.Value>16) ||
             !double.IsFinite(frame.PositionResolutionMs) || frame.PositionResolutionMs<1 || frame.PositionResolutionMs>1000 ||
-            frame.Source is not ("uia-text" or "uia-seekbar-ms" or "uia-seekbar-ms+smtc" or "smtc" or "unavailable") ||
+            frame.Source is not ("uia-text" or "uia-seekbar-ms" or "uia-seekbar-ms+smtc" or "player-memory" or "smtc" or "unavailable") ||
             w!=null && (w.Handle==0 || !Text(w.Title,1024) || w.Width<1 || w.Height<1 || w.Width>65536 || w.Height>65536 ||
                 w.DpiScale.HasValue && (!double.IsFinite(w.DpiScale.Value) || w.DpiScale.Value<=0 || w.DpiScale.Value>16)) ||
             w==null && (frame.Title!="" || frame.EpisodeNumber!=0 || frame.PositionMs.HasValue || frame.Playing.HasValue || frame.DurationMs.HasValue || frame.PlaybackRate.HasValue))

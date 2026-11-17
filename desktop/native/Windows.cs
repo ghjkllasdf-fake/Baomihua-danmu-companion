@@ -152,3 +152,45 @@ public static class NativeWindows
     }
     public static void Follow(IntPtr overlay,VideoWindow video)=>FollowCompanion(overlay,video);
 }
+
+internal static class PlayerPrivilege
+{
+    internal const string BlockedDetail="player-elevated";
+    [DllImport("kernel32.dll",SetLastError=true)] private static extern IntPtr OpenProcess(uint rights,bool inherit,int pid);
+    [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
+    [DllImport("advapi32.dll",SetLastError=true)] private static extern bool OpenProcessToken(IntPtr process,uint rights,out IntPtr token);
+    [DllImport("advapi32.dll",SetLastError=true)] private static extern bool GetTokenInformation(IntPtr token,int kind,out int elevation,int size,out int required);
+    internal static bool ShouldWarn(bool? player,bool? companion)=>player==true && companion==false;
+    internal static bool? QueryElevation(int pid)
+    {
+        if(!OperatingSystem.IsWindows())return null;
+        var process=OpenProcess(0x1000,false,pid); // Query limited information only.
+        if(process==IntPtr.Zero)return null;
+        try
+        {
+            if(!OpenProcessToken(process,8,out var token))return null; // TOKEN_QUERY.
+            try{return GetTokenInformation(token,20,out int elevated,4,out int size) && size==4 ? elevated!=0 : null;}
+            finally{CloseHandle(token);}
+        }
+        finally{CloseHandle(process);}
+    }
+    internal static bool IsBlocked(VideoWindow window)
+    {
+        bool? own=QueryElevation(Environment.ProcessId);
+        if(own!=false)return false;
+        try
+        {
+            if(window!=null && window.ProcessId>0 && window.ProcessId<=int.MaxValue)
+                return NativeWindows.IsPlayerProcess(window) && ShouldWarn(QueryElevation((int)window.ProcessId),own);
+            bool blocked=false;
+            foreach(var process in Process.GetProcessesByName("BaoMiHua"))
+            {
+                using(process)blocked|=ShouldWarn(QueryElevation(process.Id),own);
+            }
+            return blocked;
+        }
+        catch(Exception error) when(error is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception){ }
+        // Access denied or a process disappearing is unknown, not elevation proof.
+        return false;
+    }
+}

@@ -41,6 +41,19 @@ internal sealed class NativePlayerRateSource : IDisposable
         uint selected=0;if(window!=null)GetWindowThreadProcessId(window.Handle,out selected);
         return ReadProcess(selected<=int.MaxValue ? (int)selected : 0);
     }
+    internal PlayerPlaybackReading ReadPlayback(VideoWindow window)
+    {
+        uint selected=0;if(window!=null)GetWindowThreadProcessId(window.Handle,out selected);
+        return ReadProcessPlayback(selected<=int.MaxValue ? (int)selected : 0);
+    }
+    internal PlayerPlaybackReading ReadProcessPlayback(int selected)
+    {
+        _=ReadProcess(selected);
+        lock(gate)
+        {
+            return !disposed && pid==selected && binding!=null && binding.TryReadPlayback(out var sample) ? sample : null;
+        }
+    }
     internal double? ReadProcess(int selected)
     {
         lock(gate)
@@ -85,11 +98,22 @@ internal sealed class NativePlayerRateSource : IDisposable
         }
         return null;
     }
-    private static bool HashMatches(string path,string expected)
+    private static string ArtifactHash(string path)
     {
-        if(!File.Exists(path))return false;
+        if(!File.Exists(path))return "";
         using var file=File.OpenRead(path);
-        return Convert.ToHexString(SHA256.HashData(file)).Equals(expected,StringComparison.OrdinalIgnoreCase);
+        return Convert.ToHexString(SHA256.HashData(file));
+    }
+    internal sealed record PlayerProfile(Guid Mvid,string ServicePlayer,string NativePlayer,string NativeType,string NativeHandle,string Position,string Duration,string State,string Disposed);
+    internal static PlayerProfile SelectProfile(string assemblyHash,string nativeHash)
+    {
+        if(string.Equals(assemblyHash,"4075FAF0C522C88D0D22E975583C3C00DE9EBDCABF4428141C085C2903BDA2BA",StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(nativeHash,"6AA0111F8DEC16D88CC61659D3ED2996C0C3702C0557EFC05EA008739767D66A",StringComparison.OrdinalIgnoreCase))
+            return new(new Guid("6ac6abaa-0316-4746-a5c1-5094e919785f"),"SU","Bol","a.aI","TN","BoU","Bou","Bot","BoW");
+        if(string.Equals(assemblyHash,"CA1433AA53490A61646BD99F14F14B15E4C5E59974C3C6144D4DBE4880923AD5",StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(nativeHash,"1AEEBEF244A2232751C7016FE114F80487B3B81808792042B6217E88EF63A3E8",StringComparison.OrdinalIgnoreCase))
+            return new(new Guid("cabf34af-bc64-4a77-b0fe-afe6a2e98ec0"),"si","BRH","a.ai","tI","BRQ","BRq","BRp","BRS");
+        return null;
     }
     private const string DacHash="6F7A3520FB5A30D1C747E7D232B219C1C97A2270429DA7AA1F572AC2C60B28BE";
     private static ulong Offset(ClrObject value,string field)
@@ -103,12 +127,11 @@ internal sealed class NativePlayerRateSource : IDisposable
         using var process=Process.GetProcessById(pid);
         long processCreated=process.StartTime.ToUniversalTime().ToFileTimeUtc();
         string directory=Path.GetDirectoryName(process.MainModule.FileName);
-        // These offsets/getter belong to the inspected 1.2.2 artifact. Never
+        // Field names belong to independently inspected artifacts. Never
         // execute an unverified target DAC or guess layouts of another build.
-        if(!process.ProcessName.Equals("BaoMiHua",StringComparison.OrdinalIgnoreCase) ||
-            !HashMatches(Path.Combine(directory,"BaoMiHua.dll"),"4075FAF0C522C88D0D22E975583C3C00DE9EBDCABF4428141C085C2903BDA2BA") ||
-            !HashMatches(Path.Combine(directory,"playerkit.dll"),"6AA0111F8DEC16D88CC61659D3ED2996C0C3702C0557EFC05EA008739767D66A"))
-        {unsupported=true;return null;}
+        if(!process.ProcessName.Equals("BaoMiHua",StringComparison.OrdinalIgnoreCase)){unsupported=true;return null;}
+        var profile=SelectProfile(ArtifactHash(Path.Combine(directory,"BaoMiHua.dll")),ArtifactHash(Path.Combine(directory,"playerkit.dll")));
+        if(profile==null){unsupported=true;return null;}
         // Use the application's pinned diagnostic image, never load or lock a
         // DLL from the player's installation. The app installer owns this file.
         string dacPath=Path.Combine(AppContext.BaseDirectory,"Baomihua.PlayerRate.Dac.dll");
@@ -124,7 +147,7 @@ internal sealed class NativePlayerRateSource : IDisposable
             if(target.DataReader.Read(module.MetadataAddress,metadata)!=metadata.Length)return null;
             using var providerMetadata=MetadataReaderProvider.FromMetadataImage(ImmutableArray.CreateRange(metadata));
             var reader=providerMetadata.GetMetadataReader();
-            if(reader.GetGuid(reader.GetModuleDefinition().Mvid)!=new Guid("6ac6abaa-0316-4746-a5c1-5094e919785f")){unsupported=true;return null;}
+            if(reader.GetGuid(reader.GetModuleDefinition().Mvid)!=profile.Mvid){unsupported=true;return null;}
             var nativeModule=target.EnumerateModules().Single(item=>string.Equals(Path.GetFileName(item.FileName),"playerkit.dll",StringComparison.OrdinalIgnoreCase));
             if(!Path.GetFullPath(nativeModule.FileName).Equals(Path.GetFullPath(Path.Combine(directory,"playerkit.dll")),StringComparison.OrdinalIgnoreCase))return null;
             ulong nativeMinimum=nativeModule.ImageBase,nativeMaximum=checked(nativeMinimum+(ulong)nativeModule.ImageSize);
@@ -144,19 +167,20 @@ internal sealed class NativePlayerRateSource : IDisposable
             {
                 var service=runtime.Heap.GetObject(references[i]);
                 if(service.Type?.Name!="Filmly.Services.MediaPlayerKitService")continue;
-                var player=service.ReadObjectField("SU");
-                if(player.IsNull || player.Type?.Name!="Filmly.Playback.MediaPlayerKitPlayer" || player.ReadField<bool>("BoW"))continue;
-                var native=player.ReadObjectField("Bol");if(native.IsNull || native.Type?.Name!="a.aI")continue;
+                var player=service.ReadObjectField(profile.ServicePlayer);
+                if(player.IsNull || player.Type?.Name!="Filmly.Playback.MediaPlayerKitPlayer" || player.ReadField<bool>(profile.Disposed))continue;
+                var native=player.ReadObjectField(profile.NativePlayer);if(native.IsNull || native.Type?.Name!=profile.NativeType)continue;
                 if(chosen>=0)return null;
                 chosen=i;selectedService=service;selectedPlayer=player;selectedNative=native;
             }
             if(chosen<0)return null;
             ulong[] offsets={Offset(app,"cR"),Offset(host,"<Services>k__BackingField"),Offset(provider,"<Root>k__BackingField"),
                 Offset(scope,"_disposables"),Offset(list,"_items"),items.Type.GetArrayElementAddress(items.Address,chosen)-items.Address,
-                Offset(selectedService,"SU"),Offset(selectedPlayer,"Bol"),Offset(selectedNative,"TN")};
+                Offset(selectedService,profile.ServicePlayer),Offset(selectedPlayer,profile.NativePlayer),Offset(selectedNative,profile.NativeHandle)};
             ulong[] types={app.Type.MethodTable,host.Type.MethodTable,provider.Type.MethodTable,scope.Type.MethodTable,list.Type.MethodTable,
                 itemsObject.Type.MethodTable,selectedService.Type.MethodTable,selectedPlayer.Type.MethodTable,selectedNative.Type.MethodTable};
-            var result=new PlayerRateBinding(new ProcessMemory(pid,processCreated),appHandle.Address,offsets,types,7,Offset(selectedPlayer,"BoW"),nativeMinimum,nativeMaximum);
+            var result=new PlayerRateBinding(new ProcessMemory(pid,processCreated),appHandle.Address,offsets,types,7,Offset(selectedPlayer,profile.Disposed),nativeMinimum,nativeMaximum,
+                Offset(selectedPlayer,profile.Position),Offset(selectedPlayer,profile.Duration),Offset(selectedPlayer,profile.State));
             if(!result.TryRead(out _)){result.Dispose();return null;}
             return result;
         }

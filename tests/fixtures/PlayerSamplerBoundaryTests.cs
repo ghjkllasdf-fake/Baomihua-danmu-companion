@@ -3,6 +3,8 @@ using System.Collections;
 using System.IO;
 using System.Reflection;
 using System.Threading;
+using System.Text;
+using System.Text.Json;
 using System.Windows.Automation;
 
 namespace Popcorn;
@@ -11,6 +13,17 @@ public static class PlayerSamplerBoundaryTests
 {
     private static Exception failure;
     private static VideoWindow window;
+    private static string seasonCache;
+    private static int libraryLookups;
+    private static bool accessBlocked;
+    internal static bool AccessBlocked(VideoWindow _)=>accessBlocked;
+    internal static bool IsPlayerProcess(VideoWindow _)=>seasonCache!=null;
+    internal static VideoWindow[] FindLibraries(VideoWindow _){libraryLookups++;return Array.Empty<VideoWindow>();}
+    internal static int ReadCachedSeason(SeriesIdentity playing,double? duration,out bool conflict)
+    {
+        conflict=false;
+        return seasonCache==null ? 0 : CachedSeasonReader.Read(playing,duration,seasonCache,out conflict);
+    }
     public static VideoWindow FindPlayer() { if (failure!=null) throw failure; return window; }
     private static void Escapes(Exception expected,Action action)
     {
@@ -39,7 +52,124 @@ public static class PlayerSamplerBoundaryTests
         if (sampler.Poll().Window!=null) throw new Exception("A missing player retained a prior window.");
         CheckControlIntegration();
         CheckEventIntegration();
+        CheckPrivilegeIntegration();
+        CheckNativeIntegration();
+        CheckSeasonsWithoutAccessibility();
         Console.WriteLine("PASS: restart failures escape actual sampler/SMTC filters; ordinary loss clears stale window and playback proof.");
+    }
+    private static void CheckPrivilegeIntegration()
+    {
+        int reads=0;
+        using var sampler=new PlayerSampler(CancellationToken.None,readPlayback:video=>{
+            if(video!=null)reads++;
+            return new(1000,60000,true,1);
+        });
+        window=new(new IntPtr(1),"fixture movie",0,0,1280,720);
+        try
+        {
+            accessBlocked=true;
+            var sample=sampler.Poll();
+            if(sample.Detail!="player-elevated" || sample.Title!="" || sample.Source!="unavailable" || sample.PositionMs!=null || reads!=0)
+                throw new Exception("A confirmed elevation mismatch must produce waiting diagnostics before reading the player.");
+            var packet=ProbeProtocol.Decode(ProbeProtocol.Encode(sample,1),0,Monotonic.Now);
+            var snapshot=PlaybackSnapshot.Capture(packet.Sample,new SyncClock(),Monotonic.Now,1,1);
+            if(snapshot.Detail!="player-elevated" || snapshot.Title!="")throw new Exception("The privilege diagnostic was lost between sampler and UI snapshot.");
+            accessBlocked=false;sample=sampler.Poll();
+            if(sample.Detail=="player-elevated" || sample.PositionMs!=1000 || sample.Title!="fixture movie" || reads!=1)
+                throw new Exception("Privilege recovery must clear the note and resume fresh player reads.");
+            window=null;sample=sampler.Poll();
+            if(sample.Detail=="player-elevated")throw new Exception("A missing/unconfirmed player retained an elevation warning.");
+        }
+        finally{accessBlocked=false;window=null;}
+        Console.WriteLine("PASS: confirmed elevation mismatch waits without player reads, survives wire/snapshot, and clears on recovery or missing detection.");
+    }
+    private static void CheckNativeIntegration()
+    {
+        var poison=new PlayerControlCache<AutomationElement>(_=>throw new Exception("The subtitle popup UIA provider was accessed."),_=>throw new Exception("A UIA control was read."),()=>Monotonic.Now);
+        PlayerPlaybackReading value=new(1000,60000,true,2);
+        using var sampler=new PlayerSampler(CancellationToken.None,poison,readPlayback:_=>value);
+        var media=(MediaSessionReader)typeof(PlayerSampler).GetField("media",BindingFlags.NonPublic|BindingFlags.Instance).GetValue(sampler);
+        typeof(MediaSessionReader).GetField("manager",BindingFlags.NonPublic|BindingFlags.Instance).SetValue(media,new EmptyMediaManager());
+        window=new(new IntPtr(1),"fixture movie",0,0,1280,720);
+        try
+        {
+            var sample=sampler.Poll();
+            if(sample.Source!="player-memory" || sample.PositionMs!=1000 || sample.Playing!=true || sample.PlaybackRate!=2 || sample.DurationMs!=60000)
+                throw new Exception("The sampler did not use live read-only playback evidence without UIA.");
+            _=ProbeProtocol.Decode(ProbeProtocol.Encode(sample,1),0,Monotonic.Now);
+            value=value with{PositionMs=5000,Playing=false};
+            sample=sampler.Poll();
+            if(sample.PositionMs!=5000 || sample.Playing!=false)throw new Exception("The native path cached old progress or ignored pause/seek.");
+            value=null;sample=sampler.Poll();
+            if(sample.PositionMs!=null || sample.Playing!=null || sample.Source!="unavailable")
+                throw new Exception("Unsupported/native-unavailable playback must not fall back to UIA or old native evidence.");
+            var session=new SamplerEventSession();
+            void SetSession(string title,double age)
+            {
+                session.Timeline.LastUpdatedTime=DateTimeOffset.UtcNow.AddMilliseconds(-age);
+                var fields=new (string,object)[]{("manager",new SamplerEventManager{Sessions=new object[]{session}}),("session",session),
+                    ("title",title),("requestedTitle",window.Title),("metadataAt",Monotonic.Now)};
+                foreach(var (name,field) in fields)typeof(MediaSessionReader).GetField(name,BindingFlags.NonPublic|BindingFlags.Instance).SetValue(media,field);
+            }
+            SetSession(window.Title,0);sample=sampler.Poll();
+            if(sample.Source!="smtc" || sample.PositionMs is not (>=1000 and <=2500) || sample.Playing!=true || sample.PlaybackRate!=1 || sample.DurationMs!=60000)
+                throw new Exception("Fresh matching SMTC must remain a usable no-UIA compatibility path.");
+            SetSession(window.Title,10000);sample=sampler.Poll();
+            if(sample.Source!="unavailable" || sample.PositionMs!=null || sample.Playing!=null)
+                throw new Exception("Stale SMTC cannot establish native-unavailable playback.");
+            SetSession("another fixture movie",0);sample=sampler.Poll();
+            if(sample.Source!="unavailable" || sample.PositionMs!=null || sample.Playing!=null)
+                throw new Exception("Mismatched SMTC media cannot establish playback.");
+            value=new(8000,60000,false,1.75);sample=sampler.Poll();
+            if(sample.Source!="player-memory" || sample.PositionMs!=8000 || sample.Playing!=false)
+                throw new Exception("New native proof must replace rejected fallback evidence.");
+            window=window with{Title="next fixture movie"};value=new(1200,90000,true,1);sample=sampler.Poll();
+            if(sample.Title!=window.Title || sample.PositionMs!=1200 || sample.DurationMs!=90000 || sample.Playing!=true)
+                throw new Exception("A real media/title change must publish its new native position and duration, not the previous movie.");
+            value=null;SetSession(window.Title,10000);sample=sampler.Poll();
+            if(sample.PositionMs!=null || sample.Playing!=null || sample.PlaybackRate!=null)
+                throw new Exception("Native failure cannot reuse the previous successful native proof.");
+        }
+        finally{window=null;}
+        Console.WriteLine("PASS: native progress/state/rate, pause/seek, wire, fresh matching SMTC, stale/mismatched rejection and loss of proof never access a toxic UIA provider.");
+    }
+    private static void CheckSeasonsWithoutAccessibility()
+    {
+        string parent=Path.TrimEndingDirectorySeparator(Path.GetFullPath(Path.GetTempPath()));
+        string directory=Path.GetFullPath(Path.Combine(parent,"danmu-no-uia-season-"+Guid.NewGuid().ToString("N")));
+        Directory.CreateDirectory(directory);seasonCache=directory;libraryLookups=0;
+        try
+        {
+            var reader=new LibrarySeasonReader(CancellationToken.None);
+            var video=new VideoWindow(new IntPtr(1),"Fixture Series S03E01",0,0,1280,720){ProcessId=7};
+            if(reader.Read(video,SeriesIdentity.Parse(video.Title),60000,false)!=3)
+                throw new Exception("Explicit title seasons must remain available without accessibility.");
+            reader=new LibrarySeasonReader(CancellationToken.None);
+            video=video with{Title="Fixture Series 第2集 Current episode"};
+            var item=new {session_title="Fixture Series",player_title=video.Title,last_played=new {season=2,episode=2},
+                files=new[]{new {drive_path_info=new {file_path="Fixture Series - S02E02.mkv"},real_total_duration=60}}};
+            string body=JsonSerializer.Serialize(new {code=0,data=new {general_albums=new[]{new {album_type="recent_play",list=new[]{item}}}}});
+            string cache=Path.Combine(directory,new string('a',64)+".json");
+            File.WriteAllText(cache,JsonSerializer.Serialize(new {url="/v2/homepage",statusCode=200,expiryUtc=DateTimeOffset.UtcNow.AddMinutes(5),data=Convert.ToBase64String(Encoding.UTF8.GetBytes(body))}));
+            if(reader.Read(video,SeriesIdentity.Parse(video.Title),60000,false)!=2 || reader.LastReason!="current-media-recent-cache")
+                throw new Exception("The production no-UIA path must reach a valid isolated recent-play cache.");
+            File.Delete(cache);
+            video=video with{Title="Fixture Series 第3集 Next episode"};
+            if(reader.Read(video,SeriesIdentity.Parse(video.Title),90000,false)!=2 || reader.LastReason!="same-window-consecutive-episode")
+                throw new Exception("Confirmed consecutive episodes must retain season continuity without accessibility.");
+            reader=new LibrarySeasonReader(CancellationToken.None);
+            if(reader.Read(video,SeriesIdentity.Parse(video.Title),90000,false)!=0)
+                throw new Exception("A first episode with no title/cache/continuity evidence must leave season unknown.");
+            if(libraryLookups!=0)throw new Exception("No-UIA season resolution enumerated player library windows.");
+        }
+        finally
+        {
+            seasonCache=null;
+            if(!directory.StartsWith(parent+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase) ||
+                !Path.GetFileName(directory).StartsWith("danmu-no-uia-season-",StringComparison.Ordinal))throw new Exception("Unsafe fixture cleanup path.");
+            Directory.Delete(directory,true);
+        }
+        Console.WriteLine("PASS: actual no-UIA season reader uses explicit title, isolated valid cache and confirmed continuity; missing evidence stays unknown without library lookup.");
     }
     private static void CheckControlIntegration()
     {
@@ -116,8 +246,10 @@ public sealed class SamplerEventSession
     public string SourceAppUserModelId=>"BaoMiHua.exe";
     public event EventHandler<object> PlaybackInfoChanged {add{Adds++;handlers+=value;}remove{Removes++;handlers-=value;}}
     public void Fire()=>handlers?.Invoke(this,null);
-    public SamplerEventInfo GetPlaybackInfo()=>new();
-    public SamplerEventTimeline GetTimelineProperties()=>new();
+    public readonly SamplerEventInfo Info=new();
+    public readonly SamplerEventTimeline Timeline=new();
+    public SamplerEventInfo GetPlaybackInfo()=>Info;
+    public SamplerEventTimeline GetTimelineProperties()=>Timeline;
 }
 public sealed class SamplerEventInfo
 {
@@ -128,5 +260,5 @@ public sealed class SamplerEventTimeline
 {
     public TimeSpan Position=>TimeSpan.FromSeconds(1);
     public TimeSpan EndTime=>TimeSpan.FromSeconds(60);
-    public DateTimeOffset LastUpdatedTime=>DateTimeOffset.UtcNow;
+    public DateTimeOffset LastUpdatedTime {get;set;}=DateTimeOffset.UtcNow;
 }

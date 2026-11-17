@@ -16,17 +16,17 @@ npm.cmd --prefix ui run test:e2e
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release
 node --test tests/release-package.test.mjs tests/native-archive.test.mjs tests/installer-guard.test.mjs tests/browser-prerequisite.test.mjs tests/source-state.test.mjs
 node scripts/check-release-mutation.mjs
-node scripts/build-release.mjs --version 0.2.2
-node scripts/test-release.mjs --version 0.2.2
+node scripts/build-release.mjs --version 0.2.3
+node scripts/test-release.mjs --version 0.2.3
 ```
 
-运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.2/`，同一变体的安装版和 Portable 来自同一 manifest payload；普通版应用文件不得超过 210 MiB，includeAPI 使用独立的 400 MiB 预算，且白名单拒绝私有浏览器目录。
+运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.3/`，同一变体的安装版和 Portable 来自同一 manifest payload；普通版应用文件不得超过 210 MiB，includeAPI 使用独立的 400 MiB 预算，且白名单拒绝私有浏览器目录。
 
 `test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝已有安装直接换目录、原位重装、安装清单内同名替换文件覆盖、卸载及额外用户文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
 
 非 `app` profile 使用隔离 `data-root/profile`，测试禁止读写真实 API 或浏览器数据。正常应用配置使用 `%LOCALAPPDATA%/BaomihuaDanmuCompanion`，不再使用程序目录下的 `.cache`。启动项迁移须用户显式操作；卸载按 Inno 安装日志删除程序文件（包括同名替换文件），只清理指向本安装的开机快捷方式；不递归清空目录或删除个人数据。
 
-构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.2` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
+构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.3` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
 
 ### 播放器倍速诊断组件与许可输入
 
@@ -53,6 +53,10 @@ Microsoft.Extensions.Primitives.dll                       2.1.1
 倍速定位对受支持播放器的文件身份及对象结构进行核对，非挂起地读取当前进程状态；后续绑定通过只读进程句柄读取，不执行播放器代码、注入模块或修改设置。此说明不是对所有播放器版本、权限策略或 DPI 环境的兼容保证，局部采样耗时也不等于端到端响应或性能验收。
 
 每次后台定位（包括首次冷初始化、绑定失效及换进程后的重绑）使用独立的 8 秒上限；这不是采样或交互响应等待时间，也不延长原有媒体调用与采样帧期限。定位期间继续正常采样，真正超时仍回收自有 Probe；模块范围复用诊断目标已有清单，不重复全量枚举系统模块。Probe 失败只报告异常类型及代码位置，不输出异常消息中的播放器数据，宿主最多保留末尾 4096 字符，原有 stderr 总量上限不变。
+
+0.2.3 的生产 Probe 将只读 `ReadPlayback` 接入采样，复用固定的只读 graph 和诊断组件，并按播放器构建核对进程文件身份及运行时布局，读取进度、时长、播放状态及倍速。仅对文件身份和运行时布局核对通过的构建使用该路径，受支持构建以最终源码中的身份／布局核对规则为准，不把播放器版本文字或旧安装版曾可用当成新路径运行验收。未知或尚未取得有效内存读数时，只回退到新鲜且匹配当前媒体的 SMTC 时间线；不通过 UIA 读取播放控件、字幕菜单或媒体库详情树。新鲜信息不足则报告不可用，不猜进度。
+
+此调整不改变字幕内容、个人配置、安装流程或依赖，不注入代码、不调用播放器设置接口。保留的 UIA 代码及未显式传入该只读采样器的旧诊断入口，不代表发行包生产路径；不能用这些入口的“只读”名称推断它们不会阻塞播放器。
 
 #### 固定源码与许可归属
 
@@ -94,7 +98,9 @@ Microsoft.Extensions.Primitives.dll                       2.1.1
 
 `SeriesIdentity` 将已知季数归一为“片名 第N季”，沿用现有采样协议、媒体版本、旧请求隔离和来源绑定链路，不增加不兼容的消息字段。`CachedSeasonReader` 只解析当前用户爆米花既有的首页及最近观看相册缓存，核对片名、集数、分集名、文件名季号和时长。首页使用哈希文件名的 `/v2/homepage`；最近观看使用限定名称的 `/v3/albums` 缓存，且相册类型和 ID 必须同时为 `recent_play`。无关命名缓存不打开，其他端点不解码；继续拒绝过期、损坏、矛盾和超预算数据。首页停留在旧集时，可由最近观看相册中的当前集提供证据，不依赖打开详情页。
 
-`LibrarySeasonReader` 可从同一播放器进程的详情页补足证据，并在同窗连续下一集时沿用已确认季数。详情页省略秒数的分钟值、以 `:00` 结束的列表时长按截断的分钟区间校验；其他时长继续使用两秒误差。此规则仍须唯一同名季标题、同季文件名及当前集完整分集名共同成立，不放宽缓存或矛盾证据。两者不写入播放器文件或持久化观看记录。只有季数明确后才将候选交给数量比较／抽样；未知而存在多个季时拒绝猜测。若首页和最近观看缓存都缺少当前集，且无详情页证据，仍需刷新播放器元数据、打开对应季详情或手动选择，不会猜季。两种续播入口的真实检查只覆盖已观察到的缓存组合，不代表完全无最近观看缓存的冷启动也已验收。
+0.2.3 生产调用 `LibrarySeasonReader` 时禁用可访问性读取，季数证据来自已核对的标题、首页／最近观看缓存及同窗顺序连播的已确认连续性，不再遍历媒体库详情页 UIA 树。保留的详情页解析代码只用于旧的显式诊断／确定性测试，不作为生产回退。缓存与连续性不写入播放器文件或持久化观看记录；信息冲突或季数未知时拒绝猜测，应刷新播放器元数据或手动选片／选集。既有续播检查不代表所有缓存组合或未知播放器版本均已验收。
+
+能力退化边界：标题没有季数、首页／最近观看缓存无有效证据，且首次打开尚无已确认的连播季数时，会安全返回季数未知，需要手动选片／选集。旧版仅靠媒体库详情页 UIA 才能识别的场景不再自动识季，因此不能视为季数识别完全无退化。不得为保持旧覆盖率而恢复生产 UIA 回退。title/cache/连续换集及 fresh-SMTC 的失效拒绝检查应针对实际无 UIA 路径；旧可访问性解析测试通过不证明该生产路径的覆盖完整。
 
 ```text
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release -- --season-match-tests
@@ -102,7 +108,7 @@ Microsoft.Extensions.Primitives.dll                       2.1.1
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release -- --seek-recovery-tests
 ```
 
-完整原生套件包含这些检查。`--season-live-sampler N` 为显式只读播放器检查；`--season-live-api ABS_INCLUDEAPI_PAYLOAD N` 另外启动自有临时服务并实际联网匹配，仅记录当前片名、来源和数量，不记录地址、令牌、路径或缓存。真实播放检查与模拟回归分开，不以演示数据代替真实结果。
+完整原生套件包含这些检查。`--season-live-sampler N`、`--seek-live-sampler SECONDS` 和 `--season-live-api ABS_INCLUDEAPI_PAYLOAD N` 是显式诊断入口，既有实现仍可能创建默认 UIA 采样器；它们不等于 0.2.3 生产 Probe 的无可访问性路径，不应用于证明字幕菜单无阻塞。`--season-live-api` 另外启动自有临时服务并实际联网匹配，仅记录当前片名、来源和数量，不记录地址、令牌、路径或缓存。真实播放检查与模拟回归分开，不以演示数据代替真实结果。
 
 跳转回归覆盖大幅前后跳转、SMTC 仍报告播放而精确进度停住、播放状态短暂缺失、缓冲恢复及原生弹幕位置连续性。时钟按采样区间内实际位置变化判断跳转，不把推算时钟与停顿媒体的差值当作重复跳转；缓冲恢复不反向移动已有场景。
 
@@ -172,13 +178,13 @@ API 使用当前 Windows 用户的 ProtectedData 加密，保存在 `%LOCALAPPDA
 
 ## 诊断工具
 
-这些工具按需运行，不属于用户启动入口。联网、真实播放器和演示检查分开，不以演示数据替代产品验收。
+这些工具按需运行，不属于用户启动入口。只读 UIA／窗口诊断仍可能进入播放器可访问性提供器，不能因“不写设置”就认定它们不影响播放器响应；字幕问题验收须核对实际加载的生产采样路径。联网、真实播放器和演示检查分开，不以演示数据替代产品验收。
 
 | 用途 | 入口与边界 |
 |---|---|
-| 当前视频与季数、跳转排查 | NativeDistribution 的 `--season-live-sampler`、`--seek-live-sampler`、`--packaged-playback`，参数及隐私要求见前文 |
+| 当前视频与季数、跳转排查 | `--packaged-playback` 加载指定成品；`--season-live-sampler`、`--seek-live-sampler` 等旧显式诊断可能仍走 UIA，不能替代无可访问性生产路径验收；参数及隐私要求见前文 |
 | 系统媒体会话 | `scripts/Inspect-MediaSessions.ps1`；只读观察 |
-| 播放器与覆盖层 | `scripts/Test-PlaybackIntegration.ps1`、`scripts/Test-OverlayPresentationRuntime.ps1`；需要现有播放器 |
+| 播放器与覆盖层 | `scripts/Test-PlaybackIntegration.ps1`、`scripts/Test-OverlayPresentationRuntime.ps1`；需要现有播放器，运行前核对实际观察器是否仍调用 UIA |
 | 实际 API | `scripts/Test-LiveApi.ps1`、`scripts/Test-LiveAutomaticMatch.ps1`；显式环境地址，需联网 |
 | 设置和播放响应 | `scripts/Test-SettingsLatency.ps1`、`tests/Run-PlaybackLatencyHost.ps1` 及各自观察器/分析器；保留源哈希和退出证据 |
 | 渲染器排查 | `scripts/Measure-Overlay.ps1`、`scripts/Measure-OverlayTransparency.ps1`、`scripts/Measure-RendererReconfigure.ps1`；合成测量与真实播放分开 |

@@ -36,7 +36,7 @@ internal sealed class LibrarySeasonReader(CancellationToken stop)
     private readonly SeasonContinuity continuity=new();
     private int sequentialSeason;
     internal string LastReason {get;private set;}="";
-    internal int Read(VideoWindow window,SeriesIdentity playing,double? duration)
+    internal int Read(VideoWindow window,SeriesIdentity playing,double? duration,bool allowAccessibility=true)
     {
         string next=window.Handle.ToInt64()+"\n"+window.ProcessId+"\n"+window.Title;
         if(next!=key)
@@ -65,7 +65,7 @@ internal sealed class LibrarySeasonReader(CancellationToken stop)
                 if(conflict){continuity.Confirm(0);sequentialSeason=0;LastReason="conflicting-season-cache";return 0;}
             }
             LastReason="no-library-window";
-            foreach(var library in NativeWindows.FindLibraries(window))
+            foreach(var library in allowAccessibility ? NativeWindows.FindLibraries(window) : Array.Empty<VideoWindow>())
             {
                 stop.ThrowIfCancellationRequested();
                 var root=AutomationElement.FromHandle(library.Handle);
