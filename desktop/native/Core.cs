@@ -228,6 +228,7 @@ public sealed class DanmakuSettings
     public string Keywords { get; set; } = "";
     public double OffsetMs { get; set; }
     public bool Enabled { get; set; } = true;
+    internal DanmakuSettings Copy() => (DanmakuSettings)MemberwiseClone();
     public void Validate()
     {
         if (AreaFraction is not (.1 or .25 or .5 or .75 or 1.0) ||

@@ -44,6 +44,10 @@ public sealed class DesktopWindow : Form
     private volatile bool closing;
     private int playerUpdateQueued;
     private readonly PlayerProbe probe;
+    private PlayerProbe toolbarProbe;
+    private PlayerToolbar toolbar;
+    private readonly System.Windows.Forms.Timer toolbarTimer=new(){Interval=30};
+    private bool toolbarPreview;
     private readonly OverlayHost overlay;
     private readonly SyncClock sync=new();
     private PlayerSample sample;
@@ -113,6 +117,7 @@ public sealed class DesktopWindow : Form
     {
         if(closing)return;
         closing=true;timer.Stop();timer.Dispose();automaticMatcher?.Dispose();flyout?.Dispose();tray?.Dispose();
+        toolbarTimer.Stop();toolbarTimer.Dispose();toolbar?.Dispose();toolbarProbe?.Dispose();
         if(updater!=null){updater.Changed-=QueueUpdateState;updater.Dispose();}
         if(localApi!=null){localApi.Changed-=QueueLocalApiUpdate;localApi.Dispose();}
         pending.Cancel();pending.Dispose();api.Dispose();
@@ -245,7 +250,63 @@ public sealed class DesktopWindow : Form
         sync.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,media,sample.PositionResolutionMs,identified ? sample.PlaybackRate : null,sample.PlaybackBlocked); sync.Tick(now);
         var video=identified ? sample.Window : null;
         overlay.Update(video,sync.At(now),sync.Running,sync.SeekRevision,sync.Mode=="automatic",sync.LastProofMs,sync.Mode is "automatic" or "manual",sync.Rate);
+        if(video!=null && toolbarProbe==null && OperatingSystem.IsWindowsVersionAtLeast(10,0,19041))
+        {
+            toolbarProbe=new PlayerProbe(root,toolbar:true);
+            toolbarTimer.Tick+=(_,_)=>UpdateToolbar();
+            toolbarTimer.Start();
+        }
         automaticMatcher?.Observe(apiBase,identified && (localApi==null || apiBase.Length>0) ? sample.Title : "",sample.EpisodeNumber,mediaRevision);
+    }
+    private void UpdateToolbar()
+    {
+        if(closing)return;
+        var current=toolbarProbe.Latest;
+        var window=current.Window;
+        var playback=sample.Window;
+        if(current.ControlsVisible==null || window==null || playback==null || window.Handle!=playback.Handle ||
+            window.ProcessId!=playback.ProcessId || Monotonic.Now-current.StampMs>250)
+        {toolbar?.Hide();return;}
+        if(toolbar==null)
+        {
+            if(current.ControlsVisible!=true)return;
+            toolbar=new PlayerToolbar(EditToolbarSettings,NativeWindows.ClientAreaAnimations ? PlayerToolbar.ExitFadeMs : 0);
+            toolbar.Observe(Settings);
+        }
+        toolbar.Update(window,current.ControlsVisible,(long)Monotonic.Now);
+    }
+    private void PersistSettings(DanmakuSettings settings)
+    {
+        settings.Validate();
+        try
+        {
+            string temp=preferences+".tmp";File.WriteAllText(temp,SettingsPreferences.Serialize(settings));File.Move(temp,preferences,true);
+        }
+        catch(Exception storageError) when(storageError is IOException or UnauthorizedAccessException)
+        {throw new InvalidOperationException("显示偏好保存失败，本次设置未应用。");}
+    }
+    private void AcceptSettings(DanmakuSettings settings)
+    {
+        toolbarPreview=false;Settings=settings;settingsRevision++;Failure="";
+        SettingsUpdated?.Invoke(settings);toolbar?.Observe(settings);
+    }
+    private void EditToolbarSettings(Action<DanmakuSettings> edit,bool commit)
+    {
+        if(closing)return;
+        if(edit==null)
+        {
+            if(toolbarPreview){toolbarPreview=false;overlay.SetSettings(Settings);toolbar?.Observe(Settings);}
+            return;
+        }
+        var next=Settings.Copy();edit(next);next.Validate();
+        if(!commit){toolbarPreview=true;overlay.SetSettings(next);return;}
+        try{PersistSettings(next);}
+        catch(InvalidOperationException failure)
+        {
+            toolbarPreview=false;overlay.SetSettings(Settings);toolbar?.Observe(Settings);
+            Failure=failure.Message;tray.ShowFailure(Failure);PushState();return;
+        }
+        AcceptSettings(next);PushState();
     }
     private void OnNavigationStarting(object sender,CoreWebView2NavigationStartingEventArgs e)
     {
@@ -453,16 +514,8 @@ public sealed class DesktopWindow : Form
             else if (type=="update-settings")
             {
                 var settings=payload.GetProperty("settings").Deserialize<DanmakuSettings>(Json)??throw new ArgumentException("缺少设置。");
-                settings.Validate();
-                try
-                {
-                    string temp=preferences+".tmp"; File.WriteAllText(temp,SettingsPreferences.Serialize(settings)); File.Move(temp,preferences,true);
-                }
-                catch (Exception storageError) when (storageError is IOException or UnauthorizedAccessException)
-                {
-                    throw new InvalidOperationException("显示偏好保存失败，本次设置未应用。");
-                }
-                settingsCommitted=true; Settings=settings; settingsRevision++; Failure=""; SettingsUpdated?.Invoke(settings);
+                PersistSettings(settings);
+                settingsCommitted=true;AcceptSettings(settings);
                 result=Settings;
             }
             else if (type=="manual-clock")

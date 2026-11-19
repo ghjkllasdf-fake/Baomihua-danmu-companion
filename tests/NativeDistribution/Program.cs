@@ -56,6 +56,8 @@ internal static class DistributionTests
             if(args.Length==2 && args[0]=="--tray-visual-runtime"){TrayVisualRuntimeTests.Run(args[1]);return 0;}
             if(args.Length==2 && args[0]=="--tray-host-runtime"){TrayHostRuntimeTests.Run(args[1]);return 0;}
             if(args.Length==2 && args[0]=="--tray-cold-runtime"){TrayColdRuntimeTests.Run(args[1]);return 0;}
+            if(args.Length==2 && args[0]=="--player-toolbar-runtime"){PlayerToolbarRuntimeTests.Run(args[1]);return 0;}
+            if(args.Length==1 && args[0]=="--player-toolbar-fixture"){PlayerToolbarRuntimeTests.VerifyFixture();return 0;}
             if(args.Length>0 && args[0]=="--image-fixture"){Console.WriteLine("ready");Console.Out.Flush();Console.ReadLine();return 0;}
             if(args.Length>0 && args[0]=="--process-image-tests"){NativeProcessImageTests.Run();return 0;}
             if(args.Length>0 && args[0]=="--fixture")return NativeChildTests.Emit(args[^1]);
