@@ -31,9 +31,10 @@ internal static class ReleaseTools
         var root=document.RootElement;
         Check(root.EnumerateObject().Select(p=>p.Name).Distinct(StringComparer.Ordinal).Count()==root.EnumerateObject().Count(),"Duplicate manifest properties.");
         string version=root.GetProperty("version").GetString()??"";
+        var format=Regex.Match(version,@"\A(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:\.([1-9][0-9]*)|-beta\.[1-9][0-9]*)?\z");
         Check(root.GetProperty("schemaVersion").GetInt32()==1 &&
-            Regex.IsMatch(version,@"\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:\.[1-9][0-9]*|-beta\.[1-9][0-9]*)?\z") &&
-            version.Replace("-beta.",".").Split('.').All(part=>ushort.TryParse(part,out _)),"Unsupported release manifest.");
+            format.Success && version.Replace("-beta.",".").Split('.').All(part=>ushort.TryParse(part,out var component) &&
+                (!format.Groups[1].Success || component<ushort.MaxValue)),"Unsupported release manifest.");
         Check(Regex.IsMatch(root.GetProperty("sourceCommit").GetString()??"",@"^[a-f0-9]{40}$"),"Missing source identity.");
         var records=root.GetProperty("files").EnumerateArray().Select(file=>
             new FileRecord(file.GetProperty("path").GetString()??"",file.GetProperty("length").GetInt64(),file.GetProperty("sha256").GetString()??"")).ToArray();

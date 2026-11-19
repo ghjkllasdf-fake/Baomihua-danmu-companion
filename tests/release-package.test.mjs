@@ -124,7 +124,8 @@ test('four-part stable releases preserve the revision in packages and Windows fi
   assert.deepEqual(releaseVersions(props, '0.2.5.10'), { fileVersion: '0.2.5.10' });
   assert.throws(() => releaseVersions(props.replace('<FileVersion>0.2.5.10', '<FileVersion>0.2.5.0'), '0.2.5.10'));
   assert.throws(() => releaseVersions(props.replace('<AssemblyVersion>0.2.5.10', '<AssemblyVersion>0.2.5.0'), '0.2.5.10'));
-  for (const invalid of ['0.2.5.0', '0.2.5.01', '0.2.5.65536', '0.2.5.1.0', '0.2.5.1-beta.1', '0.2.5.1\n'])
+  assert.doesNotThrow(() => releaseNames('0.2.5.65534'));
+  for (const invalid of ['0.2.5.0', '0.2.5.01', '0.2.5.65535', '0.2.65535.1', '0.2.5.65536', '0.2.5.1.0', '0.2.5.1-beta.1', '0.2.5.1\n'])
     assert.throws(() => releaseNames(invalid), /Invalid release version/, invalid);
 });
 

@@ -12,8 +12,10 @@ export function nativePublishEntry(path) {
 }
 
 export function releaseNames(version, includeApi = false) {
-  if (typeof version !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\.([1-9]\d*)|-beta\.([1-9]\d*))?$/.test(version) ||
-      version.split(/\.|-beta\./).some(part => Number(part) > 65535)) throw new Error('Invalid release version.');
+  const parsed = typeof version === 'string' && /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:\.([1-9]\d*)|-beta\.[1-9]\d*)?$/.exec(version);
+  // Four-part stable releases also use this value for the CLR AssemblyVersion.
+  if (!parsed || version.split(/\.|-beta\./).some(part => Number(part) > (parsed[1] ? 65534 : 65535)))
+    throw new Error('Invalid release version.');
   const base = `DanmuCompanion-${version}-win-x64${includeApi ? '-includeAPI' : ''}`;
   return { base, installer: `${base}-setup.exe`, portable: `${base}-portable.zip` };
 }
