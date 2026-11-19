@@ -15,7 +15,7 @@ export function validSettings(value: unknown): value is Settings {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const s = value as Settings;
   const range = (n: unknown, min: number, max: number) => typeof n === 'number' && Number.isFinite(n) && n >= min && n <= max;
-  return [.25, .5, .75, 1].includes(s.areaFraction) && range(s.fontSize, 16, 64) &&
+  return [.1, .25, .5, .75, 1].includes(s.areaFraction) && range(s.fontSize, 16, 64) &&
     range(s.speedMultiplier, .5, 2) && range(s.opacity, .1, 1) && range(s.outlineWidth, 0, 3) && range(s.shadowStrength, 0, 1) &&
     range(s.offsetMs, -30000, 30000) && [30, 60, 100].includes(s.density) &&
     typeof s.keywords === 'string' && s.keywords.length <= 2000 &&

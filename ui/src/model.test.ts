@@ -12,7 +12,7 @@ describe('display settings and time', () => {
     expect(defaultSettings.density).toBe(100);
   });
   it('accepts all requested regions and rejects arbitrary values', () => {
-    for (const areaFraction of [.25, .5, .75, 1]) expect(validSettings({ ...defaultSettings, areaFraction })).toBe(true);
+    for (const areaFraction of [.1, .25, .5, .75, 1]) expect(validSettings({ ...defaultSettings, areaFraction })).toBe(true);
     expect(validSettings({ ...defaultSettings, areaFraction: .3 })).toBe(false);
   });
   it('validates shadow intensity independently of outline and opacity, with zero disabling it', () => {

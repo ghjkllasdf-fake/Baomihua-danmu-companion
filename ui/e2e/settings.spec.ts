@@ -61,6 +61,16 @@ test('a rejected save rolls controls back to the confirmed settings', async ({ p
   await expect(page.getByRole('button', { name: '1/4', exact: true })).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('one-tenth display area is selectable and remains selected after save', async ({ page }) => {
+  const region = page.getByRole('button', { name: '1/10', exact: true });
+  await region.click();
+  await page.clock.runFor(16);
+  await expect(page.locator('html')).toHaveAttribute('data-updates', '1');
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('fixture-settle', { detail: { index: 0, ok: true } })));
+  await expect(page.locator('.mini-footer')).toContainText('显示偏好已保存');
+  await expect(region).toHaveAttribute('aria-pressed', 'true');
+});
+
 test('late acknowledgments cannot replace a newer pending edit, but remain the rollback baseline', async ({ page }) => {
   await page.getByRole('button', { name: '1/4', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-updates', '1');

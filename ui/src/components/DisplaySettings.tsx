@@ -14,7 +14,7 @@ export function DisplaySettings({ settings: s, update, view = 'all' }: { setting
     <h2 id={view === 'advanced' ? 'advanced-heading' : 'display-heading'} className="sr-only">{view === 'advanced' ? '高级显示设置' : '显示设置'}</h2>
     {view !== 'advanced' && <>
     <fieldset className="region-control"><legend>显示区域 <small>从顶部向下</small></legend>
-      <div className="segments">{[[.25, '1/4'], [.5, '1/2'], [.75, '3/4'], [1, '全屏']].map(([value, label]) =>
+      <div className="segments">{[[.1, '1/10'], [.25, '1/4'], [.5, '1/2'], [.75, '3/4'], [1, '全屏']].map(([value, label]) =>
         <button key={value} type="button" aria-pressed={s.areaFraction === value} onClick={() => update({ areaFraction: Number(value) })}>
           <span className="region-icon" style={{ '--fill': `${Number(value) * 100}%` } as React.CSSProperties} />{label}
         </button>)}</div>
