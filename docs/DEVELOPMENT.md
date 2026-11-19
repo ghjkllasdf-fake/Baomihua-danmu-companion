@@ -28,7 +28,7 @@ node scripts/test-release.mjs --version 0.2.4
 
 构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.4` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
 
-历史上的 0.2.3 撤回后同版本重发是用户明确授权的单次例外，当时不采用 hotfix 后缀或升版本，也不改变一般禁止重写旧标签／附件的规则。先将旧字节摘要、撤回证据和旧 QA／DOCS_GO／失败历史保留本地；重新冻结精确候选，以匹配的新源码、六项附件及校验清单取得新的 QA 和文档结论后，才按授权更新发布标签与附件。新标签、对应源码和附件必须严格匹配，旧 GO 不适用于重发字节。不得覆盖本地同名构建产物来伪装新证据，应使用独立产物／证据目录。已安装旧 0.2.3 的用户不会收到相同版本的更新提示，须明确提醒手动重新下载安装。
+历史上的 0.2.3 同版本重发是单次授权的例外，不改变一般禁止重写旧标签／附件的规则。旧版的字节摘要与撤回证据保留本地；相同版本不会触发更新提示。
 
 ### 播放器快捷按钮与托盘冷启动
 
@@ -205,7 +205,7 @@ API 使用当前 Windows 用户的 ProtectedData 加密，保存在 `%LOCALAPPDA
 
 ## 文档截图、隐私与许可
 
-托盘功能图可在 UI 构建后运行 `node scripts/Capture-TrayScreenshots.mjs` 重建，使用隔离 fixture，不访问真实 API 或播放器。仓库现有六张托盘图沿用 Beta6 示例，不能据此核对 0.2 的默认值或最新布局。视频效果示意依次运行 `scripts/Capture-ReadmeOverlay.ps1`（PS7，STA）和 `node scripts/Capture-PlaybackScreenshot.mjs`，由自制动画视频和生产原生渲染器输出叠合生成。临时 WebM 位于忽略的 `.cache/readme-demo/`；示意不是实际播放器、性能或多屏证据。
+托盘功能图可在 UI 构建后运行 `node scripts/Capture-TrayScreenshots.mjs` 重建，使用隔离 fixture，不访问真实 API 或播放器。仓库旧托盘图仅作历史示例，不能据此核对当前默认值或布局。视频效果示意依次运行 `scripts/Capture-ReadmeOverlay.ps1`（PS7，STA）和 `node scripts/Capture-PlaybackScreenshot.mjs`，由自制动画视频和生产原生渲染器输出叠合生成。README 的播放器按钮图将 0.2.4 原生控件绘制结果叠在自制画面上，模拟播放器控制栏；它不是实际播放器、性能或多屏验收证据。
 
 提交前运行 `node scripts/Test-PublicPrivacy.mjs` 检查 Git 索引；它不会上传数据。任何日志、缓存、私人配置、私人截图都不应进入 Git。项目原创部分使用 MIT；组包包含根 LICENSE，第三方许可保留原文。依赖审计使用 `npm.cmd --prefix ui audit --json`，零告警不等于完整安全认证。
 
