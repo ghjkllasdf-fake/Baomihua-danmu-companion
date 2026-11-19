@@ -3,6 +3,22 @@ using System.Drawing;
 
 namespace Popcorn;
 
+internal readonly record struct PlayerClientGeometry(Rectangle Bounds,uint Dpi,uint ProcessId);
+
+internal static class PlayerToolbarPlacement
+{
+    internal static bool TryResolve(VideoWindow sample,Func<IntPtr,PlayerClientGeometry?> read,
+        out Rectangle client,out uint dpi,out Rectangle buttons,out Rectangle popup)
+    {
+        client=buttons=popup=Rectangle.Empty;dpi=0;
+        if(sample==null || sample.Handle==IntPtr.Zero || sample.ProcessId==0)return false;
+        var current=read(sample.Handle);
+        if(current is not { } geometry || geometry.ProcessId!=sample.ProcessId || geometry.Dpi is 0 or >1536)return false;
+        client=geometry.Bounds;dpi=geometry.Dpi;
+        return PlayerRow.TryPlace(client,dpi,out buttons,out popup);
+    }
+}
+
 internal static class PlayerRow
 {
     internal static bool TryPlace(Rectangle client, uint dpi, out Rectangle buttons, out Rectangle popup)
