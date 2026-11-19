@@ -12,7 +12,8 @@ export function nativePublishEntry(path) {
 }
 
 export function releaseNames(version, includeApi = false) {
-  if (!/^\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?$/.test(version)) throw new Error('Invalid release version.');
+  if (typeof version !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\.([1-9]\d*)|-beta\.([1-9]\d*))?$/.test(version) ||
+      version.split(/\.|-beta\./).some(part => Number(part) > 65535)) throw new Error('Invalid release version.');
   const base = `DanmuCompanion-${version}-win-x64${includeApi ? '-includeAPI' : ''}`;
   return { base, installer: `${base}-setup.exe`, portable: `${base}-portable.zip` };
 }
@@ -32,9 +33,10 @@ export function releaseVersions(properties, version) {
   releaseNames(version);
   const projectVersion = properties.match(/<Version>([^<]+)<\/Version>/)?.[1];
   const fileVersion = properties.match(/<FileVersion>([^<]+)<\/FileVersion>/)?.[1];
-  const expected = version.includes('-beta.') ? version.replace('-beta.', '.') : version + '.0';
-  if (projectVersion !== version || fileVersion !== expected ||
-      expected.split('.').some(part => Number(part) > 65535))
+  const assemblyVersion = properties.match(/<AssemblyVersion>([^<]+)<\/AssemblyVersion>/)?.[1];
+  const numeric = version.replace('-beta.', '.');
+  const expected = numeric.split('.').length === 4 ? numeric : numeric + '.0';
+  if (projectVersion !== version || fileVersion !== expected || (version === expected && assemblyVersion !== expected))
     throw new Error('Artifact, native version and numeric file version must agree.');
   return { fileVersion };
 }
@@ -42,8 +44,8 @@ export function releaseVersions(properties, version) {
 export function assertReleaseGuide(guide, version) {
   releaseNames(version);
   const heading = guide.replace(/^\ufeff/, '').split(/\r?\n/, 1)[0];
-  if (!heading.startsWith('# ') || !heading.includes(version) ||
-      (heading.match(/\d+\.\d+\.\d+-beta\.\d+/g) ?? []).some(found => found !== version))
+  const versions = heading.match(/(?<![\w.])v?\d+(?:\.\d+){2,}(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?![\w.+-])/g) ?? [];
+  if (!heading.startsWith('# ') || !versions.length || versions.some(found => found !== version && found !== `v${version}`))
     throw new Error('Release guide title must identify the artifact version.');
 }
 

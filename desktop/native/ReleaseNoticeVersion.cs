@@ -16,16 +16,17 @@ internal sealed class ReleaseVersion : IComparable<ReleaseVersion>
         version=null;
         if(input==null || input.Length is <5 or >96 || input.Any(char.IsWhiteSpace))return false;
         string text=input.StartsWith('v') ? input[1..] : input;
-        if(!Regex.IsMatch(text,@"\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\z"))return false;
+        if(!Regex.IsMatch(text,@"\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:\.(0|[1-9][0-9]*))?(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\z"))return false;
         text=text.Split('+')[0];string[] parts=text.Split('-',2),numbers=parts[0].Split('.');
-        var core=new uint[3];for(int i=0;i<3;i++)if(!uint.TryParse(numbers[i],out core[i]))return false;
+        if(numbers.Length==4 && parts.Length==2)return false;
+        var core=new uint[4];for(int i=0;i<numbers.Length;i++)if(!uint.TryParse(numbers[i],out core[i]))return false;
         string[] pre=parts.Length==2 ? parts[1].Split('.') : Array.Empty<string>();
         if(pre.Any(p=>p.All(char.IsAsciiDigit) && p.Length>1 && p[0]=='0'))return false;
         version=new ReleaseVersion(text,core,pre);return true;
     }
     public int CompareTo(ReleaseVersion other)
     {
-        for(int i=0;i<3;i++){int c=core[i].CompareTo(other.core[i]);if(c!=0)return c;}
+        for(int i=0;i<core.Length;i++){int c=core[i].CompareTo(other.core[i]);if(c!=0)return c;}
         if(Stable || other.Stable)return Stable.CompareTo(other.Stable);
         for(int i=0;i<Math.Min(pre.Length,other.pre.Length);i++)
         {

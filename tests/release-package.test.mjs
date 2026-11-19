@@ -118,9 +118,23 @@ test('installer file version comes from the same native properties as the artifa
   assert.throws(() => releaseVersions(props.replace('<FileVersion>0.1.1.3</FileVersion>', ''), '0.1.1-beta.3'));
 });
 
+test('four-part stable releases preserve the revision in packages and Windows file metadata', () => {
+  const props = '<Project><Version>0.2.5.10</Version><FileVersion>0.2.5.10</FileVersion><AssemblyVersion>0.2.5.10</AssemblyVersion></Project>';
+  assert.equal(releaseNames('0.2.5.10', true).installer, 'DanmuCompanion-0.2.5.10-win-x64-includeAPI-setup.exe');
+  assert.deepEqual(releaseVersions(props, '0.2.5.10'), { fileVersion: '0.2.5.10' });
+  assert.throws(() => releaseVersions(props.replace('<FileVersion>0.2.5.10', '<FileVersion>0.2.5.0'), '0.2.5.10'));
+  assert.throws(() => releaseVersions(props.replace('<AssemblyVersion>0.2.5.10', '<AssemblyVersion>0.2.5.0'), '0.2.5.10'));
+  for (const invalid of ['0.2.5.0', '0.2.5.01', '0.2.5.65536', '0.2.5.1.0', '0.2.5.1-beta.1', '0.2.5.1\n'])
+    assert.throws(() => releaseNames(invalid), /Invalid release version/, invalid);
+});
+
 test('release guide identifies the same version in its title', () => {
   assert.doesNotThrow(() => assertReleaseGuide('# App 0.1.1-beta.3 (portable)\n\nBody', '0.1.1-beta.3'));
   assert.throws(() => assertReleaseGuide('# App 0.1.0-beta.2\n\nBody mentions 0.1.1-beta.3', '0.1.1-beta.3'));
+  assert.doesNotThrow(() => assertReleaseGuide('# App 0.2.5.1 (portable)', '0.2.5.1'));
+  assert.throws(() => assertReleaseGuide('# App 0.2.5.10', '0.2.5.1'));
+  assert.throws(() => assertReleaseGuide('# App 0.2.5.1', '0.2.5'));
+  assert.throws(() => assertReleaseGuide('# App 0.2.5.1preview', '0.2.5.1'));
 });
 
 test('custom library packages are explicit dirty candidates, never final artifacts', () => {
@@ -215,21 +229,23 @@ test('Inno compiles standard and includeAPI to distinct installer names', async 
     await writeFile(join(payload, 'DISTRIBUTION-LICENSE.txt'), 'test license');
     await writeFile(join(payload, 'MicrosoftEdgeWebview2Setup.exe'), 'test-only placeholder');
     const list = join(tmp, 'incoming.iss');
-    for (const includeApi of [false, true]) {
+    for (const [version, fileVersion, includeApi] of [
+      ['0.1.0-beta.3', '0.1.0.3', false], ['0.1.0-beta.3', '0.1.0.3', true], ['0.2.5.10', '0.2.5.10', false],
+    ]) {
       // Exercise the real includeAPI scale rather than just compiling an empty list.
       const incoming = includeApi ? Array.from({ length: 11000 }, (_, i) => `  Files.Add('api\\node_modules\\entry-${i}.js');`).join('\n') : '';
       await writeFile(list, `procedure AddIncomingPayloadFiles(Files: TStringList);\nbegin\n${incoming}\nend;\n`);
-      const args = ['--quiet', '/DAppVersion=0.1.0-beta.3', '/DAppFileVersion=0.1.0.3', `/DPayloadDir=${payload}`, `/DPayloadFileList=${list}`,
+      const args = ['--quiet', `/DAppVersion=${version}`, `/DAppFileVersion=${fileVersion}`, `/DPayloadDir=${payload}`, `/DPayloadFileList=${list}`,
         `/DReleaseDir=${tmp}`, ...(includeApi ? ['/DIncludeApi=1'] : []), 'installer/DanmuCompanion.iss'];
       const result = spawnSync(join(root, '.deps', 'inno', 'ISCC.exe'), args, { cwd: root, encoding: 'utf8', windowsHide: true, timeout: 60000 });
       assert.equal(result.status, 0, result.stdout + result.stderr);
-      const installer = join(tmp, releaseNames('0.1.0-beta.3', includeApi).installer);
+      const installer = join(tmp, releaseNames(version, includeApi).installer);
       assert.ok((await stat(installer)).size > 0);
       const metadata = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
         '[System.Diagnostics.FileVersionInfo]::GetVersionInfo($env:DANMU_TEST_INSTALLER).FileVersion'],
         { encoding: 'utf8', windowsHide: true, env: { ...process.env, DANMU_TEST_INSTALLER: installer } });
       assert.equal(metadata.status, 0, metadata.stderr);
-      assert.equal(metadata.stdout.trim(), '0.1.0.3');
+      assert.equal(metadata.stdout.trim(), fileVersion);
     }
   } finally { await rm(tmp, { recursive: true, force: true }); }
 });

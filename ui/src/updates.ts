@@ -14,13 +14,15 @@ const object = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeo
 const exact = (v: object, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
 const integer = (v: unknown, max = Number.MAX_SAFE_INTEGER) => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v <= max;
 function version(value: unknown): { core: number[]; pre: string[] } | null {
-  if (typeof value !== 'string' || value.length > 96 || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*)?$/.test(value)) return null;
+  if (typeof value !== 'string' || value.length > 96 || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:-[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*)?$/.test(value)) return null;
   const split = value.indexOf('-'), core = (split < 0 ? value : value.slice(0, split)).split('.').map(Number), pre = split < 0 ? [] : value.slice(split + 1).split('.');
+  if (core.length === 4 && pre.length) return null;
+  if (core.length === 3) core.push(0);
   return core.every(n => integer(n, 4294967295)) && pre.every(p => !/^0\d+$/.test(p)) ? { core, pre } : null;
 }
 function newer(a: string, b: string): boolean {
   const x = version(a), y = version(b); if (!x || !y) return false;
-  for (let i = 0; i < 3; i++) if (x.core[i] !== y.core[i]) return x.core[i] > y.core[i];
+  for (let i = 0; i < x.core.length; i++) if (x.core[i] !== y.core[i]) return x.core[i] > y.core[i];
   if (!x.pre.length || !y.pre.length) return !x.pre.length && Boolean(y.pre.length);
   for (let i = 0; i < Math.min(x.pre.length, y.pre.length); i++) {
     const m = x.pre[i], n = y.pre[i]; if (m === n) continue;

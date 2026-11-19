@@ -26,6 +26,12 @@ internal static class ReleaseNoticeTests
                 state=="idle" ? "" : "2026-11-01T01:00:00.0000000+00:00",available ? "New release" : "","",snapshots.Count,supported,hours,
                 ReleaseNoticeCatalog.Page(available ? "v0.1.1-beta.10" : null)));
         }
+        foreach(var (current,tag) in new[]{("0.2.4","v0.2.5"),("0.2.5","v0.2.5.1"),("0.2.5.2","v0.2.5.10")})
+        {
+            using var releases=JsonDocument.Parse(JsonSerializer.Serialize(new[]{new{tag_name=tag,draft=false,prerelease=false}}));
+            var notice=ReleaseNoticeCatalog.Select(releases.RootElement,current,"stable")??throw new InvalidOperationException("Expected fixture release: "+tag);
+            snapshots.Add(new("available",current,notice.Version,"standard","portable","stable",true,"",notice.Notes,"",snapshots.Count,true,24,notice.Page));
+        }
         return JsonSerializer.Serialize(snapshots,ReleaseNoticeStorage.Json);
     }
     private static void Check(bool value,string message)=>DistributionTests.Check(value,message);
@@ -85,9 +91,38 @@ internal static class ReleaseNoticeTests
     {
         Check(ReleaseVersion.Newer("v0.1.1-beta.10","0.1.1-beta.9"),"Numeric beta versions must not sort lexically.");
         Check(ReleaseVersion.Newer("0.1.1","0.1.1-beta.99"),"Stable releases must follow prereleases.");
+        Check(ReleaseVersion.Newer("v0.2.5","0.2.4"),"A normal stable upgrade must still be visible to existing clients.");
+        Check(ReleaseVersion.Newer("v0.2.5.1","0.2.5"),"A fourth stable component must be considered for upgrades.");
+        Check(ReleaseVersion.Newer("0.2.5.10","0.2.5.2") && !ReleaseVersion.Newer("0.2.5.2","0.2.5.10"),"Stable revisions must sort numerically without offering a rollback.");
+        Check(ReleaseVersion.TryParse("0.2.5.0",out var alias) && ReleaseVersion.TryParse("0.2.5",out var canonical) && alias.CompareTo(canonical)==0,
+            "An explicit zero revision is the same version, not an update in either direction.");
+        Check(ReleaseVersion.Newer("0.2.6","0.2.5.65535"),"The first three components must take priority over a stable revision.");
         Check(!ReleaseVersion.Newer("0.1.1+build.2","0.1.1+build.1"),"Build metadata must not be an update.");
-        foreach(string bad in new[]{"dev","1.2","1.02.3","1.2.3-beta.01","1.2.3-","1.2.3+x?","1.2.3\r\n"})
+        foreach(string bad in new[]{"dev","1.2","1.02.3","1.2.3-beta.01","1.2.3-","1.2.3+x?","1.2.3\r\n",
+            "0.2.5.01","0.2.5.4294967296","0.2.5.1.0","0.2.5.1-beta.1"})
             Check(!ReleaseVersion.TryParse(bad,out _),"Malformed version must be rejected.");
+        using(var releases=JsonDocument.Parse("""
+            [
+              {"tag_name":"v0.2.5","draft":false,"prerelease":false},
+              {"tag_name":"v0.2.5.2","draft":false,"prerelease":false},
+              {"tag_name":"v0.2.5.10","draft":false,"prerelease":false},
+              {"tag_name":"v0.2.5.11","draft":false,"prerelease":true},
+              {"tag_name":"v0.2.5.12","draft":true,"prerelease":false},
+              {"tag_name":"v0.2.6-beta.1","draft":false,"prerelease":true},
+              {"tag_name":"v0.2.6-beta.2","draft":false,"prerelease":false},
+              {"tag_name":"v0.2.6.1-beta.2","draft":false,"prerelease":true}
+            ]
+            """))
+        {
+            var stable=ReleaseNoticeCatalog.Select(releases.RootElement,"0.2.5","stable");
+            Check(stable?.Version=="0.2.5.10" && stable.Page==ReleaseNoticeCatalog.Page("v0.2.5.10"),"Stable channel must select the highest published stable revision and matching GitHub page.");
+            Check(ReleaseNoticeCatalog.Select(releases.RootElement,"0.2.5.10","stable")==null,"Drafts, mislabeled and lower releases must not cause another notice.");
+            Check(ReleaseNoticeCatalog.Select(releases.RootElement,"0.2.5.10","beta")?.Version=="0.2.6-beta.1","Beta channel still accepts only three-part beta releases, and only when flagged prerelease.");
+        }
+        using(var releases=JsonDocument.Parse("""
+            [{"tag_name":"v0.2.5.0","draft":false,"prerelease":false}]
+            """))
+            Check(ReleaseNoticeCatalog.Select(releases.RootElement,"0.2.5","stable")==null,"A zero-revision synonym must not produce an update notice.");
         string root=Path.Combine(Path.GetTempPath(),"DanmuReleaseNotice-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
         try
         {

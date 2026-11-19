@@ -30,11 +30,13 @@ test('actual native serializer matches the integrated UI notice contract for eve
   assert.match(program, /--release-notice-contract-fixture/);
   const executable = fileURLToPath(new URL('tests/NativeDistribution/bin/Release/net10.0-windows/win-x64/NativeDistribution.Tests.exe', root));
   const snapshots = JSON.parse(execFileSync(executable, ['--release-notice-contract-fixture'], { encoding: 'utf8', windowsHide: true, timeout: 30000 }));
-  assert.equal(snapshots.length, 72);
+  assert.equal(snapshots.length, 75);
   for (const snapshot of snapshots) {
     assert.equal(validUpdateSnapshot(snapshot), true, `Native/UI contract mismatch: ${JSON.stringify(snapshot)}`);
     assert.equal(Object.keys(snapshot).length, 14);
   }
   assert.deepEqual([...new Set(snapshots.map(snapshot => snapshot.state))].sort(), ['available', 'checking', 'current', 'failed', 'idle', 'unavailable']);
   assert.deepEqual([...new Set(snapshots.map(snapshot => snapshot.checkIntervalHours))].sort((a, b) => a - b), [24, 168, 720]);
+  assert.deepEqual(snapshots.filter(s => s.channel === 'stable').map(s => [s.currentVersion, s.availableVersion]),
+    [['0.2.4', '0.2.5'], ['0.2.5', '0.2.5.1'], ['0.2.5.2', '0.2.5.10']]);
 });
