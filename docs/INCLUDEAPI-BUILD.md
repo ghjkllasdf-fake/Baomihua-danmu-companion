@@ -1,6 +1,6 @@
 # Building includeAPI
 
-This guide covers the `0.2.3` stable version.
+This guide covers the `0.2.4` stable version.
 
 This is an additional native variant, alongside the ordinary installer
 and Portable. It does not replace old release assets or tags. Runtime behavior
@@ -101,11 +101,11 @@ These build commands do not push, merge, tag or publish. Publication requires
 separate user authorization after final-byte, real-source and license checks.
 Use a draft Release, verify uploaded assets by downloaded bytes, then publish
 with the concise version title and Changelog-only notes. Mark `-beta.N` versions
-as prereleases and `0.2.3` as stable. Do not rewrite old assets/tags. The
+as prereleases and `0.2.4` as stable. Do not rewrite old assets/tags. The
 corresponding-source asset and checksums must remain available with the executable release.
 
 The withdrawn 0.2.3 has a one-time, explicitly user-authorized same-version
-republication exception; use plain 0.2.3, not a hotfix suffix or 0.2.4.
+republication exception. That historical rerelease used plain 0.2.3, not a hotfix suffix.
 Retain the old byte digests, withdrawal evidence, QA/DOCS_GO and failure history
 locally. Freeze a new exact candidate and use separate local output/evidence
 directories; do not overwrite old build outputs. Before the authorized tag/asset
