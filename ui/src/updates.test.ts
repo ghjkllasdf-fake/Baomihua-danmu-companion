@@ -50,6 +50,19 @@ describe('release notification boundary', () => {
     expect(validUpdateSnapshot({ ...updateFixture, releasePage: releasePageRoot })).toBe(true);
     expect(validUpdateSnapshot({ ...updateFixture, state: 'current', availableVersion: '', releasePage: `${releasePageRoot}/tag/v0.1.1-beta.7` })).toBe(false);
   });
+  it('accepts stable revisions on the bridge without treating aliases or rollbacks as updates', () => {
+    const snapshot = (currentVersion: string, availableVersion: string) => ({
+      ...updateFixture, channel: 'stable', currentVersion, availableVersion, releasePage: `${releasePageRoot}/tag/v${availableVersion}`,
+    });
+    expect(validResult('check-update', snapshot('0.2.4', '0.2.5'))).toBe(true);
+    expect(validResult('check-update', snapshot('0.2.5', '0.2.5.1'))).toBe(true);
+    expect(validUpdateSnapshot(snapshot('0.2.5.2', '0.2.5.10'))).toBe(true);
+    expect(validUpdateSnapshot(snapshot('0.2.5.0', '0.2.6'))).toBe(true);
+    for (const [current, available] of [['0.2.5', '0.2.5.0'], ['0.2.5.0', '0.2.5'], ['0.2.5.10', '0.2.5.2'],
+      ['0.2.5', '0.2.5.01'], ['0.2.5', '0.2.5.4294967296'], ['0.2.5', '0.2.5.1.0'], ['0.2.5', '0.2.5.1-beta.1']])
+      expect(validUpdateSnapshot(snapshot(current, available))).toBe(false);
+    expect(validUpdateSnapshot({ ...snapshot('0.2.5', '0.2.5.1'), releasePage: `${releasePageRoot}/tag/v0.2.5.2` })).toBe(false);
+  });
   it.each([
     'https://evil.example/releases', 'http://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases',
     'https://github.com/another/project/releases', 'https://github.com.evil.example/ghjkllasdf-fake/Baomihua-danmu-companion/releases',

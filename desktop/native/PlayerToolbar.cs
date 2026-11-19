@@ -47,10 +47,8 @@ internal sealed class PlayerToolbar : IDisposable
 
     internal void Update(VideoWindow video, bool? visible, long now)
     {
-        if (video == null || !visible.HasValue || video.ProcessId == 0 || NativeWindows.ProcessId(video.Handle) != video.ProcessId || video.DpiScale is not > 0 or > 16) { Hide(); return; }
-        var client = new Rectangle(video.X,video.Y,video.Width,video.Height);
-        uint dpi=(uint)Math.Round(video.DpiScale.Value*96);
-        if (!PlayerRow.TryPlace(client, dpi, out var buttons, out var popup)) { Hide(); return; }
+        if (!visible.HasValue || !PlayerToolbarPlacement.TryResolve(video,PlayerToolbarNativeGeometry.Read,
+            out var client,out var dpi,out var buttons,out var popup)) { Hide(); return; }
         Present(video, buttons, popup, visible.Value, now, client, dpi);
     }
 
@@ -59,7 +57,7 @@ internal sealed class PlayerToolbar : IDisposable
     private void Present(VideoWindow video, Rectangle buttons, Rectangle popup, bool visible, long now, Rectangle client, uint dpi)
     {
         nint target=video.Handle;
-        if (!CanFollow(target)) { Hide(); return; }
+        if (!CanFollow(target) || NativeWindows.ProcessId(target)!=video.ProcessId) { Hide(); return; }
         if (player != 0 && (target != player || video.ProcessId != playerPid)) Hide();
         player=target;playerPid=video.ProcessId;
         panelBounds = popup;

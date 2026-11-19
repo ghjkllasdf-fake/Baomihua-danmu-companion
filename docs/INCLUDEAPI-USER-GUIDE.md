@@ -1,11 +1,11 @@
-# 爆米花弹幕伴侣 0.2.4 includeAPI
+# 爆米花弹幕伴侣 0.2.5 includeAPI
 
 内置服务版会随伴侣自动启动本机弹幕服务，无需自己填写服务地址，也不用另装 Node、npm、.NET 或 PowerShell。请自行安装网易爆米花播放器并准备视频；搜索和获取弹幕仍需要联网。
 
 ## 安装和运行
 
-- **安装版**：运行 `DanmuCompanion-0.2.4-win-x64-includeAPI-setup.exe`，选择当前用户可写的本地专用文件夹。开始菜单条目为“爆米花弹幕伴侣 includeAPI”。
-- **免安装版（Portable）**：完整解压 `DanmuCompanion-0.2.4-win-x64-includeAPI-portable.zip`，运行 `DanmuCompanion.exe`；不要直接在压缩包中运行或只复制一个 EXE。
+- **安装版**：运行 `DanmuCompanion-0.2.5-win-x64-includeAPI-setup.exe`，选择当前用户可写的本地专用文件夹。开始菜单条目为“爆米花弹幕伴侣 includeAPI”。
+- **免安装版（Portable）**：完整解压 `DanmuCompanion-0.2.5-win-x64-includeAPI-portable.zip`，运行 `DanmuCompanion.exe`；不要直接在压缩包中运行或只复制一个 EXE。
 
 程序使用系统 WebView2 运行环境（最低 124）。缺少时安装版会联网安装；免安装版请先运行包内的 `MicrosoftEdgeWebview2Setup.exe`。下载包大小不等于解压后的占用空间；实际占用以包内文件为准，系统共享组件和个人缓存另计。
 

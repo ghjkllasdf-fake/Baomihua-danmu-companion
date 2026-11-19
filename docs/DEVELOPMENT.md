@@ -16,19 +16,23 @@ npm.cmd --prefix ui run test:e2e
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release
 node --test tests/release-package.test.mjs tests/native-archive.test.mjs tests/installer-guard.test.mjs tests/browser-prerequisite.test.mjs tests/source-state.test.mjs
 node scripts/check-release-mutation.mjs
-node scripts/build-release.mjs --version 0.2.4
-node scripts/test-release.mjs --version 0.2.4
+node scripts/build-release.mjs --version 0.2.5
+node scripts/test-release.mjs --version 0.2.5
 ```
 
-运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.4/`，同一变体的安装版和 Portable 来自同一 manifest payload；普通版应用文件不得超过 210 MiB，includeAPI 使用独立的 400 MiB 预算，且白名单拒绝私有浏览器目录。
+运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.5/`，同一变体的安装版和 Portable 来自同一 manifest payload；普通版应用文件不得超过 210 MiB，includeAPI 使用独立的 400 MiB 预算，且白名单拒绝私有浏览器目录。
 
 `test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝已有安装直接换目录、原位重装、安装清单内同名替换文件覆盖、卸载及额外用户文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
 
 非 `app` profile 使用隔离 `data-root/profile`，测试禁止读写真实 API 或浏览器数据。正常应用配置使用 `%LOCALAPPDATA%/BaomihuaDanmuCompanion`，不再使用程序目录下的 `.cache`。启动项迁移须用户显式操作；卸载按 Inno 安装日志删除程序文件（包括同名替换文件），只清理指向本安装的开机快捷方式；不递归清空目录或删除个人数据。
 
-构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.4` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
+构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.5` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
 
 历史上的 0.2.3 同版本重发是单次授权的例外，不改变一般禁止重写旧标签／附件的规则。旧版的字节摘要与撤回证据保留本地；相同版本不会触发更新提示。
+
+正式版可用 `X.Y.Z`，或在同一三段版本上追加正整数修订号 `X.Y.Z.R`；Beta 仍只用 `X.Y.Z-beta.N`。检查更新按各段数值排序，`X.Y.Z.0` 与 `X.Y.Z` 等价，因此不要另发 `.0` 标签。Windows 文件版本的数字段上限是 65535；四段正式版还要用作 .NET `AssemblyVersion`，因此各段最多 65534。不要使用前导零。四段正式版的 `Version`、`AssemblyVersion`、`FileVersion`、发行标签（去掉 `v`）、清单版本和文件名使用同一完整版本号，不再额外拼 `.0`。
+
+更新提示按公开标签而非 EXE 文件版本判断。历史 Beta 的 Windows 文件版本 `X.Y.Z.N` 可能与四段正式版重合；两者的公开版本仍不同，不能用文件版本来判断是否为同一发行。安装器仍按产品 ID 和安装路径原位安装，不用文件版本阻止覆盖或降级。0.2.4 及更老的三段检查器需要先通过三段正式版升级，不能直接发现四段版本。
 
 ### 播放器快捷按钮与托盘冷启动
 

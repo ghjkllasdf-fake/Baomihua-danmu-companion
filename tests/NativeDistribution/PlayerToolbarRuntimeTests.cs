@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -29,20 +30,33 @@ internal static class PlayerToolbarRuntimeTests
             "The panel must preserve the fixed size and opacity.");
         Check(PlayerRow.TryPlace(new Rectangle(0,0,1920,1080),96,out _,out var larger) && larger.Size==popup.Size,
             "Resizing the player must not resize the panel.");
-        using var target=new Form{StartPosition=FormStartPosition.Manual,Bounds=viewport};
+        using var target=new Form{StartPosition=FormStartPosition.Manual,Bounds=new Rectangle(50,50,1600,1000)};
         using var cover=new Form{StartPosition=FormStartPosition.Manual,Bounds=new Rectangle(buttons.Left+buttons.Width/2,buttons.Top-20,160,80)};
         using var toolbar=new PlayerToolbar((edit,commit)=>{},PlayerToolbar.ExitFadeMs);
         target.Show();cover.Show();cover.Activate();Application.DoEvents();
         IntPtr foreground=NativeWindows.GetForegroundWindow();
-        var window=new VideoWindow(target.Handle,"fixture",viewport.X,viewport.Y,viewport.Width,viewport.Height)
+        var window=new VideoWindow(target.Handle,"fixture",0,0,500,200)
             {DpiScale=1,ProcessId=(uint)Environment.ProcessId};
-        toolbar.Update(window,true,0);toolbar.Update(window,true,250);
+        var geometry=PlayerToolbarNativeGeometry.Read(target.Handle);
+        Check(geometry.HasValue && PlayerRow.TryPlace(geometry.Value.Bounds,geometry.Value.Dpi,out _,out _),"The owned fixture must fit the toolbar.");
+        var dock=(Form)typeof(PlayerToolbar).GetField("dock",BindingFlags.Instance|BindingFlags.NonPublic).GetValue(toolbar);
+        toolbar.Update(window,true,0);
+        PlayerRow.TryPlace(geometry.Value.Bounds,geometry.Value.Dpi,out var expected,out _);
+        Check(toolbar.ButtonsVisible && dock.Bounds==expected,"The native dock must use the current target geometry, not the smaller Probe rectangle.");
+        target.Location=new Point(target.Left+120,target.Top+80);Application.DoEvents();
+        var moved=PlayerToolbarNativeGeometry.Read(target.Handle);
+        Check(moved.HasValue && PlayerRow.TryPlace(moved.Value.Bounds,moved.Value.Dpi,out expected,out _),"The moved fixture must fit the toolbar.");
+        toolbar.Update(window,true,100);
+        Check(dock.Bounds==expected,"The native dock must follow a move before the Probe reports new coordinates.");
+        toolbar.Update(window,true,250);
         Check(toolbar.ButtonsVisible && NativeWindows.GetForegroundWindow()==foreground,"Toolbar must not activate its target.");
         toolbar.Update(window,false,260);toolbar.Update(window,false,759);
         Check(toolbar.IsFading && toolbar.ButtonsVisible,"Exit must not end before 500 ms.");
         toolbar.Update(window,false,760);Check(!toolbar.ButtonsVisible,"Exit must finish after 500 ms.");
         toolbar.Update(window,true,770);toolbar.Update(window,null,780);Check(!toolbar.ButtonsVisible,"Unknown proof must hide immediately.");
         toolbar.Update(window with{ProcessId=0},true,790);Check(!toolbar.ButtonsVisible,"Unknown window identity must not be trusted.");
+        toolbar.Update(window,true,800);target.Close();Application.DoEvents();
+        toolbar.Update(window,true,810);Check(!toolbar.ButtonsVisible,"A destroyed target must hide immediately rather than reuse stale geometry.");
         Console.WriteLine("PASS: native toolbar visibility, timing, fixed panel and shared settings edit.");
     }
 

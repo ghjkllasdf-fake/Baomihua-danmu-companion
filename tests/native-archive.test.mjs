@@ -19,14 +19,15 @@ test('native archives accept stable and beta manifests and reject unsupported or
   try {
     await writeFile(join(payload, 'sample.txt'), 'controlled source and runtime bytes');
     const records = [{ path: 'sample.txt', length: Buffer.byteLength('controlled source and runtime bytes'), sha256: await fileHash(join(payload, 'sample.txt')) }];
-    for (const [index, version] of ['0.2.0', '0.1.1-beta.7'].entries()) {
+    for (const [index, version] of ['0.2.0', '0.1.1-beta.7', '0.2.5.10'].entries()) {
       for (const variant of ['standard', 'corresponding-source']) {
         await writeFile(join(payload, 'manifest.json'), JSON.stringify({ schemaVersion: 1, version, variant, sourceCommit: 'a'.repeat(40), files: records }));
         const zip = join(root, `${index}-${variant}.zip`);
         pass(run('pack', payload, zip)); pass(run('verify', zip));
       }
     }
-    for (const version of ['0.2', '0.2.0-rc.1', '0.2.0-beta.0', '../0.2.0', '0.2.0;cmd', 'v0.2.0']) {
+    for (const version of ['0.2', '0.2.0-rc.1', '0.2.0-beta.0', '../0.2.0', '0.2.0;cmd', 'v0.2.0',
+      '0.2.5.0', '0.2.5.01', '0.2.5.65535', '0.2.5.65536', '0.2.5.1-beta.1', '0.2.5.1.0', '0.2.5.1\n']) {
       await writeFile(join(payload, 'manifest.json'), JSON.stringify({ schemaVersion: 1, version, sourceCommit: 'a'.repeat(40), files: records }));
       fail(run('pack', payload, join(root, 'rejected.zip')));
     }
