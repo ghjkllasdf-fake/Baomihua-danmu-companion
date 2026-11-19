@@ -1,11 +1,11 @@
-# 爆米花弹幕伴侣 0.2.4（普通版）
+# 爆米花弹幕伴侣 0.2.5（普通版）
 
 普通版需要你自行准备兼容弹弹play API v2 的弹幕服务地址。没有服务地址时，可选择 [内置服务版（includeAPI）](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/blob/main/docs/INCLUDEAPI-USER-GUIDE.md)。播放器和视频需要自行准备；获取弹幕需要联网。
 
 ## 安装和运行
 
-- **安装版**：运行 `DanmuCompanion-0.2.4-win-x64-setup.exe`，选择当前用户可写的本地专用文件夹，完成后从开始菜单打开。
-- **免安装版（Portable）**：完整解压 `DanmuCompanion-0.2.4-win-x64-portable.zip`，运行其中的 `DanmuCompanion.exe`。不要在压缩包中直接运行，也不要只复制一个 EXE。
+- **安装版**：运行 `DanmuCompanion-0.2.5-win-x64-setup.exe`，选择当前用户可写的本地专用文件夹，完成后从开始菜单打开。
+- **免安装版（Portable）**：完整解压 `DanmuCompanion-0.2.5-win-x64-portable.zip`，运行其中的 `DanmuCompanion.exe`。不要在压缩包中直接运行，也不要只复制一个 EXE。
 
 两版都使用系统 WebView2 运行环境（最低 124）。缺少时，安装版会联网安装；免安装版请运行包内的 `MicrosoftEdgeWebview2Setup.exe`。不需要另装 .NET、Node 或 PowerShell。若选择的安装位置不可写，请换一个位置，不要关闭系统安全功能。
 

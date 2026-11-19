@@ -6,7 +6,7 @@
 
 本项目不提供电影、电视剧或播放器；获取弹幕需要联网。
 
-**[下载 0.2.4 正式版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.2.4)** · [更新记录](CHANGELOG.md) · [遇到问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
+**[下载 0.2.5 正式版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/tag/v0.2.5)** · [更新记录](CHANGELOG.md) · [遇到问题](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/issues)
 
 ## 它能做什么
 
@@ -29,10 +29,10 @@
 
 | 版本 | 适合谁 | 安装版 | 免安装版 |
 |---|---|---|---|
-| **内置服务版（includeAPI）** | 不想自己准备弹幕服务；推荐第一次使用 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.4/DanmuCompanion-0.2.4-win-x64-includeAPI-setup.exe) | [下载免安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.4/DanmuCompanion-0.2.4-win-x64-includeAPI-portable.zip) |
-| **普通版** | 已有兼容的弹幕服务地址 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.4/DanmuCompanion-0.2.4-win-x64-setup.exe) | [下载免安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.4/DanmuCompanion-0.2.4-win-x64-portable.zip) |
+| **内置服务版（includeAPI）** | 不想自己准备弹幕服务；推荐第一次使用 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.5/DanmuCompanion-0.2.5-win-x64-includeAPI-setup.exe) | [下载免安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.5/DanmuCompanion-0.2.5-win-x64-includeAPI-portable.zip) |
+| **普通版** | 已有兼容的弹幕服务地址 | [下载安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.5/DanmuCompanion-0.2.5-win-x64-setup.exe) | [下载免安装版](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.5/DanmuCompanion-0.2.5-win-x64-portable.zip) |
 
-其他附件：[对应源码](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.4/DanmuCompanion-0.2.4-corresponding-source.zip) · [文件校验值](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.4/SHA256SUMS.txt)。
+其他附件：[对应源码](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.5/DanmuCompanion-0.2.5-corresponding-source.zip) · [文件校验值](https://github.com/ghjkllasdf-fake/Baomihua-danmu-companion/releases/download/v0.2.5/SHA256SUMS.txt)。
 
 - **安装版**：运行安装包，按提示完成安装，再从开始菜单打开伴侣。
 - **免安装版（Portable）**：把压缩包完整解压到本地文件夹，再运行 `DanmuCompanion.exe`。不要直接在压缩包中运行或只复制一个程序文件。
