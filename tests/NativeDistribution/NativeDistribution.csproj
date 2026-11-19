@@ -11,6 +11,7 @@
     <Compile Include="../../desktop/native/*.cs" Link="Native/%(Filename)%(Extension)" />
     <Compile Include="../../scripts/NativeReleaseTools/ProcessImage.cs" Link="ReleaseTools/ProcessImage.cs" />
     <Compile Include="../fixtures/ProbeProcessTests.cs" Link="Fixtures/ProbeProcessTests.cs" />
+    <Compile Include="../fixtures/TrayContentProbe.cs" Link="Fixtures/TrayContentProbe.cs" />
     <Compile Include="../fixtures/ProbeTransportTests.cs;../fixtures/ProbeOperationTests.cs;../fixtures/ProbeSupervisorTests.cs;../fixtures/PlaybackEventSignalTests.cs;../fixtures/AutomaticMatchTests.cs;../fixtures/ApiTimeoutTests.cs" Link="Fixtures/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

@@ -16,6 +16,7 @@ public sealed class DesktopWindow : Form
 {
     public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy=JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive=true, UnmappedMemberHandling=JsonUnmappedMemberHandling.Disallow };
     private readonly Panel surface = new() { Dock=DockStyle.Fill };
+    private readonly Label loadingPanel = new() { Dock=DockStyle.Fill, Text="正在打开弹幕面板…", TextAlign=ContentAlignment.MiddleCenter };
     private CoreWebView2Controller controller;
     private CoreWebView2 core;
     private readonly ApiClient api;
@@ -43,6 +44,10 @@ public sealed class DesktopWindow : Form
     private volatile bool closing;
     private int playerUpdateQueued;
     private readonly PlayerProbe probe;
+    private PlayerProbe toolbarProbe;
+    private PlayerToolbar toolbar;
+    private readonly System.Windows.Forms.Timer toolbarTimer=new(){Interval=30};
+    private bool toolbarPreview;
     private readonly OverlayHost overlay;
     private readonly SyncClock sync=new();
     private PlayerSample sample;
@@ -89,6 +94,9 @@ public sealed class DesktopWindow : Form
             if(string.IsNullOrEmpty(apiBase))apiBase=savedApiBase;
         }
         Controls.Add(surface);
+        Controls.Add(loadingPanel);
+        loadingPanel.BringToFront();
+        SetLoadingPalette();
         surface.Resize+=(_,_)=>UpdateBrowserPresentation();
         VisibleChanged+=(_,_)=>UpdateBrowserPresentation();
         Resize+=(_,_)=>UpdateBrowserPresentation();
@@ -109,6 +117,7 @@ public sealed class DesktopWindow : Form
     {
         if(closing)return;
         closing=true;timer.Stop();timer.Dispose();automaticMatcher?.Dispose();flyout?.Dispose();tray?.Dispose();
+        toolbarTimer.Stop();toolbarTimer.Dispose();toolbar?.Dispose();toolbarProbe?.Dispose();
         if(updater!=null){updater.Changed-=QueueUpdateState;updater.Dispose();}
         if(localApi!=null){localApi.Changed-=QueueLocalApiUpdate;localApi.Dispose();}
         pending.Cancel();pending.Dispose();api.Dispose();
@@ -157,13 +166,21 @@ public sealed class DesktopWindow : Form
     public void HideWorkbench(){if(!closing && !IsDisposed)flyout.Hide();}
     private void UpdateBrowserPresentation()
     {
-        if(closing || controller==null)return;
+        if(closing)return;
+        if(!Ready)loadingPanel.Visible=true;
+        if(controller==null)return;
         controller.Bounds=surface.ClientRectangle;
         // A controller created under a hidden parent remains hidden until the
         // host explicitly changes IsVisible. The loaded DOM alone is not proof of paint.
         // https://learn.microsoft.com/dotnet/api/microsoft.web.webview2.core.corewebview2controller.isvisible
-        controller.IsVisible=Visible && WindowState!=FormWindowState.Minimized;
+        controller.IsVisible=Ready && Visible && WindowState!=FormWindowState.Minimized;
         if(controller.IsVisible)controller.NotifyParentWindowPositionChanged();
+        loadingPanel.Visible=!Ready;
+    }
+    private void SetLoadingPalette()
+    {
+        loadingPanel.BackColor=WindowMaterial.Fallback(appearanceSettings.Skin);
+        loadingPanel.ForeColor=appearanceSettings.Skin=="studio" ? Color.Gainsboro : Color.FromArgb(36,47,58);
     }
     protected override void WndProc(ref Message message)
     {
@@ -233,7 +250,63 @@ public sealed class DesktopWindow : Form
         sync.Observe(identified ? sample.PositionMs : null,identified ? sample.Playing : null,sample.StampMs,now,media,sample.PositionResolutionMs,identified ? sample.PlaybackRate : null,sample.PlaybackBlocked); sync.Tick(now);
         var video=identified ? sample.Window : null;
         overlay.Update(video,sync.At(now),sync.Running,sync.SeekRevision,sync.Mode=="automatic",sync.LastProofMs,sync.Mode is "automatic" or "manual",sync.Rate);
+        if(video!=null && toolbarProbe==null && OperatingSystem.IsWindowsVersionAtLeast(10,0,19041))
+        {
+            toolbarProbe=new PlayerProbe(root,toolbar:true);
+            toolbarTimer.Tick+=(_,_)=>UpdateToolbar();
+            toolbarTimer.Start();
+        }
         automaticMatcher?.Observe(apiBase,identified && (localApi==null || apiBase.Length>0) ? sample.Title : "",sample.EpisodeNumber,mediaRevision);
+    }
+    private void UpdateToolbar()
+    {
+        if(closing)return;
+        var current=toolbarProbe.Latest;
+        var window=current.Window;
+        var playback=sample.Window;
+        if(current.ControlsVisible==null || window==null || playback==null || window.Handle!=playback.Handle ||
+            window.ProcessId!=playback.ProcessId || Monotonic.Now-current.StampMs>250)
+        {toolbar?.Hide();return;}
+        if(toolbar==null)
+        {
+            if(current.ControlsVisible!=true)return;
+            toolbar=new PlayerToolbar(EditToolbarSettings,NativeWindows.ClientAreaAnimations ? PlayerToolbar.ExitFadeMs : 0);
+            toolbar.Observe(Settings);
+        }
+        toolbar.Update(window,current.ControlsVisible,(long)Monotonic.Now);
+    }
+    private void PersistSettings(DanmakuSettings settings)
+    {
+        settings.Validate();
+        try
+        {
+            string temp=preferences+".tmp";File.WriteAllText(temp,SettingsPreferences.Serialize(settings));File.Move(temp,preferences,true);
+        }
+        catch(Exception storageError) when(storageError is IOException or UnauthorizedAccessException)
+        {throw new InvalidOperationException("显示偏好保存失败，本次设置未应用。");}
+    }
+    private void AcceptSettings(DanmakuSettings settings)
+    {
+        toolbarPreview=false;Settings=settings;settingsRevision++;Failure="";
+        SettingsUpdated?.Invoke(settings);toolbar?.Observe(settings);
+    }
+    private void EditToolbarSettings(Action<DanmakuSettings> edit,bool commit)
+    {
+        if(closing)return;
+        if(edit==null)
+        {
+            if(toolbarPreview){toolbarPreview=false;overlay.SetSettings(Settings);toolbar?.Observe(Settings);}
+            return;
+        }
+        var next=Settings.Copy();edit(next);next.Validate();
+        if(!commit){toolbarPreview=true;overlay.SetSettings(next);return;}
+        try{PersistSettings(next);}
+        catch(InvalidOperationException failure)
+        {
+            toolbarPreview=false;overlay.SetSettings(Settings);toolbar?.Observe(Settings);
+            Failure=failure.Message;tray.ShowFailure(Failure);PushState();return;
+        }
+        AcceptSettings(next);PushState();
     }
     private void OnNavigationStarting(object sender,CoreWebView2NavigationStartingEventArgs e)
     {
@@ -243,24 +316,19 @@ public sealed class DesktopWindow : Form
         if(manualNoticeTicket>0 && manualNoticeTicket==presentationTicket)
             overlay.SetStatus(++presentationTicket,"manual","");
         manualNoticeTicket=0;
-        documentEpoch++; Ready=false; pending.Cancel(); revision++;
+        documentEpoch++; Ready=false; UpdateBrowserPresentation(); pending.Cancel(); revision++;
     }
     private async Task InitializeAsync(string data)
     {
         try
         {
-            if(localApi!=null)
-            {
-                var selection=EmbeddedApiSources.Load(localSourcesFile);
-                if(selection.Notice.Length>0)Failure=selection.Notice;
-                await localApi.StartAsync(selection.Sources);
-                if(closing)return;
-                apiBase=localApi.ApiBase;
-            }
             SharedBrowserRuntime.ConfigureLoader(root);
-            var env=await CoreWebView2Environment.CreateAsync(null,data,SharedBrowserRuntime.Options);
+            var browser=CoreWebView2Environment.CreateAsync(null,data,SharedBrowserRuntime.Options);
+            // Browser startup does not need the optional local API to finish its handshake.
+            if(localApi!=null)_=StartInitialLocalApiAsync();
+            var env=await browser;
             if (closing) return;
-            controller=await env.CreateCoreWebView2ControllerAsync(surface.Handle);
+            controller=await CreateBrowserControllerAsync(env);
             if (closing) { controller.Close(); return; }
             backdrop=WindowMaterial.Apply(this,surface,controller,appearanceSettings);
             UpdateBrowserPresentation();
@@ -277,6 +345,33 @@ public sealed class DesktopWindow : Form
             timer.Start();
         }
         catch (Exception ex) { Failure=DescribeInitializationFailure(ex); if(!SuppressErrorDialogs)MessageBox.Show(Failure,"爆米花弹幕助手",MessageBoxButtons.OK,MessageBoxIcon.Error); RequestExit(); }
+    }
+    private async Task<CoreWebView2Controller> CreateBrowserControllerAsync(CoreWebView2Environment env)
+    {
+        try
+        {
+            var options=env.CreateCoreWebView2ControllerOptions();
+            options.DefaultBackgroundColor=WindowMaterial.Fallback(appearanceSettings.Skin);
+            return await env.CreateCoreWebView2ControllerAsync(surface.Handle,options);
+        }
+        catch(NotImplementedException) when(!closing)
+        {
+            // Older supported Evergreen runtimes may not expose controller options.
+            return await env.CreateCoreWebView2ControllerAsync(surface.Handle);
+        }
+    }
+    private async Task StartInitialLocalApiAsync()
+    {
+        try
+        {
+            var selection=EmbeddedApiSources.Load(localSourcesFile);
+            if(selection.Notice.Length>0)Failure=selection.Notice;
+            await localApi.StartAsync(selection.Sources);
+        }
+        catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            if(!closing){Failure="本机弹幕服务无法启动，请在更多设置中重试。";PushState();}
+        }
     }
     public static bool IsAppSource(string source) => Uri.TryCreate(source,UriKind.Absolute,out var uri) && uri.Scheme=="https" && uri.Host=="danmu.local" && uri.IsDefaultPort && string.IsNullOrEmpty(uri.UserInfo);
     private void Send(object message)
@@ -331,7 +426,7 @@ public sealed class DesktopWindow : Form
             type=msg.GetProperty("type").GetString()??"";
             var payload=msg.GetProperty("payload");
             object result;
-            if (type=="hello") { Ready=true; updater.StartAutomatic(); result=new { apiBase, apiSaved=localApi==null && apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=localApi==null ? new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","tray-view-size-v1","api-persistence-v1","appearance-v1","github-release-notice-v1" } : new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","tray-view-size-v1","api-persistence-v1","embedded-api-v1","appearance-v1","github-release-notice-v1" },localApi=localApi?.View,appearance=Appearance,update=updater.View }; }
+            if (type=="hello") { Ready=true; UpdateBrowserPresentation(); updater.StartAutomatic(); result=new { apiBase, apiSaved=localApi==null && apiBase.Length>0 && apiBase==savedApiBase,apiNotice, settings=Settings, settingsRevision, stateSequence, protocolVersion=1, capabilities=localApi==null ? new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","tray-view-size-v1","api-persistence-v1","appearance-v1","github-release-notice-v1" } : new[] { "media-context-v1","automatic-match-v1","desktop-lifecycle-v1","tray-flyout-v1","tray-view-size-v1","api-persistence-v1","embedded-api-v1","appearance-v1","github-release-notice-v1" },localApi=localApi?.View,appearance=Appearance,update=updater.View }; }
             else if (type=="get-settings") result=new { settings=Settings,settingsRevision };
             else if(type is "get-update" or "set-update-preferences" or "check-update" or "cancel-update" or "open-update-page")
             {
@@ -354,6 +449,7 @@ public sealed class DesktopWindow : Form
                     catch(Exception storageError) when(storageError is IOException or UnauthorizedAccessException)
                     {throw new InvalidOperationException("外观保存失败，本次设置未应用。");}
                     appearanceCommitted=true;appearanceSettings=next;appearanceRevision++;appearanceNotice="";
+                    SetLoadingPalette();
                     backdrop=WindowMaterial.Apply(this,surface,controller,appearanceSettings);
                 }
                 else if(payload.ValueKind!=JsonValueKind.Object || payload.EnumerateObject().Any())throw new ArgumentException("读取外观参数无效。");
@@ -418,16 +514,8 @@ public sealed class DesktopWindow : Form
             else if (type=="update-settings")
             {
                 var settings=payload.GetProperty("settings").Deserialize<DanmakuSettings>(Json)??throw new ArgumentException("缺少设置。");
-                settings.Validate();
-                try
-                {
-                    string temp=preferences+".tmp"; File.WriteAllText(temp,SettingsPreferences.Serialize(settings)); File.Move(temp,preferences,true);
-                }
-                catch (Exception storageError) when (storageError is IOException or UnauthorizedAccessException)
-                {
-                    throw new InvalidOperationException("显示偏好保存失败，本次设置未应用。");
-                }
-                settingsCommitted=true; Settings=settings; settingsRevision++; Failure=""; SettingsUpdated?.Invoke(settings);
+                PersistSettings(settings);
+                settingsCommitted=true;AcceptSettings(settings);
                 result=Settings;
             }
             else if (type=="manual-clock")

@@ -10,10 +10,12 @@ internal static class NativeProbe
     {
         try
         {
-            if(args.Length!=0 || !OperatingSystem.IsWindows() || !Environment.Is64BitProcess ||
+            bool toolbar=args is ["--toolbar"];
+            if(!(args.Length==0 || toolbar) || !OperatingSystem.IsWindows() || !Environment.Is64BitProcess ||
                 Thread.CurrentThread.GetApartmentState()!=ApartmentState.MTA)throw new InvalidOperationException("Unsupported probe invocation.");
             ProbeGate.OpenAsync(Console.OpenStandardInput(),TimeSpan.FromSeconds(5),CancellationToken.None).GetAwaiter().GetResult();
             // Do not load projections or activate player APIs before the owned-parent gate.
+            if(toolbar){ToolbarProbeRuntime.Run();return 0;}
             NativeRuntime.LoadMediaProjection(AppContext.BaseDirectory);
             using var rates=new NativePlayerRateSource();
             ProbeWorkerRuntime.Run(null,rates.ReadPlayback);

@@ -33,6 +33,13 @@ public static class ProbeTransportTests
             Check(ProbeProtocol.Decode(ProbeProtocol.Encode(missing,2),1,1200).Sample==missing,"An unavailable player gained invented data.");
             var aged=ProbeProtocol.Decode(bytes,0,2600).Sample;
             Check(aged.PositionMs==null && aged.Playing==null && aged.StampMs==1000 && aged.Window==sample.Window && aged.Title==sample.Title,"Transport delay must not renew old playback proof or discard a new media identity.");
+            foreach(bool visible in new[]{false,true})
+            {
+                var toolbar=ProbeProtocol.Encode(sample with{ControlsVisible=visible},1);
+                Check(ProbeProtocol.Decode(toolbar,0,1200).Sample.ControlsVisible==visible,"Toolbar signal must preserve both visibility states.");
+                Check(ProbeProtocol.Decode(toolbar,0,2600).Sample.ControlsVisible==null,"Stale toolbar visibility must expire.");
+            }
+            Reject(()=>ProbeProtocol.Encode(missing with{ControlsVisible=true},2));
             Reject(()=>ProbeProtocol.Decode(bytes,1,1200));
             Reject(()=>ProbeProtocol.Decode(bytes,2,1200));
             Reject(()=>ProbeProtocol.Decode(bytes,0,999));

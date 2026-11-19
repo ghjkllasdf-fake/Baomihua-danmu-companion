@@ -228,9 +228,10 @@ public sealed class DanmakuSettings
     public string Keywords { get; set; } = "";
     public double OffsetMs { get; set; }
     public bool Enabled { get; set; } = true;
+    internal DanmakuSettings Copy() => (DanmakuSettings)MemberwiseClone();
     public void Validate()
     {
-        if (!new[] { .25, .5, .75, 1.0 }.Contains(AreaFraction) ||
+        if (AreaFraction is not (.1 or .25 or .5 or .75 or 1.0) ||
             !InRange(FontSize,16,64) || !InRange(SpeedMultiplier,.5,2) || !InRange(Opacity,.1,1) ||
             !InRange(OutlineWidth,0,3) || !InRange(ShadowStrength,0,1) || !InRange(OffsetMs,-30000,30000) ||
             !new[] { 30,60,100 }.Contains(Density) || Keywords == null || Keywords.Length > 2000)

@@ -16,19 +16,23 @@ npm.cmd --prefix ui run test:e2e
 .deps\dotnet\dotnet.exe run --project tests/NativeDistribution/NativeDistribution.csproj -c Release
 node --test tests/release-package.test.mjs tests/native-archive.test.mjs tests/installer-guard.test.mjs tests/browser-prerequisite.test.mjs tests/source-state.test.mjs
 node scripts/check-release-mutation.mjs
-node scripts/build-release.mjs --version 0.2.3
-node scripts/test-release.mjs --version 0.2.3
+node scripts/build-release.mjs --version 0.2.4
+node scripts/test-release.mjs --version 0.2.4
 ```
 
-运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.3/`，同一变体的安装版和 Portable 来自同一 manifest payload；普通版应用文件不得超过 210 MiB，includeAPI 使用独立的 400 MiB 预算，且白名单拒绝私有浏览器目录。
+运行本地 .NET 时将 `DOTNET_CLI_HOME` 指向 `.deps/dotnet-home`。最终构建要求干净且已提交的源码；构建器强制 `npm ci --ignore-scripts`、.NET locked restore，并在构建后核对 HEAD、Git 状态和全部非忽略源文件字节。`--allow-dirty` 仅生成候选，不得用作最终交付。禁止覆盖同名产物。最终安装包、ZIP 和 `SHA256SUMS.txt` 位于 `artifacts/releases/0.2.4/`，同一变体的安装版和 Portable 来自同一 manifest payload；普通版应用文件不得超过 210 MiB，includeAPI 使用独立的 400 MiB 预算，且白名单拒绝私有浏览器目录。
 
 `test-release.mjs` 必须对最终字节运行：校验 ZIP、移动到中文／空格路径、在隔离数据目录和受限环境下完成真实握手、记录所有观测到的后代进程及系统稳定 Runtime 实际路径、确认退出；还实际执行自定义目录安装、拒绝已有安装直接换目录、原位重装、安装清单内同名替换文件覆盖、卸载及额外用户文件保留测试。若本机已有真实安装记录或同名开始菜单目录，它会拒绝运行，不会覆盖或卸载用户安装。测试报告保留在忽略的 `artifacts/shared-beta/final-validation/`，通过后仅清理本次测试目录。
 
 非 `app` profile 使用隔离 `data-root/profile`，测试禁止读写真实 API 或浏览器数据。正常应用配置使用 `%LOCALAPPDATA%/BaomihuaDanmuCompanion`，不再使用程序目录下的 `.cache`。启动项迁移须用户显式操作；卸载按 Inno 安装日志删除程序文件（包括同名替换文件），只清理指向本安装的开机快捷方式；不递归清空目录或删除个人数据。
 
-构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.3` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
+构建命令不会创建或推送 tag、GitHub Release。远程发布须单独取得授权：先审查并验证最终字节，推送相同来源提交的发布分支／标签，再创建 draft Release、上传限定文件、核对远程哈希后发布；`-beta.N` 版本标为 prerelease，`0.2.4` 正式版不标 prerelease，不重写旧标签／附件。不要上传本机完整日志。Windows 10 的完整 OS 验收、长期真实播放器及既有性能目标不因打包成功而视为通过。
 
-本次 0.2.3 撤回后同版本重发是用户明确授权的单次例外，不采用 hotfix 后缀或升为 0.2.4，也不改变一般禁止重写旧标签／附件的规则。先将旧字节摘要、撤回证据和旧 QA／DOCS_GO／失败历史保留本地；重新冻结精确候选，以匹配的新源码、六项附件及校验清单取得新的 QA 和文档结论后，才按授权更新发布标签与附件。新标签、对应源码和附件必须严格匹配，旧 GO 不适用于重发字节。不得覆盖本地同名构建产物来伪装新证据，应使用独立产物／证据目录。已安装旧 0.2.3 的用户不会收到相同版本的更新提示，须明确提醒手动重新下载安装。
+历史上的 0.2.3 撤回后同版本重发是用户明确授权的单次例外，当时不采用 hotfix 后缀或升版本，也不改变一般禁止重写旧标签／附件的规则。先将旧字节摘要、撤回证据和旧 QA／DOCS_GO／失败历史保留本地；重新冻结精确候选，以匹配的新源码、六项附件及校验清单取得新的 QA 和文档结论后，才按授权更新发布标签与附件。新标签、对应源码和附件必须严格匹配，旧 GO 不适用于重发字节。不得覆盖本地同名构建产物来伪装新证据，应使用独立产物／证据目录。已安装旧 0.2.3 的用户不会收到相同版本的更新提示，须明确提醒手动重新下载安装。
+
+### 播放器快捷按钮与托盘冷启动
+
+快捷按钮由单独的受管 Probe 只读读取控制栏状态，不触发播放器 UIA、不写入播放器。运行时及对象结构通过验证、控制栏资源与已验证布局匹配时才显示；探测不可用不影响公共 SMTC 同步、弹幕或托盘。标准版与 includeAPI 使用共用的显示偏好与渲染路径。冷启动通过 `--tray-cold-runtime` 验证加载表面和真实 WebView 绘制；字幕切换需在最终包上实际回归。
 
 ### 播放器倍速诊断组件与许可输入
 

@@ -9,16 +9,19 @@ internal static class FixedCommentTests
     private static void Check(bool value,string message)=>DistributionTests.Check(value,message);
     internal static void Run()
     {
-        foreach(double area in new[]{.25,.5,.75,1})
+        foreach(double area in new[]{.1,.25,.5,.75,1})
         {
             var surface=new OverlaySurface();
             try
             {
                 surface.Measure(new Size(1280,720));surface.Arrange(new Rect(0,0,1280,720));
-                surface.Configure(new(){AreaFraction=area,ScaleWithWindow=false});
+                var settings=new DanmakuSettings{AreaFraction=area,ScaleWithWindow=false};
+                settings.Validate();
+                surface.Configure(settings);
                 surface.Load(new[]{new Comment(10000,5,0xffffff,"top"),new Comment(10000,1,0xffffff,"rolling"),new Comment(10000,4,0xffffff,"bottom")});
                 surface.UpdateClock(10000,false,Monotonic.Now,1,false,0);surface.Frame();
                 var before=surface.Snapshot(false);
+                Check(Math.Abs(before.AreaHeight-before.ViewportHeightPx*area)<.01,"The rendered clipping region must match the selected video fraction.");
                 Check(before.Text.Contains("top"),"Top comments must be admitted in every display area.");
                 Check(before.Text.Contains("bottom")== (area==1),"Bottom comments require the full-screen display area.");
                 int top=Array.IndexOf(before.Text,"top"),rolling=Array.IndexOf(before.Text,"rolling");
@@ -26,7 +29,15 @@ internal static class FixedCommentTests
                 Check(before.Y[top]<40,"Top comments must start in the top lane.");
                 surface.UpdateClock(10500,false,Monotonic.Now,1,false,0);surface.Frame();var after=surface.Snapshot(false);
                 Check(after.X[top]==before.X[top] && after.Y[top]==before.Y[top],"Top comments must remain fixed while media time advances.");
-                Check(after.X[rolling]<before.X[rolling],"Ordinary comments must still move left.");
+                if(area==.1)
+                {
+                    // A fixed comment can reserve the only lane; check scrolling on an empty row.
+                    surface.Load(new[]{new Comment(11000,1,0xffffff,"rolling")});
+                    surface.UpdateClock(11000,false,Monotonic.Now,1,false,0);surface.Frame();before=surface.Snapshot(false);
+                    surface.UpdateClock(11500,false,Monotonic.Now,1,false,0);surface.Frame();after=surface.Snapshot(false);
+                    rolling=Array.IndexOf(before.Text,"rolling");
+                }
+                Check(rolling>=0 && after.X[rolling]<before.X[rolling],"Ordinary comments must still move left.");
                 if(area==1){int bottom=Array.IndexOf(before.Text,"bottom");Check(before.Y[bottom]>600 && after.X[bottom]==before.X[bottom],"Bottom comments must stay fixed near the full-screen bottom.");}
                 surface.Configure(new(){AreaFraction=area,ScaleWithWindow=false,Top=false,Bottom=false});surface.Frame();
                 Check(surface.Snapshot(false).Text.SequenceEqual(new[]{"rolling"}),"Type switches must remove only fixed comments.");
